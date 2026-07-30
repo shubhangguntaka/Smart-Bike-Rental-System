@@ -129,37 +129,267 @@ Run As
 # 📂 Project Structure
 
 ```
-src/main/java/com/sssit/bikerental
-
-config/
-
-security/
-
-authentication/
-
-admin/
-
-customer/
-
-owner/
-
-bike/
-
-booking/
-
-payment/
-
-review/
-
-notification/
-
-gps/
-
-maps/
-
-verification/
-
-common/
+bike-rental-backend/
+│
+├── .github/
+│   └── workflows/
+│
+├── .mvn/
+│   └── wrapper/
+│
+├── src/
+│
+├── main/
+│
+│   ├── java/
+│   │
+│   └── com/
+│       └── bikerental/
+│
+│           ├── config/
+│           │   ├── CorsConfig.java
+│           │   ├── SecurityConfig.java
+│           │   ├── SwaggerConfig.java
+│           │   ├── WebConfig.java
+│           │   ├── OpenApiConfig.java
+│           │   ├── MailConfig.java
+│           │   ├── GoogleMapsConfig.java
+│           │   └── RazorpayConfig.java
+│           │
+│           ├── security/
+│           │   ├── jwt/
+│           │   │   ├── JwtFilter.java
+│           │   │   ├── JwtService.java
+│           │   │   ├── JwtAuthenticationEntryPoint.java
+│           │   │   └── JwtAuthenticationProvider.java
+│           │   │
+│           │   ├── user/
+│           │   │   └── CustomUserDetailsService.java
+│           │   │
+│           │   └── PasswordConfig.java
+│           │
+│           ├── common/
+│           │
+│           │   ├── dto/
+│           │   │
+│           │   ├── enums/
+│           │   │
+│           │   ├── mapper/
+│           │   │
+│           │   ├── response/
+│           │   │
+│           │   ├── util/
+│           │   │
+│           │   ├── constants/
+│           │   │
+│           │   └── validation/
+│           │
+│           ├── exception/
+│           │   ├── handler/
+│           │   ├── custom/
+│           │   └── response/
+│           │
+│           ├── modules/
+│
+│           │
+│           ├── auth/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   ├── AuthService.java
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   └── validator/
+│           │
+│           ├── user/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   └── validator/
+│           │
+│           ├── owner/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   └── validator/
+│           │
+│           ├── bike/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   ├── specification/
+│           │   └── validator/
+│           │
+│           ├── booking/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   └── validator/
+│           │
+│           ├── payment/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── mapper/
+│           │   └── gateway/
+│           │
+│           ├── notification/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   └── entity/
+│           │
+│           ├── review/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   └── entity/
+│           │
+│           ├── verification/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   ├── entity/
+│           │   ├── aadhaar/
+│           │   ├── drivinglicense/
+│           │   ├── rc/
+│           │   ├── insurance/
+│           │   └── puc/
+│           │
+│           ├── map/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── dto/
+│           │   └── provider/
+│           │
+│           ├── gps/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── repository/
+│           │   ├── dto/
+│           │   └── entity/
+│           │
+│           ├── upload/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── storage/
+│           │   ├── dto/
+│           │   └── entity/
+│           │
+│           ├── analytics/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── dto/
+│           │   └── report/
+│           │
+│           ├── report/
+│           │   ├── controller/
+│           │   ├── service/
+│           │   │   └── impl/
+│           │   ├── dto/
+│           │   └── exporter/
+│           │
+│           └── admin/
+│               ├── controller/
+│               ├── service/
+│               │   └── impl/
+│               ├── repository/
+│               ├── dto/
+│               ├── entity/
+│               ├── dashboard/
+│               └── statistics/
+│
+│
+│           └── BikeRentalApplication.java
+│
+│
+├── resources/
+│
+│   ├── application.properties
+│   ├── application-dev.properties
+│   ├── application-prod.properties
+│
+│   ├── db/
+│   │   ├── migration/
+│   │   ├── seed/
+│   │   └── scripts/
+│   │
+│   ├── static/
+│   │   ├── uploads/
+│   │   │   ├── profile/
+│   │   │   ├── bikes/
+│   │   │   ├── aadhaar/
+│   │   │   ├── license/
+│   │   │   ├── rc/
+│   │   │   ├── insurance/
+│   │   │   └── puc/
+│   │   │
+│   │   └── images/
+│   │
+│   └── templates/
+│       ├── email/
+│       ├── invoice/
+│       └── reports/
+│
+├── test/
+│   ├── java/
+│   │   ├── auth/
+│   │   ├── bike/
+│   │   ├── booking/
+│   │   ├── payment/
+│   │   └── integration/
+│   │
+│   └── resources/
+│
+├── docs/
+│   ├── api/
+│   ├── architecture/
+│   ├── database/
+│   └── deployment/
+│
+├── postman/
+│
+├── scripts/
+│
+├── uploads/
+│
+├── .env.example
+├── .gitignore
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+└── README.md
 ```
 
 Each feature/module will contain its own controllers, services, repositories, DTOs, and related classes during development.
