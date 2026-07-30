@@ -116,7 +116,81 @@ npm run preview
 # 📂 Folder Structure
 
 ```
-src/
+bike-rental-frontend/
+│
+├── public/
+│
+├── src/
+│
+│   ├── api/
+│   │
+│   ├── assets/
+│   │   ├── css/
+│   │   ├── fonts/
+│   │   ├── icons/
+│   │   ├── images/
+│   │   └── videos/
+│   │
+│   ├── components/
+│   │   ├── common/
+│   │   ├── auth/
+│   │   ├── bike/
+│   │   ├── booking/
+│   │   ├── payment/
+│   │   ├── map/
+│   │   ├── verification/
+│   │   ├── notification/
+│   │   ├── review/
+│   │   ├── owner/
+│   │   └── admin/
+│   │
+│   ├── config/
+│   │
+│   ├── constants/
+│   │
+│   ├── context/
+│   │
+│   ├── hooks/
+│   │
+│   ├── layouts/
+│   │
+│   ├── pages/
+│   │   ├── auth/
+│   │   ├── customer/
+│   │   ├── owner/
+│   │   ├── admin/
+│   │   ├── maps/
+│   │   ├── verification/
+│   │   └── errors/
+│   │
+│   ├── routes/
+│   │
+│   ├── services/
+│   │
+│   ├── store/
+│   │
+│   ├── styles/
+│   │
+│   ├── types/
+│   │
+│   ├── utils/
+│   │
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+│
+├── .github/
+│
+├── .vscode/
+│
+├── .env.example
+├── .gitignore
+├── eslint.config.js
+├── jsconfig.json
+├── package.json
+├── vite.config.js
+├── README.md
+└── index.html
 ```
 
 > Feature folders and modules will be created by respective team members during development.
