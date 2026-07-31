@@ -13,7 +13,7 @@ function App() {
         </h1>
 
         <p className="mt-3 text-gray-600">
-          React + TypeScript + Tailwind CSS v4
+          React + TypeScript + Tailwind CSS v4 Testing
         </p>
 
         <button className="mt-6 rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700">
