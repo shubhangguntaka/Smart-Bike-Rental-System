@@ -188,7 +188,7 @@
 
 // export default Register;
 
-import AuthLayout from "../../components/auth/AuthLayout";
+import AuthLayout from "../../layouts/AuthLayout";
 import RegisterForm from "../../components/auth/RegisterForm";
 
 const Register = () => {
