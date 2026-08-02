@@ -173,7 +173,7 @@ const LoginForm = () => {
 
             onSubmit={handleSubmit}
 
-            className="space-y-5"
+            className="space-y-3"
 
         >
 

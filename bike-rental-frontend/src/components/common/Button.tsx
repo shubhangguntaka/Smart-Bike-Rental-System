@@ -40,10 +40,13 @@ const Button = ({
 
             className="
                 w-full
-                rounded-lg
+                rounded-2xl
                 bg-blue-600
-                py-3
+                py-2.5
+                text-sm
                 font-semibold
+                uppercase
+                tracking-[0.04em]
                 text-white
                 transition
                 duration-300
@@ -54,6 +57,7 @@ const Button = ({
                 items-center
                 justify-center
                 gap-2
+                shadow-[0_18px_40px_rgba(59,130,246,0.22)]
             "
 
         >

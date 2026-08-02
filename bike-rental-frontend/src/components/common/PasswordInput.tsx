@@ -33,9 +33,9 @@ const PasswordInput = ({
 
     return (
 
-        <div className="space-y-2">
+        <div className="space-y-1">
 
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-semibold text-slate-700">
 
                 {label}
 
@@ -55,7 +55,7 @@ const PasswordInput = ({
 
                     onChange={onChange}
 
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-2.5 pr-12 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
 
                 />
 
@@ -65,7 +65,7 @@ const PasswordInput = ({
 
                     onClick={() => setShowPassword(!showPassword)}
 
-                    className="absolute right-4 top-1/2 -translate-y-1/2"
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
 
                 >
 
