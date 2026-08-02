@@ -564,10 +564,10 @@ const RegisterForm = () => {
 
         <form
             onSubmit={handleSubmit}
-            className="space-y-4"
+            className="space-y-2.5"
         >
 
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 
                 <Input
                     label="First Name"
@@ -585,7 +585,7 @@ const RegisterForm = () => {
 
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
 
                 <Input
                     label="Email Address"
@@ -615,7 +615,7 @@ const RegisterForm = () => {
 
             </div>
 
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-2.5">
 
                 <h3 className="text-sm font-semibold text-slate-900">
 
@@ -623,13 +623,13 @@ const RegisterForm = () => {
 
                 </h3>
 
-                <p className="mt-1 text-xs text-slate-500 mb-2">
+                <p className="mt-1 text-xs text-slate-500 mb-1">
 
                     Select how you want to use Bike Rental
 
                 </p>
 
-                <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                                         {/* Customer */}
 
                     <div
@@ -722,7 +722,7 @@ const RegisterForm = () => {
                 loading={loading}
             />
 
-            <div className="text-center">
+            <div className="text-center mt-4">
 
                 <span className="text-sm text-gray-600">
 

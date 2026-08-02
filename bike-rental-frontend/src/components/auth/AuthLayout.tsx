@@ -105,113 +105,103 @@ const AuthLayout: React.FC<Props> = ({
 
     return (
 
-        <div className="h-screen w-full bg-white flex items-center justify-center">
+        <div className="h-screen w-full bg-[#060c19] flex items-center justify-center px-4 py-3">
 
-            <div className="relative w-[96%] max-w-[1600px] h-[92vh] overflow-hidden rounded-[30px] bg-white shadow-[0_35px_80px_rgba(0,0,0,0.25)]">
+            <div className="relative w-full max-w-[1600px] h-[92vh] overflow-hidden rounded-[30px] shadow-[0_35px_80px_rgba(0,0,0,0.35)]">
 
-                <div className="relative grid h-full min-h-0 grid-cols-1 lg:grid-cols-[52%_48%]">
+                <img
+                    src={BikeImage}
+                    alt="Premium sports bike"
+                    className="absolute inset-0 h-full w-full object-cover object-[45%_18%]"
+                />
 
-                    <div className="relative hidden min-h-0 overflow-hidden md:block bg-[#90939B]">
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(6,12,25,0.72),rgba(6,12,25,0.55))]" />
 
-                        <img
-                            src={BikeImage}
-                            alt="Premium sports bike"
-                            className="absolute inset-0 h-full w-full object-contain object-bottom mix-blend-multiply"
-                        />
+                <div className="relative z-10 grid h-full min-h-0 grid-cols-1 lg:grid-cols-[48%_52%]">
 
-                        <div className="relative z-10 flex h-full flex-col justify-between p-10 text-white">
+                    <div className="relative flex items-center px-5 py-6 md:px-7 md:py-7">
 
-                            <div>
+                        <div className="max-w-md text-white">
 
-                                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-md">
+                            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/90">
 
-                                    🏍️ Bike Rental System
+                                Bike Rental System
 
-                                </span>
+                            </span>
 
-                            </div>
+                            <h1 className="mt-4 text-[3.4rem] font-black leading-[0.95] tracking-[-0.05em] text-white">
 
-                            <div className="max-w-[21rem]">
+                                Ride.
+                                <br />
+                                Rent.
+                                <br />
+                                Explore.
 
-                                <h1 className="text-[3.2rem] font-black leading-[0.95] tracking-[-0.04em] text-white">
+                            </h1>
 
-                                    Ride.
-                                    <br />
-                                    Rent.
-                                    <br />
-                                    Explore.
+                            <p className="mt-3 max-w-xl text-sm leading-7 text-white/75">
 
-                                </h1>
+                                Discover premium bike rentals with instant booking, verified owners, and seamless on-demand service.
 
-                                <p className="mt-6 text-lg leading-8 text-slate-100">
+                            </p>
 
-                                    Find nearby bikes,
-                                    book instantly,
-                                    travel comfortably
-                                    and enjoy secure rentals
-                                    from verified bike owners.
+                            <div className="mt-5 space-y-3 text-sm text-white/80">
 
-                                </p>
+                                <div className="flex items-center gap-3">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                        ✓
+                                    </span>
+                                    <span>Instant bike booking</span>
+                                </div>
 
-                                <div className="mt-10 space-y-4 text-sm text-white">
+                                <div className="flex items-center gap-3">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                        ✓
+                                    </span>
+                                    <span>Verified bike owners</span>
+                                </div>
 
-                                    <div className="flex items-center gap-3">
-                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white">
-                                            ✓
-                                        </span>
-                                        <span>Instant Bike Booking</span>
-                                    </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                        ✓
+                                    </span>
+                                    <span>Secure online payments</span>
+                                </div>
 
-                                    <div className="flex items-center gap-3">
-                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white">
-                                            ✓
-                                        </span>
-                                        <span>Verified Bike Owners</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white">
-                                            ✓
-                                        </span>
-                                        <span>Secure Online Payments</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white">
-                                            ✓
-                                        </span>
-                                        <span>Live Location Tracking</span>
-                                    </div>
-
+                                <div className="flex items-center gap-3">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                        ✓
+                                    </span>
+                                    <span>Live location tracking</span>
                                 </div>
 
                             </div>
-
-                            <p className="text-sm text-slate-200">
-
-                                © 2026 Bike Rental Management System
-
-                            </p>
 
                         </div>
 
                     </div>
 
-                    <div className="relative min-h-0 flex items-center justify-center bg-white px-0">
+                    <div className="relative flex items-center justify-center px-4 py-5 md:px-6 md:py-5">
 
-                        <div className="relative z-30 w-full max-w-[520px] rounded-none bg-white px-8 py-8 shadow-none">
+                        <div className="relative z-20 w-full max-w-[460px] rounded-[28px] border border-white/18 bg-white/12 backdrop-blur-[18px] px-5 py-4 shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
 
-                            <div className="mx-auto w-full max-w-[430px]">
+                            <div className="mx-auto w-full max-w-[440px] text-white">
 
-                                <div className="mb-4 text-center">
+                                <div className="mb-2 text-center">
 
-                                    <h2 className="text-[38px] font-bold tracking-[-0.03em] text-slate-950">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-200/85">
+
+                                        Premium Bike Rental
+
+                                    </p>
+
+                                    <h2 className="mt-1 text-[2rem] font-bold tracking-[-0.04em] text-white">
 
                                         {title}
 
                                     </h2>
 
-                                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                                    <p className="mt-1.5 text-sm leading-5 text-white/70">
 
                                         {subtitle}
 
