@@ -106,7 +106,7 @@ const ForgotPasswordForm = () => {
 
             onSubmit={handleSubmit}
 
-            className="space-y-5"
+            className="auth-recovery-form"
 
         >
 

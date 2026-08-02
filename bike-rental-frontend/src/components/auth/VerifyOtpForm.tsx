@@ -121,19 +121,19 @@ const VerifyOtpForm = () => {
 
             onSubmit={handleSubmit}
 
-            className="space-y-6"
+            className="auth-recovery-form auth-recovery-form--otp"
 
         >
 
-            <div className="text-center">
+            <div className="auth-recovery-form__email text-center">
 
-                <p className="text-gray-500">
+                <p>
 
                     OTP sent to
 
                 </p>
 
-                <h2 className="font-semibold text-blue-600">
+                <h2>
 
                     {email}
 

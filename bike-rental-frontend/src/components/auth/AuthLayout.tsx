@@ -105,9 +105,9 @@ const AuthLayout: React.FC<Props> = ({
 
     return (
 
-        <div className="h-screen w-full bg-[#060c19] flex items-center justify-center px-4 py-3">
+        <div className="flex min-h-[100dvh] w-full items-start justify-center bg-[#060c19] px-3 py-3 sm:items-center sm:px-4">
 
-            <div className="relative w-full max-w-[1600px] h-[92vh] overflow-hidden rounded-[30px] shadow-[0_35px_80px_rgba(0,0,0,0.35)]">
+            <div className="relative min-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] overflow-y-auto rounded-2xl shadow-[0_35px_80px_rgba(0,0,0,0.35)] sm:min-h-0 sm:rounded-[30px] lg:h-[92vh] lg:overflow-hidden">
 
                 <img
                     src={BikeImage}
@@ -117,13 +117,13 @@ const AuthLayout: React.FC<Props> = ({
 
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(6,12,25,0.72),rgba(6,12,25,0.55))]" />
 
-                <div className="relative z-10 grid h-full min-h-0 grid-cols-1 lg:grid-cols-[48%_52%]">
+                <div className="relative z-10 grid min-h-full grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[48%_52%]">
 
-                    <div className="relative flex items-center px-5 py-6 md:px-7 md:py-7">
+                    <div className="relative hidden items-center px-5 py-6 md:px-7 md:py-7 lg:flex">
 
                         <div className="max-w-md text-white">
 
-                            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/90">
+                            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-primary/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white/90">
 
                                 Bike Rental System
 
@@ -148,28 +148,28 @@ const AuthLayout: React.FC<Props> = ({
                             <div className="mt-5 space-y-3 text-sm text-white/80">
 
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/80 text-blue-200">
                                         ✓
                                     </span>
                                     <span>Instant bike booking</span>
                                 </div>
 
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/80 text-blue-200">
                                         ✓
                                     </span>
                                     <span>Verified bike owners</span>
                                 </div>
 
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/80 text-blue-200">
                                         ✓
                                     </span>
                                     <span>Secure online payments</span>
                                 </div>
 
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/80 text-blue-200">
                                         ✓
                                     </span>
                                     <span>Live location tracking</span>
@@ -181,21 +181,21 @@ const AuthLayout: React.FC<Props> = ({
 
                     </div>
 
-                    <div className="relative flex items-center justify-center px-4 py-5 md:px-6 md:py-5">
+                    <div className="relative flex min-h-[calc(100dvh-1.5rem)] items-center justify-center px-4 py-6 sm:px-6 sm:py-8 lg:min-h-0 lg:px-6 lg:py-5">
 
-                        <div className="relative z-20 w-full max-w-[460px] rounded-[28px] border border-white/18 bg-white/12 backdrop-blur-[18px] px-5 py-4 shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
+                        <div className="relative z-20 my-auto w-full max-w-[460px] rounded-2xl border border-white/18 bg-white/12 px-4 py-5 shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-[18px] sm:rounded-[28px] sm:px-5 sm:py-5">
 
                             <div className="mx-auto w-full max-w-[440px] text-white">
 
-                                <div className="mb-2 text-center">
+                                <div className="mb-4 text-center sm:mb-2">
 
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-200/85">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-secondary/85">
 
                                         Premium Bike Rental
 
                                     </p>
 
-                                    <h2 className="mt-1 text-[2rem] font-bold tracking-[-0.04em] text-white">
+                                    <h2 className="mt-1 text-[1.75rem] font-bold tracking-[-0.04em] text-white sm:text-[2rem]">
 
                                         {title}
 

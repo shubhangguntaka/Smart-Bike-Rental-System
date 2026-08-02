@@ -69,7 +69,7 @@ const ForgotPassword = () => {
 
             <form
                 onSubmit={handleSubmit}
-                className="space-y-5"
+                className="auth-recovery-form"
             >
 
                 <Input
