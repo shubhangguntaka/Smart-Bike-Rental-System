@@ -23,8 +23,8 @@ export default function Unauthorized() {
         <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2 animate-bounce">
           <ShieldAlert className="h-7 w-7" />
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-destructive">401</h1>
-        <h2 className="text-lg font-bold text-foreground">Unauthorized Access</h2>
+        <h1 className="text-4xl font-black tracking-tight text-destructive">403</h1>
+        <h2 className="text-lg font-bold text-foreground">Forbidden Access</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Your account is authenticated, but you do not hold the required role credentials to access this secure resource.
         </p>

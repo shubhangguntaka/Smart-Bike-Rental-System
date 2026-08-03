@@ -6,12 +6,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.sssit.bikerental.security.handler.CustomAccessDeniedHandler;
 import com.sssit.bikerental.security.jwt.JwtAuthenticationEntryPoint;
 import com.sssit.bikerental.security.jwt.JwtFilter;
 import com.sssit.bikerental.security.user.CustomUserDetailsService;
@@ -19,12 +21,15 @@ import com.sssit.bikerental.security.user.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 
 	private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+	private final CustomAccessDeniedHandler accessDeniedHandler;
 
 	private final CustomUserDetailsService userDetailsService;
 
@@ -59,7 +64,9 @@ public class SecurityConfig {
 
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-				.exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
+				.exceptionHandling(exception -> exception
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
 
 				.authenticationProvider(authenticationProvider())
 
@@ -73,6 +80,11 @@ public class SecurityConfig {
 								"/v3/api-docs/**"
 
 						).permitAll()
+
+						// Role-based APIs
+						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						.requestMatchers("/api/owner/**").hasRole("OWNER")
+						.requestMatchers("/api/customer/**").hasRole("CUSTOMER")
 
 						// Everything else requires authentication
 						.anyRequest().authenticated())

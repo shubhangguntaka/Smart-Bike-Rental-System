@@ -4,6 +4,7 @@ import { storage } from "../utils/storage";
 
 const api = axios.create({
   baseURL: env.API_BASE_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -29,6 +30,9 @@ api.interceptors.response.use(
       storage.removeRole();
       storage.removeRefreshToken();
       window.location.href = "/login";
+    }
+    if (error.response?.status === 403) {
+      window.location.href = "/unauthorized";
     }
     return Promise.reject(error);
   }

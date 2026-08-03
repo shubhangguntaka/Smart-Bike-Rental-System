@@ -25,6 +25,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final CustomUserDetailsService customUserDetailsService;
 
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -42,36 +44,44 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Extract JWT Token
-        jwtToken = authHeader.substring(7);
+        try {
+            // Extract JWT Token
+            jwtToken = authHeader.substring(7);
 
-        // Extract Email
-        userEmail = jwtService.extractUsername(jwtToken);
+            // Extract Email
+            userEmail = jwtService.extractUsername(jwtToken);
 
-        // Authenticate only if SecurityContext is empty
-        if (userEmail != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
+            // Authenticate only if SecurityContext is empty
+            if (userEmail != null &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            UserDetails userDetails =
-                    customUserDetailsService.loadUserByUsername(userEmail);
+                UserDetails userDetails =
+                        customUserDetailsService.loadUserByUsername(userEmail);
 
-            if (jwtService.isTokenValid(jwtToken, userDetails)) {
+                if (jwtService.isTokenValid(jwtToken, userDetails)) {
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities());
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities());
 
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request));
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request));
 
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authentication);
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+                }
             }
+            filterChain.doFilter(request, response);
+        } catch (Exception ex) {
+            SecurityContextHolder.clearContext();
+            authenticationEntryPoint.commence(
+                    request,
+                    response,
+                    new org.springframework.security.core.AuthenticationException("Authentication failed: " + ex.getMessage(), ex) {}
+            );
         }
-
-        filterChain.doFilter(request, response);
     }
 }
