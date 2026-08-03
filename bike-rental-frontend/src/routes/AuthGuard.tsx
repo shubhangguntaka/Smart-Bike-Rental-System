@@ -1,49 +1,36 @@
+import type { ReactElement } from "react";
 import { Navigate } from "react-router-dom";
-
 import useAuth from "../hooks/useAuth";
+import { ROUTES } from "../constants/routes";
 
 interface Props {
-
-    children: JSX.Element;
-
+    children: ReactElement;
 }
 
-const AuthGuard = ({
+const AuthGuard = ({ children }: Props) => {
+    const { isAuthenticated, user, loading } = useAuth();
 
-    children
+    if (loading) {
+        return (
+            <div className="flex h-screen w-screen items-center justify-center bg-background">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+        );
+    }
 
-}: Props) => {
-
-    const {
-
-        isAuthenticated,
-
-        user
-
-    } = useAuth();
-
-    if (isAuthenticated) {
-
-        switch (user?.role) {
-
+    if (isAuthenticated && user) {
+        const userRole = (user.role || "").toUpperCase();
+        switch (userRole) {
             case "ADMIN":
-
-                return <Navigate to="/admin/dashboard" replace />;
-
+                return <Navigate to={ROUTES.ADMIN.DASHBOARD} replace />;
             case "OWNER":
-
-                return <Navigate to="/owner/dashboard" replace />;
-
+                return <Navigate to={ROUTES.OWNER.DASHBOARD} replace />;
             default:
-
-                return <Navigate to="/customer/dashboard" replace />;
-
+                return <Navigate to={ROUTES.CUSTOMER.DASHBOARD} replace />;
         }
-
     }
 
     return children;
-
 };
 
-export default AuthGuard;
+export default AuthGuard;

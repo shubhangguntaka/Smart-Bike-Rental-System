@@ -1,0 +1,41 @@
+export const ROUTES = {
+  HOME: "/",
+  BIKES: "/bikes",
+  ABOUT: "/about",
+  CONTACT: "/contact",
+  LOGIN: "/login",
+  REGISTER: "/register",
+  VERIFY_OTP: "/verify-otp",
+  FORGOT_PASSWORD: "/forgot-password",
+  RESET_PASSWORD: "/reset-password",
+  UNAUTHORIZED: "/unauthorized",
+
+  CUSTOMER: {
+    BASE: "/customer",
+    DASHBOARD: "/customer/dashboard",
+    BIKES: "/customer/bikes",
+    BOOKINGS: "/customer/bookings",
+    PROFILE: "/customer/profile",
+    SETTINGS: "/customer/settings",
+  },
+
+  OWNER: {
+    BASE: "/owner",
+    DASHBOARD: "/owner/dashboard",
+    BIKES: "/owner/bikes",
+    BOOKINGS: "/owner/bookings",
+    PAYMENTS: "/owner/payments",
+    PROFILE: "/owner/profile",
+    SETTINGS: "/owner/settings",
+  },
+
+  ADMIN: {
+    BASE: "/admin",
+    DASHBOARD: "/admin/dashboard",
+    USERS: "/admin/users",
+    BIKES: "/admin/bikes",
+    PAYMENTS: "/admin/payments",
+    VERIFICATION: "/admin/verification",
+    SETTINGS: "/admin/settings",
+  },
+};

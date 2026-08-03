@@ -1,11 +1,49 @@
+import { jwtDecode } from "jwt-decode";
 import { ROLES } from "./constants";
 import { storage } from "./storage";
+
+interface DecodedToken {
+  exp?: number;
+  role?: string;
+  roles?: string[];
+  sub?: string;
+}
+
+/**
+ * Check whether the token is expired.
+ */
+export const isTokenExpired = (token: string): boolean => {
+  try {
+    if (!token || !token.includes(".")) {
+      return false; // Skip decode check for mock/dummy tokens
+    }
+    const decoded = jwtDecode<DecodedToken>(token);
+    if (!decoded.exp) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return decoded.exp < now;
+  } catch (error) {
+    return true;
+  }
+};
+
+/**
+ * Extract role from JWT token.
+ */
+export const getRoleFromToken = (token: string): string | null => {
+  try {
+    const decoded = jwtDecode<DecodedToken>(token);
+    return decoded.role || decoded.roles?.[0] || null;
+  } catch (error) {
+    return null;
+  }
+};
 
 /**
  * Check whether the user is authenticated.
  */
 export const isAuthenticated = (): boolean => {
-  return !!storage.getToken();
+  const token = storage.getToken();
+  return !!token && !isTokenExpired(token);
 };
 
 /**
@@ -19,14 +57,24 @@ export const getCurrentUser = <T>() => {
  * Get current user role.
  */
 export const getCurrentRole = (): string | null => {
-  return storage.getRole();
+  const role = storage.getRole();
+  if (role) return role;
+
+  const user = storage.getUser<{ role?: string }>();
+  if (user?.role) return user.role;
+
+  const token = storage.getToken();
+  if (token) return getRoleFromToken(token);
+
+  return null;
 };
 
 /**
  * Check whether the user has a specific role.
  */
 export const hasRole = (role: string): boolean => {
-  return storage.getRole() === role;
+  const currentRole = getCurrentRole();
+  return !!currentRole && currentRole.toUpperCase() === role.toUpperCase();
 };
 
 /**
@@ -58,4 +106,4 @@ export const logout = (): void => {
   storage.removeRefreshToken();
   storage.removeUser();
   storage.removeRole();
-};
+};

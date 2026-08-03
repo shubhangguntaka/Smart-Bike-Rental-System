@@ -1,58 +1,37 @@
 import axios from "axios";
 import env from "../config/env";
+import { storage } from "../utils/storage";
 
 const api = axios.create({
-
-    baseURL: env.API_BASE_URL,
-
-    headers: {
-
-        "Content-Type": "application/json"
-
-    }
-
+  baseURL: env.API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 api.interceptors.request.use(
-
-    (config) => {
-
-        const token = localStorage.getItem(env.TOKEN_KEY);
-
-        if (token) {
-
-            config.headers.Authorization = `Bearer ${token}`;
-
-        }
-
-        return config;
-
-    },
-
-    (error) => Promise.reject(error)
-
+  (config) => {
+    const token = storage.getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
-
-    (response) => response,
-
-    (error) => {
-
-        if (error.response?.status === 401) {
-
-            localStorage.removeItem(env.TOKEN_KEY);
-
-            localStorage.removeItem(env.USER_KEY);
-
-            window.location.href = "/login";
-
-        }
-
-        return Promise.reject(error);
-
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      storage.removeToken();
+      storage.removeUser();
+      storage.removeRole();
+      storage.removeRefreshToken();
+      window.location.href = "/login";
     }
-
+    return Promise.reject(error);
+  }
 );
 
 export default api;

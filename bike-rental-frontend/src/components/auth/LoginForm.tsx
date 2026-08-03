@@ -6,6 +6,7 @@ import Input from "../common/Input";
 import Button from "../common/Button";
 import useAuth from "../../hooks/useAuth";
 import { login } from "../../services/authService";
+import { ROUTES } from "../../constants/routes";
 
 const LoginForm = () => {
     const navigate = useNavigate();
@@ -41,28 +42,32 @@ const LoginForm = () => {
         try {
             setLoading(true);
             const response = await login(formData);
+            const authData = response.data.data;
+
             saveLogin({
-                token: response.data.token,
+                token: authData.token,
                 user: {
-                    id: response.data.userId,
-                    firstName: response.data.firstName,
-                    lastName: response.data.lastName,
-                    email: response.data.email,
-                    role: response.data.role,
+                    id: authData.userId,
+                    firstName: authData.firstName,
+                    lastName: authData.lastName,
+                    email: authData.email,
+                    role: authData.role,
+                    phoneNumber: authData.phoneNumber,
                 },
             });
 
             toast.success("Login Successful");
 
-            switch (response.data.role) {
+            const userRole = (authData.role || "CUSTOMER").toUpperCase();
+            switch (userRole) {
                 case "ADMIN":
-                    navigate("/admin/dashboard");
+                    navigate(ROUTES.ADMIN.DASHBOARD);
                     break;
                 case "OWNER":
-                    navigate("/owner/dashboard");
+                    navigate(ROUTES.OWNER.DASHBOARD);
                     break;
                 default:
-                    navigate("/customer/dashboard");
+                    navigate(ROUTES.CUSTOMER.DASHBOARD);
             }
         } catch (error: any) {
             const response = error.response?.data;

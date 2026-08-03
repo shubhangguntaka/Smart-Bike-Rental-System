@@ -1,38 +1,46 @@
+import type { ReactElement } from "react";
 import { Navigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import { ROUTES } from "../constants/routes";
 
 interface Props {
-
-    children: JSX.Element;
-
+    children: ReactElement;
+    allowedRoles?: string[];
 }
 
 const ProtectedRoute = ({
-
-    children
-
+    children,
+    allowedRoles
 }: Props) => {
-
     const {
-
-        isAuthenticated
-
+        isAuthenticated,
+        user,
+        loading
     } = useAuth();
 
+    if (loading) {
+        return (
+            <div className="flex h-screen w-screen items-center justify-center bg-background">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+        );
+    }
+
     if (!isAuthenticated) {
+        return <Navigate to={ROUTES.LOGIN} replace />;
+    }
 
-        return <Navigate
-
-            to="/login"
-
-            replace
-
-        />;
-
+    if (allowedRoles) {
+        if (!user) {
+            return <Navigate to={ROUTES.LOGIN} replace />;
+        }
+        const hasRole = allowedRoles.some(role => role.toUpperCase() === (user.role || "").toUpperCase());
+        if (!hasRole) {
+            return <Navigate to={ROUTES.UNAUTHORIZED} replace />;
+        }
     }
 
     return children;
-
 };
 
 export default ProtectedRoute;

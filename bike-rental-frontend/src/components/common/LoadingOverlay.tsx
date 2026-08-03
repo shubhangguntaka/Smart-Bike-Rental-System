@@ -22,7 +22,7 @@ return(
 
 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
 
-<div className="rounded-xl bg-white p-8 shadow-xl">
+<div className="rounded-xl bg-card border border-border p-8 shadow-xl text-center text-foreground">
 
 <Spinner/>
 

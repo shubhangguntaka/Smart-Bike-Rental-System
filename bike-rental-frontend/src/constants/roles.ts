@@ -1,9 +1,7 @@
-export enum Role{
+export const Role = {
+  CUSTOMER: "CUSTOMER",
+  OWNER: "OWNER",
+  ADMIN: "ADMIN",
+} as const;
 
-    CUSTOMER="CUSTOMER",
-
-    OWNER="OWNER",
-
-    ADMIN="ADMIN"
-
-}
+export type Role = typeof Role[keyof typeof Role];

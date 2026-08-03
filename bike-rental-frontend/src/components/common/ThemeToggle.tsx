@@ -109,7 +109,6 @@ export default function ThemeToggle() {
                                 }`}
                         >
                             {option.icon}
-                            {option.label}
                         </span>
                     </motion.button>
                 );

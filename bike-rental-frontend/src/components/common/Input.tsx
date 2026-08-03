@@ -14,48 +14,27 @@ interface Props {
 
 }
 
-const Input=({
-
+const Input = ({
     label,
-
     name,
-
     value,
-
     onChange,
-
-    type="text"
-
-}:Props)=>{
-
-    return(
-
+    type = "text"
+}: Props) => {
+    return (
         <div>
-
-            <label className="block mb-2 text-sm font-semibold text-slate-700">
-
+            <label className="block mb-2 text-sm font-semibold text-foreground/80">
                 {label}
-
             </label>
-
             <input
-
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-
+                className="w-full rounded-2xl border border-border bg-card/50 px-4 py-2.5 text-sm text-foreground transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 name={name}
-
                 type={type}
-
                 value={value}
-
                 onChange={onChange}
-
             />
-
         </div>
-
-    )
-
-}
+    );
+};
 
 export default Input;
