@@ -10,6 +10,7 @@ import {
   Home,
   Info,
   Phone,
+  TestTube2Icon,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
@@ -38,6 +39,11 @@ export const PUBLIC_NAVIGATION = [
     path: "/contact",
     icon: Phone,
   },
+  {
+    label: "Test",
+    path: "/test",
+    icon: TestTube2Icon,
+  }
 ];
 
 /* ===========================

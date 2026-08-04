@@ -25,73 +25,77 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-	private final JwtFilter jwtFilter;
+    private final JwtFilter jwtFilter;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final CustomUserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
 
-	private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
+    }
 
-	private final CustomAccessDeniedHandler accessDeniedHandler;
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
 
-	private final CustomUserDetailsService userDetailsService;
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-	private final PasswordEncoder passwordEncoder;
+        http
+                .csrf(csrf -> csrf.disable())
 
-	@Bean
-	DaoAuthenticationProvider authenticationProvider() {
+                .cors(Customizer.withDefaults())
 
-		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+                .httpBasic(Customizer.withDefaults())
 
-		
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-		provider.setPasswordEncoder(passwordEncoder);
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
 
-		return provider;
-	}
+                .authenticationProvider(authenticationProvider())
 
-	@Bean
-	AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+                .authorizeHttpRequests(auth -> auth
 
-		return configuration.getAuthenticationManager();
-	}
+                        // Public endpoints
+                        .requestMatchers(
+                                "/",
+                                "/error",
+                                "/api/auth/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/uploads/**"
+                        ).permitAll()
 
-	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                        // Admin
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
 
-		http
+                        // Owner
+                        .requestMatchers("/api/owner/**")
+                        .hasRole("OWNER")
 
-				.csrf(csrf -> csrf.disable())
+                        // Customer
+                        .requestMatchers("/api/customer/**")
+                        .hasRole("CUSTOMER")
 
-				.cors(Customizer.withDefaults())
+                        // All other APIs require authentication
+                        .anyRequest().authenticated()
+                )
 
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class);
 
-				.exceptionHandling(exception -> exception
-						.authenticationEntryPoint(authenticationEntryPoint)
-						.accessDeniedHandler(accessDeniedHandler))
-
-				.authenticationProvider(authenticationProvider())
-
-				.authorizeHttpRequests(auth -> auth
-
-						// Public APIs
-						.requestMatchers("/api/auth/**",
-
-								"/swagger-ui/**",
-
-								"/v3/api-docs/**"
-
-						).permitAll()
-
-						// Role-based APIs
-						.requestMatchers("/api/admin/**").hasRole("ADMIN")
-						.requestMatchers("/api/owner/**").hasRole("OWNER")
-						.requestMatchers("/api/customer/**").hasRole("CUSTOMER")
-
-						// Everything else requires authentication
-						.anyRequest().authenticated())
-
-				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
-		return http.build();
-	}
-
+        return http.build();
+    }
 }

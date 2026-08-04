@@ -301,3 +301,133 @@
     gap: 0.875rem;
   }
 }
+/* ---------------------------------------------------------------
+   Verification Bureau design tokens
+   A calm, official "document office" identity: deep bureau navy,
+   parchment paper, and a brass seal accent used for the scanning
+   sweep and stamp. Kept separate from the app's default blue so the
+   KYC flow reads as a dedicated, trustworthy checkpoint.
+------------------------------------------------------------------ */
+@theme {
+  --font-display: "Fraunces", "Iowan Old Style", serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-ink: #0b1220;
+  --color-bureau: #16305e;
+  --color-bureau-light: #1e3f7a;
+  --color-parchment: #f8f5ec;
+  --color-parchment-dim: #efe9d8;
+  --color-brass: #b1873f;
+  --color-verified: #1e7f4d;
+  --color-verified-dim: #e7f3ec;
+  --color-crimson: #b3261e;
+  --color-crimson-dim: #fbeae9;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-parchment);
+}
+
+/* Subtle paper grain so cards don't read as flat digital panels */
+.paper-grain {
+  position: relative;
+}
+.paper-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: radial-gradient(rgba(11, 18, 32, 0.045) 1px, transparent 1px);
+  background-size: 3px 3px;
+  border-radius: inherit;
+}
+
+/* Scanner viewfinder corner brackets */
+.reticle-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-color: var(--color-brass);
+}
+
+/* Laser scan sweep, used while a document is being verified */
+@keyframes scan-sweep {
+  0% {
+    top: 2%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    top: 96%;
+    opacity: 0;
+  }
+}
+.animate-scan-sweep {
+  animation: scan-sweep 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes scan-grid-fade {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+.animate-scan-grid {
+  animation: scan-grid-fade 2.4s ease-in-out infinite;
+}
+
+/* Stamp slam-down, used when a verdict (verified/rejected) lands */
+@keyframes stamp-slam {
+  0% {
+    transform: scale(2.6) rotate(-14deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.94) rotate(-6deg);
+    opacity: 1;
+  }
+  72% {
+    transform: scale(1.06) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1) rotate(-7deg);
+    opacity: 1;
+  }
+}
+.animate-stamp-slam {
+  animation: stamp-slam 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+
+@keyframes stamp-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(30, 127, 77, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(30, 127, 77, 0);
+  }
+}
+.animate-stamp-ring {
+  animation: stamp-ring 1s ease-out both;
+}
+@keyframes stamp-ring-rejected {
+  0% {
+    box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(179, 38, 30, 0);
+  }
+}
+.animate-stamp-ring-rejected {
+  animation: stamp-ring-rejected 1s ease-out both;
+}

@@ -13,6 +13,9 @@ import Home from "@/pages/Home";
 import Bikes from "@/pages/Bikes";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
+import Test from "@/pages/Test";
+import DocumentVerification from "@/pages/verification/DocumentVerification";
+import OwnerVerification from "@/pages/owner/OwnerVerification";
 
 // Customer Pages
 import CustomerDashboard from "../pages/customer/Dashboard";
@@ -51,6 +54,10 @@ const AppRoutes = () => {
           <Route path="bikes" element={<Bikes />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="test" element={<Test />} />
+          {/* Public testing routes (intentionally bypass auth guards) */}
+          <Route path="verification" element={<DocumentVerification />} />
+          <Route path="bike-verification" element={<OwnerVerification />} />
         </Route>
 
         {/* Auth Routes */}

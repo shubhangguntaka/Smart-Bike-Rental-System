@@ -3,6 +3,7 @@ package com.sssit.bikerental.common.exception;
 import com.sssit.bikerental.common.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.MailSendException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -97,6 +98,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(ex.getMessage()));
     }
+
+        /**
+         * Mail delivery failures (SMTP / TLS)
+         */
+        @ExceptionHandler(MailSendException.class)
+        public ResponseEntity<ApiResponse<Object>> handleMailSendException(
+                        MailSendException ex) {
+
+                ex.printStackTrace();
+
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(ApiResponse.error("Unable to send OTP email. Please check mail SMTP/TLS settings and try again."));
+        }
 
     /**
      * Unexpected Exceptions
