@@ -91,23 +91,13 @@ export interface User {
 // =========================
 
 export interface AuthResponse {
-
-    token: string;
-
+    accessToken: string;
+    refreshToken: string;
     tokenType: string;
-
     userId: number;
-
-    firstName: string;
-
-    lastName: string;
-
+    name: string;
     email: string;
-
     role: string;
-
-    emailVerified: boolean;
-
 }
 
 // =========================

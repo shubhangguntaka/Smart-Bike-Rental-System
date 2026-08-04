@@ -106,7 +106,7 @@ const OtpInput = ({
 
                         }
 
-                        className="h-14 w-14 rounded-lg border text-center text-xl font-semibold focus:border-blue-500 focus:outline-none"
+                        className="h-14 w-14 rounded-lg border text-center text-xl font-semibold focus:border-primary focus:outline-none"
 
                     />
 

@@ -31,3 +31,9 @@ export const resetPassword=(data:any)=>{
     return api.post("/auth/reset-password",data);
 
 }
+
+export const logout=()=>{
+
+    return api.post("/auth/logout");
+
+}

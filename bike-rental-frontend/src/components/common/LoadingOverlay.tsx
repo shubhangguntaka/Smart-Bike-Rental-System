@@ -1,42 +1,42 @@
 import Spinner from "./Spinner";
 
-interface Props{
+interface Props {
 
-loading:boolean;
-
-}
-
-const LoadingOverlay=({
-
-loading
-
-}:Props)=>{
-
-if(!loading){
-
-return null;
+    loading: boolean;
 
 }
 
-return(
+const LoadingOverlay = ({
 
-<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    loading
 
-<div className="rounded-xl bg-card border border-border p-8 shadow-xl text-center text-foreground">
+}: Props) => {
 
-<Spinner/>
+    if (!loading) {
 
-<p className="mt-4">
+        return null;
 
-Please Wait...
+    }
 
-</p>
+    return (
 
-</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50/20 backdrop-blur-sm">
 
-</div>
+            <div className="rounded-xl bg-card border border-border p-8 shadow-xl text-center text-foreground">
 
-)
+                <Spinner />
+
+                <p className="mt-4">
+
+                    Please Wait...
+
+                </p>
+
+            </div>
+
+        </div>
+
+    )
 
 }
 

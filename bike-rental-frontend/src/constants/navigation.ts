@@ -11,12 +11,13 @@ import {
   Info,
   Phone,
   TestTube2Icon,
+  FileText,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
 /* ===========================
    Public Navigation
-=========================== */
+   =========================== */
 
 export const PUBLIC_NAVIGATION = [
   {
@@ -48,7 +49,7 @@ export const PUBLIC_NAVIGATION = [
 
 /* ===========================
    Customer Sidebar
-=========================== */
+   =========================== */
 
 export const CUSTOMER_SIDEBAR: SidebarSection[] = [
   {
@@ -92,7 +93,7 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
 
 /* ===========================
    Bike Owner Sidebar
-=========================== */
+   =========================== */
 
 export const OWNER_SIDEBAR: SidebarSection[] = [
   {
@@ -141,7 +142,7 @@ export const OWNER_SIDEBAR: SidebarSection[] = [
 
 /* ===========================
    Admin Sidebar
-=========================== */
+   =========================== */
 
 export const ADMIN_SIDEBAR: SidebarSection[] = [
   {
@@ -176,13 +177,13 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
     ],
   },
   {
-    id: "settings",
-    title: "Settings",
+    id: "account",
+    title: "Account",
     items: [
       {
-        label: "Settings",
-        path: "/admin/settings",
-        icon: Settings,
+        label: "Profile",
+        path: "/admin/profile",
+        icon: UserCircle,
       },
     ],
   },

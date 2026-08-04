@@ -44,12 +44,12 @@ const LoginForm = () => {
             const response = await login(formData);
             const authData = response.data.data;
 
-            saveLogin({
-                token: authData.token,
+            await saveLogin({
+                token: authData.accessToken,
+                refreshToken: authData.refreshToken,
                 user: {
                     id: authData.userId,
-                    firstName: authData.firstName,
-                    lastName: authData.lastName,
+                    fullName: authData.name,
                     email: authData.email,
                     role: authData.role,
                     phoneNumber: authData.phoneNumber,

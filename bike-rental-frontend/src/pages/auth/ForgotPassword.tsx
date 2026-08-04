@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import AuthLayout from "../../layouts/AuthLayout";
 import Input from "../../components/common/Input";
@@ -29,7 +30,7 @@ const ForgotPassword = () => {
 
             });
 
-            alert("OTP Sent Successfully");
+            toast.success("OTP Sent Successfully");
 
             navigate("/reset-password", {
 
@@ -45,7 +46,7 @@ const ForgotPassword = () => {
 
         catch (error: any) {
 
-            alert(error.response?.data?.message);
+            toast.error(error.response?.data?.message || "Something went wrong");
 
         }
 

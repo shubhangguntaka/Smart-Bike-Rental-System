@@ -1,5 +1,6 @@
 import { ArrowUp } from "lucide-react";
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 
 export default function FooterBottom() {
   const [showScroll, setShowScroll] = useState(false);
@@ -26,7 +27,7 @@ export default function FooterBottom() {
   const handleSubscribe = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Newsletter signup demo action
-    alert("Thank you for subscribing to our newsletter!");
+    toast.success("Thank you for subscribing to our newsletter!");
     (e.target as HTMLFormElement).reset();
   };
 

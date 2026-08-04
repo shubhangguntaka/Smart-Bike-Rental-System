@@ -39,9 +39,11 @@ import AdminBikes from "@/pages/admin/Bikes";
 import AdminPayments from "@/pages/admin/Payments";
 import AdminVerification from "@/pages/admin/Verification";
 import AdminSettings from "@/pages/admin/Settings";
+import AdminProfile from "@/pages/admin/Profile";
+import AdminReports from "@/pages/admin/Reports";
 
 // Error Pages
-import Unauthorized from "../pages/errors/Unauthorized";
+import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "../pages/errors/NotFound";
 
 const AppRoutes = () => {
@@ -114,6 +116,8 @@ const AppRoutes = () => {
           <Route path="payments" element={<AdminPayments />} />
           <Route path="verification" element={<AdminVerification />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="profile" element={<AdminProfile />} />
+          <Route path="reports" element={<AdminReports />} />
         </Route>
 
         {/* Error Pages */}
