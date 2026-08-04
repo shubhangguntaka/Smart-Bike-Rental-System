@@ -26,14 +26,10 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType("application/json");
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .status(HttpServletResponse.SC_FORBIDDEN)
-                .error("Forbidden")
-                .message(accessDeniedException.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(System.currentTimeMillis())
-                .build();
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("success", false);
+        body.put("message", "Access Denied");
 
-        new ObjectMapper().writeValue(response.getOutputStream(), errorResponse);
+        new ObjectMapper().writeValue(response.getOutputStream(), body);
     }
 }

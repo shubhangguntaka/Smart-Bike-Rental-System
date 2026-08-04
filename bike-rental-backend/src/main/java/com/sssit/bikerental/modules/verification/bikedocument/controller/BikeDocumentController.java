@@ -12,9 +12,12 @@ import com.sssit.bikerental.modules.verification.bikedocument.dto.BikeDocumentRe
 import com.sssit.bikerental.modules.verification.bikedocument.entity.BikeDocument;
 import com.sssit.bikerental.modules.verification.bikedocument.service.BikeDocumentService;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/bike-document")
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
 public class BikeDocumentController {
 
     @Autowired
@@ -57,27 +60,32 @@ public class BikeDocumentController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public BikeDocument save(@RequestBody BikeDocument bikeDocument) {
         return service.save(bikeDocument);
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<BikeDocument> getAll() {
         return service.getAll();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public BikeDocument getById(@PathVariable Long id) {
         return service.getById(id);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public BikeDocument update(@PathVariable Long id,
                                @RequestBody BikeDocument bikeDocument) {
         return service.update(id, bikeDocument);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public String delete(@PathVariable Long id) {
         service.delete(id);
         return "Bike Document Deleted Successfully";

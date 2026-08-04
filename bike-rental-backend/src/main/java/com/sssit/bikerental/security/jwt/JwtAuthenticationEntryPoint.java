@@ -27,14 +27,10 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType("application/json");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .status(HttpServletResponse.SC_UNAUTHORIZED)
-                .error("Unauthorized")
-                .message(authException.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(System.currentTimeMillis())
-                .build();
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("success", false);
+        body.put("message", "Unauthorized");
 
-        new ObjectMapper().writeValue(response.getOutputStream(), errorResponse);
+        new ObjectMapper().writeValue(response.getOutputStream(), body);
     }
 }

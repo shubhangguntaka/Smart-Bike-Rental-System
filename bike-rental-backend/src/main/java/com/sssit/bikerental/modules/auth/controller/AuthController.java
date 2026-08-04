@@ -9,6 +9,10 @@ import com.sssit.bikerental.common.response.ApiResponse;
 import com.sssit.bikerental.modules.auth.dto.AuthResponse;
 import com.sssit.bikerental.modules.auth.dto.ForgotPassword;
 import com.sssit.bikerental.modules.auth.dto.LoginRequest;
+import com.sssit.bikerental.modules.auth.dto.LogoutRequest;
+import com.sssit.bikerental.modules.auth.dto.LogoutResponse;
+import com.sssit.bikerental.modules.auth.dto.RefreshTokenRequest;
+import com.sssit.bikerental.modules.auth.dto.RefreshTokenResponse;
 import com.sssit.bikerental.modules.auth.dto.RegisterRequest;
 import com.sssit.bikerental.modules.auth.dto.ResetPasswordRequest;
 import com.sssit.bikerental.modules.auth.dto.VerifyOtpRequest;
@@ -23,81 +27,111 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class AuthController {
 
-    private final AuthService authService;
+        private final AuthService authService;
 
-    /**
-     * Register User
-     */
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
+        /**
+         * Register User
+         */
+        @PostMapping("/register")
+        public ResponseEntity<ApiResponse<AuthResponse>> register(
+                        @Valid @RequestBody RegisterRequest request) {
 
-        AuthResponse response = authService.register(request);
+                AuthResponse response = authService.register(request);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(
-                        "Registration successful. OTP sent successfully.",
-                        response));
-    }
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(
+                                                "Registration successful. OTP sent successfully.",
+                                                response));
+        }
 
-    /**
-     * Login
-     */
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
+        /**
+         * Login
+         */
+        @PostMapping("/login")
+        public ResponseEntity<ApiResponse<AuthResponse>> login(
+                        @Valid @RequestBody LoginRequest request) {
 
-        AuthResponse response = authService.login(request);
+                AuthResponse response = authService.login(request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Login successful.",
-                        response));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                "Login successful.",
+                                                response));
+        }
 
-    /**
-     * Verify OTP
-     */
-    @PostMapping("/verify-otp")
-    public ResponseEntity<ApiResponse<String>> verifyOtp(
-            @Valid @RequestBody VerifyOtpRequest request) {
+        /**
+         * Verify OTP
+         */
+        @PostMapping("/verify-otp")
+        public ResponseEntity<ApiResponse<String>> verifyOtp(
+                        @Valid @RequestBody VerifyOtpRequest request) {
 
-        String response = authService.verifyOtp(request);
+                String response = authService.verifyOtp(request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        response,
-                        null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                response,
+                                                null));
+        }
 
-    /**
-     * Forgot Password
-     */
-    @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<String>> forgotPassword(
-            @Valid @RequestBody ForgotPassword request) {
+        /**
+         * Forgot Password
+         */
+        @PostMapping("/forgot-password")
+        public ResponseEntity<ApiResponse<String>> forgotPassword(
+                        @Valid @RequestBody ForgotPassword request) {
 
-        String response = authService.forgotPassword(request);
+                String response = authService.forgotPassword(request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        response,
-                        null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                response,
+                                                null));
+        }
 
-    /**
-     * Reset Password
-     */
-    @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<String>> resetPassword(
-            @Valid @RequestBody ResetPasswordRequest request) {
+        /**
+         * Reset Password
+         */
+        @PostMapping("/reset-password")
+        public ResponseEntity<ApiResponse<String>> resetPassword(
+                        @Valid @RequestBody ResetPasswordRequest request) {
 
-        String response = authService.resetPassword(request);
+                String response = authService.resetPassword(request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        response,
-                        null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                response,
+                                                null));
+        }
+
+        /**
+         * Refresh Token
+         */
+        @PostMapping("/refresh-token")
+        public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
+                        @Valid @RequestBody RefreshTokenRequest request) {
+
+                RefreshTokenResponse response = authService.refreshToken(request);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                "Token refreshed successfully.",
+                                                response));
+        }
+
+        @PostMapping("/logout")
+        public ResponseEntity<LogoutResponse> logout(
+
+                        @Valid @RequestBody LogoutRequest request
+
+        ) {
+
+                return ResponseEntity.ok(
+
+                                authService.logout(request)
+
+                );
+
+        }
 
 }

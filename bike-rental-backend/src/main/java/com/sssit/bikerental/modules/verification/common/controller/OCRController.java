@@ -10,9 +10,12 @@ import com.sssit.bikerental.modules.verification.common.exception.QRVerification
 import com.sssit.bikerental.modules.verification.common.model.OCRData;
 import com.sssit.bikerental.modules.verification.common.service.OCRService;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/ocr")
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
 public class OCRController {
 
     private final OCRService ocrService;

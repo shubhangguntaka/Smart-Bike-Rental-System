@@ -76,6 +76,21 @@ public class User extends BaseEntity implements UserDetails {
     @Column(length = 255)
     private String profileImage;
 
+    public String getFullName() {
+        return (firstName == null ? "" : firstName) + (lastName == null || lastName.isEmpty() ? "" : " " + lastName);
+    }
+
+    public void setFullName(String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            this.firstName = "";
+            this.lastName = "";
+            return;
+        }
+        String[] parts = fullName.trim().split("\\s+", 2);
+        this.firstName = parts[0];
+        this.lastName = parts.length > 1 ? parts[1] : "";
+    }
+
     // ==========================
     // Spring Security Methods
     // ==========================

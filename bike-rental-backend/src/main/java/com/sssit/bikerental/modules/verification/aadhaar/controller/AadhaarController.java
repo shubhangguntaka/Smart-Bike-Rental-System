@@ -8,9 +8,12 @@ import org.springframework.web.multipart.MultipartFile;
 import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/aadhaar")
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
 public class AadhaarController {
 
     private final AadhaarService aadhaarService;

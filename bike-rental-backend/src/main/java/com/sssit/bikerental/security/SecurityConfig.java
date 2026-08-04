@@ -76,18 +76,40 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/uploads/**"
                         ).permitAll()
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.GET,
+                                "/api/bikes",
+                                "/api/bikes/**"
+                        ).permitAll()
 
-                        // Admin
-                        .requestMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
+                        // User profile/change-password endpoints accessible by authenticated users
+                        .requestMatchers(
+                                "/api/users/profile",
+                                "/api/users/change-password"
+                        ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
 
-                        // Owner
-                        .requestMatchers("/api/owner/**")
-                        .hasRole("OWNER")
+                        // ADMIN
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/users/**",
+                                "/api/reports/**"
+                        ).hasRole("ADMIN")
 
-                        // Customer
-                        .requestMatchers("/api/customer/**")
-                        .hasRole("CUSTOMER")
+                        // OWNER
+                        .requestMatchers(
+                                "/api/owner/**",
+                                "/api/owner/bikes/**",
+                                "/api/owner/bookings/**"
+                        ).hasRole("OWNER")
+
+                        // CUSTOMER
+                        .requestMatchers(
+                                "/api/customer/**",
+                                "/api/bookings/**",
+                                "/api/cart/**",
+                                "/api/profile/**",
+                                "/api/reviews/**"
+                        ).hasRole("CUSTOMER")
 
                         // All other APIs require authentication
                         .anyRequest().authenticated()

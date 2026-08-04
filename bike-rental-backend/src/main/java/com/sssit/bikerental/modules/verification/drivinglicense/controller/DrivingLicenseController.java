@@ -12,9 +12,12 @@ import com.sssit.bikerental.modules.verification.drivinglicense.dto.DrivingLicen
 import com.sssit.bikerental.modules.verification.drivinglicense.entity.DrivingLicense;
 import com.sssit.bikerental.modules.verification.drivinglicense.service.DrivingLicenseService;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/driving-license")
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
 public class DrivingLicenseController {
 
     @Autowired
@@ -53,27 +56,32 @@ public class DrivingLicenseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public DrivingLicense save(@RequestBody DrivingLicense drivingLicense) {
         return service.save(drivingLicense);
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<DrivingLicense> getAll() {
         return service.getAll();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public DrivingLicense getById(@PathVariable Long id) {
         return service.getById(id);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public DrivingLicense update(@PathVariable Long id,
                                  @RequestBody DrivingLicense drivingLicense) {
         return service.update(id, drivingLicense);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public String delete(@PathVariable Long id) {
         service.delete(id);
         return "Driving License Deleted Successfully";
