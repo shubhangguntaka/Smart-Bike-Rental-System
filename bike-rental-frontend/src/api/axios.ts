@@ -74,13 +74,18 @@ api.interceptors.response.use(
         }
 
         const res = await axios.post(`${env.API_BASE_URL}/auth/refresh-token`, {
-          token: refreshToken,
+          refreshToken: refreshToken,
         });
 
-        const newAccessToken = res.data.data.accessToken;
+        const data = res.data?.data || res.data;
+        const newAccessToken = data?.accessToken;
+        if (!newAccessToken) {
+          throw new Error("No access token returned from refresh endpoint");
+        }
+
         storage.setToken(newAccessToken);
-        if (res.data.data.refreshToken) {
-          storage.setRefreshToken(res.data.data.refreshToken);
+        if (data.refreshToken) {
+          storage.setRefreshToken(data.refreshToken);
         }
 
         api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;

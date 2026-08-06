@@ -1,20 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { SearchBar } from "@/components/common/SearchBar";
 import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Star, Shield, Battery, Navigation, BadgeAlert, Award } from "lucide-react";
+import { Star, Shield, Battery, Navigation, BadgeAlert, Award, Loader2, FileText, CheckCircle2, ShieldCheck, Upload, Sparkles, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
+import bikeService from "@/services/bikeService";
+import { verifyAadhaar, verifyDrivingLicense } from "@/services/verificationService";
+import api from "@/api/axios";
+import useAuth from "@/hooks/useAuth";
+import type { Bike } from "@/types/bike";
+import { format12Hour, isBikeAvailableNow } from "@/utils/timeUtils";
+import { ROUTES } from "@/constants/routes";
+import DocumentScanner from "@/components/verification/DocumentScanner";
 
-// Mock bikes data
-const MOCK_BIKES = [
-  { id: 1, name: "VoltPulse Electric S1", type: "electric", price: 200, rating: 4.8, range: "60 km", battery: "95%", location: "Indiranagar", image: "https://images.unsplash.com/photo-1571068316344-75bc76f77891?auto=format&fit=crop&q=80&w=400" },
-  { id: 2, name: "AeroRoad Elite Carbon", type: "road", price: 150, rating: 4.6, range: "N/A", battery: "N/A", location: "Koramangala", image: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=400" },
-  { id: 3, name: "SummitCrusher Trail XT", type: "mountain", price: 180, rating: 4.7, range: "N/A", battery: "N/A", location: "Whitefield", image: "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&q=80&w=400" },
-  { id: 4, name: "CityGlide Hybrid V2", type: "hybrid", price: 120, rating: 4.4, range: "45 km", battery: "80%", location: "Jayanagar", image: "https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&q=80&w=400" },
-  { id: 5, name: "HyperVolt Cruiser Pro", type: "electric", price: 250, rating: 4.9, range: "80 km", battery: "100%", location: "Indiranagar", image: "https://images.unsplash.com/photo-1559348349-86f1f65817fe?auto=format&fit=crop&q=80&w=400" },
-  { id: 6, name: "RockyPeak Hardtail", type: "mountain", price: 140, rating: 4.3, range: "N/A", battery: "N/A", location: "Koramangala", image: "https://images.unsplash.com/photo-1576435469652-f2009a5aa81f?auto=format&fit=crop&q=80&w=400" },
+// Fallback mock bikes if database has zero bikes
+const INITIAL_MOCK_BIKES = [
+  { id: 101, name: "VoltPulse Electric S1", type: "electric", price: 200, rating: 4.8, range: "60 km", battery: "95%", location: "Indiranagar", image: "https://images.unsplash.com/photo-1571068316344-75bc76f77891?auto=format&fit=crop&q=80&w=400" },
+  { id: 102, name: "AeroRoad Elite Carbon", type: "road", price: 150, rating: 4.6, range: "N/A", battery: "N/A", location: "Koramangala", image: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=400" },
+  { id: 103, name: "SummitCrusher Trail XT", type: "mountain", price: 180, rating: 4.7, range: "N/A", battery: "N/A", location: "Whitefield", image: "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&q=80&w=400" },
 ];
 
 const FILTER_CONFIGS: FilterField[] = [
@@ -27,6 +33,7 @@ const FILTER_CONFIGS: FilterField[] = [
       { label: "Road Bike", value: "road" },
       { label: "Mountain Bike", value: "mountain" },
       { label: "Hybrid Bike", value: "hybrid" },
+      { label: "Petrol Bike", value: "petrol" },
     ],
   },
   {
@@ -34,29 +41,83 @@ const FILTER_CONFIGS: FilterField[] = [
     label: "Location",
     type: "checkbox",
     options: [
+      { label: "Hyderabad", value: "Hyderabad" },
       { label: "Indiranagar", value: "Indiranagar" },
       { label: "Koramangala", value: "Koramangala" },
       { label: "Whitefield", value: "Whitefield" },
-      { label: "Jayanagar", value: "Jayanagar" },
     ],
   },
   {
     id: "price",
     label: "Price / hr",
     type: "range",
-    min: 100,
-    max: 300,
+    min: 50,
+    max: 500,
     step: 10,
   },
 ];
 
 export default function Bikes() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [allBikes, setAllBikes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [page, setPage] = useState(1);
-  const [bookingBike, setBookingBike] = useState<typeof MOCK_BIKES[0] | null>(null);
+
+  // Booking & Verification Modals
+  const [bookingBike, setBookingBike] = useState<any | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Document Scan / Verification Modal States
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanStep, setScanStep] = useState<"aadhaar" | "dl">("aadhaar");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docPreview, setDocPreview] = useState<string | null>(null);
+  const [scanningDoc, setScanningDoc] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const apiBikes = await bikeService.getAllBikes();
+        if (!active) return;
+
+        const mappedRealBikes = (apiBikes || []).map((b: Bike, index: number) => ({
+          id: b.bikeId || b.id || index + 1,
+          name: b.bikeName || `${b.brand} ${b.model}`.trim() || "Rental Bike",
+          type: (b.fuelType || "petrol").toLowerCase(),
+          price: b.hourlyRate || Math.round((b.rentalPrice || 500) / 8),
+          rating: 4.9,
+          range: b.mileage || "45 km/l",
+          battery: b.fuelType?.toUpperCase() === "ELECTRIC" ? "98%" : "N/A",
+          location: b.location || "Hyderabad",
+          image: b.imageUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=400",
+          brand: b.brand,
+          model: b.model,
+          registrationNumber: b.registrationNumber,
+          availableStartTime: b.availableStartTime,
+          availableEndTime: b.availableEndTime,
+        }));
+
+        // Display real DB bikes prominently, fallback to mock bikes if DB is empty
+        const combined = mappedRealBikes.length > 0 ? mappedRealBikes : INITIAL_MOCK_BIKES;
+        setAllBikes(combined);
+      } catch (err) {
+        console.error("Could not fetch bikes:", err);
+        setAllBikes(INITIAL_MOCK_BIKES);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -69,7 +130,7 @@ export default function Bikes() {
   };
 
   // Filter client-side
-  const filteredBikes = MOCK_BIKES.filter((bike) => {
+  const filteredBikes = allBikes.filter((bike) => {
     // Search filter
     if (search && !bike.name.toLowerCase().includes(search.toLowerCase())) {
       return false;
@@ -94,13 +155,112 @@ export default function Bikes() {
     return true;
   });
 
-  const itemsPerPage = 3;
+  const itemsPerPage = 9;
   const totalPages = Math.ceil(filteredBikes.length / itemsPerPage);
   const paginatedBikes = filteredBikes.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-  const handleBookClick = (bike: typeof MOCK_BIKES[0]) => {
+  // Triggered when customer clicks "Rent Now" / "Book Now"
+  const handleBookClick = async (bike: any) => {
+    if (!user) {
+      toast.error("Please login to book a bike.");
+      navigate(ROUTES.AUTH.LOGIN);
+      return;
+    }
+
     setBookingBike(bike);
-    setIsBookingOpen(true);
+
+    try {
+      const customerId = user.id;
+      let aadhaarVerified = false;
+      let dlVerified = false;
+
+      // 1. Check Aadhaar Verification Status
+      try {
+        const aRes = await api.get("/aadhaar/status", { params: { customerId } });
+        aadhaarVerified = Boolean(aRes.data);
+      } catch {
+        aadhaarVerified = false;
+      }
+
+      // 2. Check Driving License (DL) Verification Status
+      try {
+        const dRes = await api.get("/driving-license/status", { params: { customerId } });
+        dlVerified = Boolean(dRes.data);
+      } catch {
+        dlVerified = false;
+      }
+
+      // If either Aadhaar or DL is not verified, open the Scan & Verify Modal before booking
+      if (!aadhaarVerified || !dlVerified) {
+        setScanStep(!aadhaarVerified ? "aadhaar" : "dl");
+        setShowScanModal(true);
+        return;
+      }
+
+      // Both documents verified -> open booking confirmation modal directly
+      setIsBookingOpen(true);
+    } catch {
+      // Fallback: open booking modal directly
+      setIsBookingOpen(true);
+    }
+  };
+
+  // Handle Document File Selection
+  const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocFile(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDocPreview(String(reader.result));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Submit & Scan Document (Aadhaar or DL)
+  const handleProcessScan = async () => {
+    if (!docFile || !user) {
+      toast.error("Please select a document image to scan.");
+      return;
+    }
+
+    try {
+      setScanningDoc(true);
+
+      if (scanStep === "aadhaar") {
+        const result = await verifyAadhaar(docFile, user.id, "USER");
+        if (!result.verified) {
+          toast.error(result.rejectionReason || "Aadhaar OCR scan failed. Ensure card is clear.");
+          setScanningDoc(false);
+          return;
+        }
+
+        toast.success("Aadhaar Verified! Next: Upload Driving License (DL).");
+        setDocFile(null);
+        setDocPreview(null);
+        setScanningDoc(false);
+        setScanStep("dl");
+      } else {
+        const result = await verifyDrivingLicense(docFile, user.id);
+        if (!result.verified) {
+          toast.error(result.rejectionReason || "Driving License OCR scan failed. Ensure DL name matches Aadhaar.");
+          setScanningDoc(false);
+          return;
+        }
+
+        toast.success("Identity & Driving License Verified Successfully!");
+        setScanningDoc(false);
+        setShowScanModal(false);
+        setDocFile(null);
+        setDocPreview(null);
+        setIsBookingOpen(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Verification service error.");
+      setScanningDoc(false);
+    }
   };
 
   const handleConfirmBooking = async () => {
@@ -109,14 +269,24 @@ export default function Bikes() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setConfirmLoading(false);
     setIsBookingOpen(false);
-    toast.success(`Successfully booked ${bookingBike?.name}! Your ride is ready.`);
+    toast.success(`Successfully booked ${bookingBike?.name}! Redirecting to Dashboard...`);
     setBookingBike(null);
+    navigate("/dashboard");
   };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 bg-background min-h-screen text-foreground space-y-8">
       {/* Header Info */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition shadow-xs cursor-pointer"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
           Explore Our Smart Fleet
         </h1>
@@ -131,7 +301,7 @@ export default function Bikes() {
           <SearchBar
             value={search}
             onChange={handleSearch}
-            placeholder="Search bike models, keywords..."
+            placeholder="Search by ride name, brand, model, or location..."
             width="w-full sm:max-w-md"
           />
         </div>
@@ -202,8 +372,9 @@ export default function Bikes() {
                   <button
                     type="button"
                     onClick={() => handleBookClick(bike)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95"
+                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
                   >
+                    <Sparkles className="h-3.5 w-3.5" />
                     Rent Now
                   </button>
                 </div>
@@ -232,6 +403,85 @@ export default function Bikes() {
           />
         </div>
       )}
+
+      {/* DOCUMENT VERIFICATION MODAL (Triggered when customer clicks "Rent Now" if Aadhaar/DL not yet verified) */}
+      <Modal
+        isOpen={showScanModal}
+        onClose={() => !scanningDoc && setShowScanModal(false)}
+        size="md"
+      >
+        <ModalHeader onClose={() => !scanningDoc && setShowScanModal(false)}>
+          Identity & DL Scan Required for Rental
+        </ModalHeader>
+        <ModalBody>
+          <div className="space-y-5">
+            <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                <ShieldCheck className="h-4 w-4" />
+                <span>One-Time Scan Before Unlocking Ride</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Scan your <strong>{scanStep === "aadhaar" ? "Aadhaar Card" : "Driving License (DL)"}</strong> to complete instant verification. Once scanned, you can book any ride immediately!
+              </p>
+            </div>
+
+            {/* Document Upload & Preview */}
+            <div className="space-y-3">
+              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Upload {scanStep === "aadhaar" ? "Aadhaar Card" : "Driving License (DL)"} Photo
+              </label>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleDocFileChange}
+                disabled={scanningDoc}
+                className="w-full text-xs text-foreground file:mr-3 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-xs file:font-bold file:text-primary-foreground hover:file:opacity-90 cursor-pointer"
+              />
+
+              {docPreview && (
+                <DocumentScanner
+                  imageSrc={docPreview}
+                  scanning={scanningDoc}
+                  steps={
+                    scanStep === "aadhaar"
+                      ? ["Reading Aadhaar Image", "Extracting Name & DOB", "Validating Identity"]
+                      : ["Reading License Photo", "Extracting DL Number", "Fuzzy Name Match"]
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button
+            type="button"
+            disabled={scanningDoc}
+            onClick={() => setShowScanModal(false)}
+            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-xl border border-border hover:bg-muted text-foreground transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={scanningDoc || !docFile}
+            onClick={handleProcessScan}
+            className="w-full sm:w-auto px-5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            {scanningDoc ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Scanning Document...
+              </>
+            ) : (
+              <>
+                <Upload className="h-3.5 w-3.5" />
+                Verify {scanStep === "aadhaar" ? "Aadhaar" : "Driving License"} & Proceed
+              </>
+            )}
+          </button>
+        </ModalFooter>
+      </Modal>
 
       {/* Booking Confirmation Dialog Modal */}
       <Modal
@@ -265,12 +515,14 @@ export default function Bikes() {
                   <span className="text-foreground font-semibold">₹{bookingBike.price} / hour</span>
                 </div>
                 <div className="flex justify-between text-xs font-medium">
-                  <span className="text-muted-foreground">Security Deposit</span>
-                  <span className="text-foreground font-semibold">₹500 (Fully Refundable)</span>
+                  <span className="text-muted-foreground font-medium">Verified Identity</span>
+                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Aadhaar & DL Approved
+                  </span>
                 </div>
                 <div className="border-t border-border pt-3.5 flex justify-between text-sm font-bold">
-                  <span>Estimated Total</span>
-                  <span className="text-primary">₹{bookingBike.price + 500}</span>
+                  <span>Estimated Rate</span>
+                  <span className="text-primary">₹{bookingBike.price} / hr</span>
                 </div>
               </div>
 

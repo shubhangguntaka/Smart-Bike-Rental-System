@@ -34,15 +34,9 @@ export default function SidebarItem({ item, collapsed, onNavigate }: SidebarItem
 
           {/* Label, hidden when collapsed */}
           {!collapsed && (
-            <motion.span
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.2 }}
-              className="truncate"
-            >
+            <span className="truncate">
               {item.label}
-            </motion.span>
+            </span>
           )}
 
           {/* Active indicator dot (optional, when collapsed) */}

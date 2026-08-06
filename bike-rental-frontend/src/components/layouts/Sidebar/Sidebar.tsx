@@ -38,10 +38,10 @@ export default function Sidebar({ sections }: SidebarProps) {
       : CUSTOMER_SIDEBAR);
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 80 : 280 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="hidden lg:flex h-screen flex-col border-r border-border bg-background transition-colors duration-300 relative z-30"
+    <aside
+      className={`hidden lg:flex h-screen flex-col border-r border-border bg-background transition-all duration-300 relative z-30 ${
+        collapsed ? "w-20" : "w-70"
+      }`}
     >
       {/* Sidebar Logo */}
       <SidebarLogo collapsed={collapsed} />
@@ -67,6 +67,6 @@ export default function Sidebar({ sections }: SidebarProps) {
           onToggle={() => setCollapsed(!collapsed)}
         />
       </div>
-    </motion.aside>
+    </aside>
   );
 }

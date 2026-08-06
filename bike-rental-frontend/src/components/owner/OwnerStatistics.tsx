@@ -3,7 +3,9 @@ import { useOwnerStore } from "../../store/ownerStore";
 import { Bike, CheckCircle, Clock, Calendar } from "lucide-react";
 
 const OwnerStatistics = () => {
-    const { dashboard, loading, fetchDashboard } = useOwnerStore();
+    const dashboard = useOwnerStore((s) => s.dashboard);
+    const loading = useOwnerStore((s) => s.loading);
+    const fetchDashboard = useOwnerStore((s) => s.fetchDashboard);
 
     useEffect(() => {
         if (!dashboard) {
@@ -78,7 +80,7 @@ const OwnerStatistics = () => {
                                 </h2>
                             </div>
                             <div className={`p-3 rounded-xl transition duration-300 ${item.color} group-hover:scale-110`}>
-                                <Icon className="h-5 w-5" />
+                                {Icon ? <Icon className="h-5 w-5" /> : null}
                             </div>
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-3 font-medium">

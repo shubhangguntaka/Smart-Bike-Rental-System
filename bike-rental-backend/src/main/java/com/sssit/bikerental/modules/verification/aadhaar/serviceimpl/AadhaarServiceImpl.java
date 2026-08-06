@@ -695,12 +695,9 @@ public class AadhaarServiceImpl implements AadhaarService {
             return null;
         }
 
-        boolean isBikeOwnerPurpose = VerificationConstants.PURPOSE_BIKE_OWNER.equalsIgnoreCase(purpose);
-
         return repository
                 .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                         customerId, VerificationConstants.STATUS_APPROVED)
-                .filter(record -> isBikeOwnerPurpose ? record.isVerifiedForBikeOwner() : record.isVerifiedForUser())
                 .orElse(null);
     }
 

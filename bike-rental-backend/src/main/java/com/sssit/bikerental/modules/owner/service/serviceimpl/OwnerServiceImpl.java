@@ -352,7 +352,7 @@ public class OwnerServiceImpl implements OwnerService {
                         String bikeName = "Unknown Bike";
                         try {
                             bikeName = bikeRepository.findById(bk.getBikeId())
-                                    .map(b -> b.getName())
+                                    .map(b -> b.getBikeName())
                                     .orElse("Unknown Bike");
                         } catch (Exception e) {}
 

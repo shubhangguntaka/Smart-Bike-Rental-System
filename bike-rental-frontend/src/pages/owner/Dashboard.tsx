@@ -23,7 +23,10 @@ import {
 
 export default function OwnerDashboard() {
     const { user } = useAuth();
-    const { dashboard, loading, error, fetchDashboard } = useOwnerStore();
+    const dashboard = useOwnerStore((s) => s.dashboard);
+    const loading = useOwnerStore((s) => s.loading);
+    const error = useOwnerStore((s) => s.error);
+    const fetchDashboard = useOwnerStore((s) => s.fetchDashboard);
 
     useEffect(() => {
         fetchDashboard();
@@ -76,11 +79,11 @@ export default function OwnerDashboard() {
                 </div>
                 <h2 className="text-xl font-bold text-foreground">Failed to Load Dashboard</h2>
                 <p className="text-sm text-muted-foreground mt-2 max-w-md leading-relaxed">
-                    {error || "An unexpected error occurred while communicating with the owner dashboard API."}
+                    {typeof error === "string" ? error : "An unexpected error occurred while communicating with the owner dashboard API."}
                 </p>
                 <button
                     type="button"
-                    onClick={() => fetchDashboard()}
+                    onClick={() => fetchDashboard(true)}
                     className="mt-6 px-6 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md shadow-primary/30"
                 >
                     Retry Loading
@@ -101,7 +104,7 @@ export default function OwnerDashboard() {
                 </p>
                 <button
                     type="button"
-                    onClick={() => fetchDashboard()}
+                    onClick={() => fetchDashboard(true)}
                     className="mt-6 px-6 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all cursor-pointer"
                 >
                     Refresh
@@ -343,7 +346,7 @@ export default function OwnerDashboard() {
                                     <div key={act.id} className="flex gap-3 items-start text-xs border-l border-border pl-4 relative ml-2">
                                         {/* Dynamic bullet indicator */}
                                         <div className={`absolute -left-3 top-0.5 p-1 rounded-full border border-border ${act.color}`}>
-                                            <Icon className="h-3 w-3" />
+                                            {Icon ? <Icon className="h-3 w-3" /> : null}
                                         </div>
                                         
                                         <div className="space-y-0.5">

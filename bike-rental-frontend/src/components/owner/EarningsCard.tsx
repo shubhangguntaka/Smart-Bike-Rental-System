@@ -3,7 +3,9 @@ import { useOwnerStore } from "../../store/ownerStore";
 import { TrendingUp, DollarSign, Calendar, Eye, IndianRupee } from "lucide-react";
 
 const EarningsCard = () => {
-    const { earnings, loading, fetchEarnings } = useOwnerStore();
+    const earnings = useOwnerStore((s) => s.earnings);
+    const loading = useOwnerStore((s) => s.loading);
+    const fetchEarnings = useOwnerStore((s) => s.fetchEarnings);
 
     useEffect(() => {
         if (!earnings) {

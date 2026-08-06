@@ -19,6 +19,8 @@ public interface BikeDocumentRepository extends JpaRepository<BikeDocument, Long
 
     boolean existsByRegistrationNumber(String registrationNumber);
 
+    List<BikeDocument> findByOwnerIdAndStatusOrderByVerifiedAtDesc(Long ownerId, String status);
+
     // Used for the status-check endpoint: is THIS specific bike
     // already APPROVED, so the frontend can skip the upload step when
     // the owner re-adds/re-lists the same bike.

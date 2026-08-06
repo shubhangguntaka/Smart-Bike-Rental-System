@@ -156,48 +156,34 @@ export const Modal: React.FC<ModalProps> = ({
     full: "w-full h-full max-h-none rounded-none",
   };
 
-  const modalContent = (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop Overlay */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            onClick={closeOnOverlayClick ? onClose : undefined}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
-            aria-hidden="true"
-          />
+  if (!isOpen) return null;
 
-          {/* Modal Container Wrapper */}
-          <motion.div
-            ref={modalContainerRef}
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{
-              type: "spring",
-              damping: 28,
-              stiffness: 300,
-            }}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={ariaLabelledBy}
-            aria-describedby={ariaDescribedBy}
-            className={cn(
-              "relative z-10 flex flex-col max-h-[85vh] bg-card text-foreground rounded-2xl shadow-2xl border border-border focus:outline-none overflow-hidden",
-              sizeClasses[size],
-              className
-            )}
-          >
-            {children}
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+  const modalContent = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop Overlay */}
+      <div
+        onClick={closeOnOverlayClick ? onClose : undefined}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer animate-in fade-in duration-200"
+        aria-hidden="true"
+      />
+
+      {/* Modal Container Wrapper */}
+      <div
+        ref={modalContainerRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
+        className={cn(
+          "relative z-10 flex flex-col max-h-[85vh] bg-card text-foreground rounded-2xl shadow-2xl border border-border focus:outline-none overflow-hidden animate-in zoom-in-95 duration-200",
+          sizeClasses[size],
+          className
+        )}
+      >
+        {children}
+      </div>
+    </div>
   );
 
   return createPortal(modalContent, document.body);

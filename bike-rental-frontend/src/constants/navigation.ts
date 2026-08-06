@@ -57,14 +57,14 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
     title: "General",
     items: [
       {
-        label: "Dashboard",
-        path: "/customer/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
         label: "Browse Bikes",
         path: "/customer/bikes",
         icon: Bike,
+      },
+      {
+        label: "Dashboard",
+        path: "/customer/dashboard",
+        icon: LayoutDashboard,
       },
       {
         label: "Bookings",

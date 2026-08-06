@@ -6,7 +6,11 @@ import toast from "react-hot-toast";
 import type { BookingRequest } from "../../types/owner";
 
 const BookingRequestCard = () => {
-    const { bookingRequests, loading, fetchBookingRequests, approveBooking, rejectBooking } = useOwnerStore();
+    const bookingRequests = useOwnerStore((s) => s.bookingRequests);
+    const loading = useOwnerStore((s) => s.loading);
+    const fetchBookingRequests = useOwnerStore((s) => s.fetchBookingRequests);
+    const approveBooking = useOwnerStore((s) => s.approveBooking);
+    const rejectBooking = useOwnerStore((s) => s.rejectBooking);
     const [selectedBooking, setSelectedBooking] = useState<BookingRequest | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [actioningId, setActioningId] = useState<number | null>(null);
@@ -42,7 +46,8 @@ const BookingRequestCard = () => {
         setIsDetailsOpen(true);
     };
 
-    const formatCurrency = (val: number) => {
+    const formatCurrency = (val?: number) => {
+        if (val === undefined || val === null || isNaN(val)) return "₹0";
         return new Intl.NumberFormat("en-IN", {
             style: "currency",
             currency: "INR",
@@ -50,10 +55,11 @@ const BookingRequestCard = () => {
         }).format(val);
     };
 
-    // Filter to only show pending requests (as requested by sections) or show all with badges
-    const pendingRequests = bookingRequests.filter(r => r.bookingStatus === "PENDING");
+    // Filter to only show pending requests (safely handling null/undefined)
+    const safeRequests = Array.isArray(bookingRequests) ? bookingRequests : [];
+    const pendingRequests = safeRequests.filter(r => r && r.bookingStatus === "PENDING");
 
-    if (loading && bookingRequests.length === 0) {
+    if (loading && safeRequests.length === 0) {
         return (
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs animate-pulse space-y-4">
                 <div className="h-6 w-48 bg-muted rounded"></div>

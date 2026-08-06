@@ -27,6 +27,9 @@ import CustomerSettings from "../pages/customer/Settings";
 // Owner Pages
 import OwnerDashboard from "@/pages/owner/Dashboard";
 import OwnerBikes from "@/pages/owner/Bikes";
+import AddBike from "@/pages/owner/AddBike";
+import EditBike from "@/pages/owner/EditBike";
+import BikeDetails from "@/pages/owner/BikeDetails";
 import OwnerBookings from "@/pages/owner/Bookings";
 import OwnerPayments from "@/pages/owner/Payments";
 import OwnerProfile from "@/pages/owner/Profile";
@@ -74,7 +77,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/customer/dashboard" replace />} />
+          <Route index element={<Navigate to="/customer/bikes" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="bikes" element={<CustomerBikes />} />
           <Route path="bookings" element={<CustomerBookings />} />
@@ -94,6 +97,9 @@ const AppRoutes = () => {
           <Route index element={<Navigate to="/owner/dashboard" replace />} />
           <Route path="dashboard" element={<OwnerDashboard />} />
           <Route path="bikes" element={<OwnerBikes />} />
+          <Route path="bikes/:bikeId" element={<BikeDetails />} />
+          <Route path="add-bike" element={<AddBike />} />
+          <Route path="edit-bike/:bikeId" element={<EditBike />} />
           <Route path="bookings" element={<OwnerBookings />} />
           <Route path="payments" element={<OwnerPayments />} />
           <Route path="profile" element={<OwnerProfile />} />

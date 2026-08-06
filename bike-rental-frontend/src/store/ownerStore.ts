@@ -1,4 +1,5 @@
-import { create } from "zustand";
+import { createStore } from "zustand/vanilla";
+import { useSyncExternalStore } from "react";
 import { ownerService } from "../services/ownerService";
 import type { DashboardStatistics, Earnings, BookingRequest } from "../types/owner";
 
@@ -16,7 +17,7 @@ interface OwnerStoreState {
   rejectBooking: (bookingId: number) => Promise<boolean>;
 }
 
-export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
+export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
   dashboard: null,
   earnings: null,
   bookingRequests: [],
@@ -29,34 +30,35 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getDashboard();
-      const data = res.data.data !== undefined ? res.data.data : res.data;
-      
+      const raw = res?.data;
+      const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : (raw || {});
+
       // Map OwnerDashboardDTO properties directly to DashboardStatistics structure
       const stats: DashboardStatistics = {
-        totalBikes: data.totalBikes ?? 0,
-        availableBikes: data.availableBikes ?? 0,
-        bookedBikes: data.bookedBikes ?? 0,
-        totalBookings: data.totalBookings ?? 0,
-        totalEarnings: data.totalEarnings ?? 0,
-        pendingBookings: data.pendingBookings ?? 0,
-        completedBookings: data.completedBookings ?? 0,
-        aadhaarVerified: data.aadhaarVerified ?? false,
-        rcVerified: data.rcVerified ?? false,
+        totalBikes: data?.totalBikes ?? 0,
+        availableBikes: data?.availableBikes ?? 0,
+        bookedBikes: data?.bookedBikes ?? 0,
+        totalBookings: data?.totalBookings ?? 0,
+        totalEarnings: data?.totalEarnings ?? 0,
+        pendingBookings: data?.pendingBookings ?? 0,
+        completedBookings: data?.completedBookings ?? 0,
+        aadhaarVerified: data?.aadhaarVerified ?? false,
+        rcVerified: data?.rcVerified ?? false,
       };
 
       // Map OwnerDashboardDTO earnings properties to Earnings structure
       const earningsData: Earnings = {
-        today: data.todayEarnings ?? 0,
-        weekly: data.weeklyEarnings ?? 0,
-        monthly: data.monthlyEarnings ?? 0,
-        total: data.totalEarnings ?? 0,
-        pendingPayments: data.pendingPayments ?? 0,
+        today: data?.todayEarnings ?? 0,
+        weekly: data?.weeklyEarnings ?? 0,
+        monthly: data?.monthlyEarnings ?? 0,
+        total: data?.totalEarnings ?? 0,
+        pendingPayments: data?.pendingPayments ?? 0,
       };
 
       set({ dashboard: stats, earnings: earningsData, loading: false });
     } catch (err: any) {
       set({
-        error: err.response?.data?.message || "Failed to fetch dashboard statistics",
+        error: err.response?.data?.message || err.message || "Failed to fetch dashboard statistics",
         loading: false,
       });
     }
@@ -68,11 +70,12 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getOwnerEarnings();
-      const data = res.data.data !== undefined ? res.data.data : res.data;
+      const raw = res?.data;
+      const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : (raw || {});
       set({ earnings: data, loading: false });
     } catch (err: any) {
       set({
-        error: err.response?.data?.message || "Failed to fetch earnings details",
+        error: err.response?.data?.message || err.message || "Failed to fetch earnings details",
         loading: false,
       });
     }
@@ -84,11 +87,13 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getBookingRequests();
-      const data = res.data.data !== undefined ? res.data.data : res.data;
+      const raw = res?.data;
+      const rawData = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : raw;
+      const data = Array.isArray(rawData) ? rawData : [];
       set({ bookingRequests: data, loading: false });
     } catch (err: any) {
       set({
-        error: err.response?.data?.message || "Failed to fetch booking requests",
+        error: err.response?.data?.message || err.message || "Failed to fetch booking requests",
         loading: false,
       });
     }
@@ -131,4 +136,14 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
       return false;
     }
   },
-}));
+}));
+
+export function useOwnerStore(): OwnerStoreState;
+export function useOwnerStore<T>(selector: (state: OwnerStoreState) => T): T;
+export function useOwnerStore<T>(selector?: (state: OwnerStoreState) => T): T | OwnerStoreState {
+  return useSyncExternalStore(
+    ownerStore.subscribe,
+    () => (selector ? selector(ownerStore.getState()) : ownerStore.getState()),
+    () => (selector ? selector(ownerStore.getState()) : ownerStore.getState())
+  );
+}

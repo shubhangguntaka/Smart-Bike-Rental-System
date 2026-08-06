@@ -33,7 +33,8 @@ export const extractOCR = async (
 // Driving License upload can be cross-checked against it.
 export const verifyAadhaar = async (
   file: File,
-  customerId?: number
+  customerId?: number,
+  purpose?: string
 ): Promise<AadhaarVerificationResult> => {
 
   const formData = new FormData();
@@ -42,6 +43,10 @@ export const verifyAadhaar = async (
 
   if (customerId !== undefined) {
     formData.append("customerId", String(customerId));
+  }
+
+  if (purpose) {
+    formData.append("purpose", purpose);
   }
 
   const response = await api.post<AadhaarVerificationResult>(
