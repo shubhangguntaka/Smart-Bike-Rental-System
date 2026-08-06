@@ -86,7 +86,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
   const rejected = !!result && !result.verified;
 
   return (
-    <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_20px_60px_-25px_rgba(11,18,32,0.35)]">
+    <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-ink/10 shadow-[0_20px_60px_-25px_rgba(11,18,32,0.35)]">
 
       {/* Header band */}
       <div className="border-b border-ink/10 bg-bureau px-8 py-6 text-parchment">

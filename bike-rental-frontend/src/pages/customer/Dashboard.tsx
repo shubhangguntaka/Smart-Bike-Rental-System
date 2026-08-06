@@ -304,7 +304,7 @@ export default function CustomerDashboard() {
               </div>
 
               <Link
-                to="/bikes"
+                to="/customer/bikes"
                 className="inline-flex items-center gap-1.5 text-xs font-extrabold text-primary hover:underline self-start sm:self-auto"
               >
                 Explore Full Catalog <ArrowUpRight className="h-4 w-4" />

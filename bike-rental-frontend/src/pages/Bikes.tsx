@@ -275,18 +275,9 @@ export default function Bikes() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 bg-background min-h-screen text-foreground space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 min-h-screen text-foreground space-y-8">
       {/* Header Info */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition shadow-xs cursor-pointer"
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
           Explore Our Smart Fleet
         </h1>

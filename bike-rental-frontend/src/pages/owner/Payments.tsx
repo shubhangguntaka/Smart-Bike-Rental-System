@@ -226,7 +226,7 @@ export default function OwnerPayments() {
     }
 
     return (
-        <div className="space-y-6 bg-background text-foreground min-h-screen pb-10">
+        <div className="space-y-6 text-foreground min-h-screen pb-10">
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-6 rounded-2xl">
                 <div>

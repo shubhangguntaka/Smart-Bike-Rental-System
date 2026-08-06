@@ -30,7 +30,7 @@ export default function CustomerBookings() {
   };
 
   return (
-    <div className="space-y-6 bg-background text-foreground min-h-screen">
+    <div className="space-y-6 text-foreground min-h-screen">
       {/* Title */}
       <div className="bg-card border border-border p-6 rounded-2xl">
         <h2 className="text-xl font-bold text-foreground">Your Bookings</h2>

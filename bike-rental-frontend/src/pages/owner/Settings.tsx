@@ -16,7 +16,7 @@ export default function OwnerSettings() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl bg-background text-foreground min-h-screen">
+    <div className="space-y-6 max-w-3xl text-foreground min-h-screen">
       {/* Title */}
       <div className="bg-card border border-border p-6 rounded-2xl">
         <h2 className="text-xl font-bold text-foreground">Owner Settings</h2>
