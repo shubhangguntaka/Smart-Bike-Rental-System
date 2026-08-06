@@ -36,6 +36,21 @@ public class SecurityUtils {
         if (principal instanceof User) {
             return (User) principal;
         }
+        String email = null;
+        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
+            email = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
+        } else if (principal instanceof String) {
+            email = (String) principal;
+        }
+        if (email != null) {
+            try {
+                com.sssit.bikerental.modules.user.repository.UserRepository userRepository = 
+                        SpringContext.getBean(com.sssit.bikerental.modules.user.repository.UserRepository.class);
+                return userRepository.findByEmail(email).orElse(null);
+            } catch (Exception e) {
+                return null;
+            }
+        }
         return null;
     }
 

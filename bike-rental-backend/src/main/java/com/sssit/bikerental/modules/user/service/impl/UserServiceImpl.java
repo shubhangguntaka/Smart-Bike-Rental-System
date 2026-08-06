@@ -1,6 +1,11 @@
 package com.sssit.bikerental.modules.user.service.impl;
 
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -8,6 +13,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sssit.bikerental.common.exception.ResourceNotFoundException;
+import com.sssit.bikerental.common.exception.FileStorageException;
+import com.sssit.bikerental.common.exception.ValidationException;
 import com.sssit.bikerental.modules.user.User;
 import com.sssit.bikerental.modules.user.dto.ChangePasswordRequest;
 import com.sssit.bikerental.modules.user.dto.UpdateProfileRequest;
@@ -36,7 +44,7 @@ public class UserServiceImpl implements UserService {
                 String email = authentication.getName();
 
                 return userRepository.findByEmail(email)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
         }
 
         @Override
@@ -62,14 +70,56 @@ public class UserServiceImpl implements UserService {
 
                 User user = getLoggedInUser();
 
-                user.setFullName(request.getFullName());
+                if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                        if (userRepository.existsByEmail(request.getEmail())) {
+                                throw new IllegalArgumentException("Email is already in use by another account.");
+                        }
+                        user.setEmail(request.getEmail().toLowerCase());
+                }
 
-                user.setPhoneNumber(request.getPhoneNumber());
+                if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(user.getPhoneNumber())) {
+                        if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+                                throw new IllegalArgumentException("Phone number is already in use by another account.");
+                        }
+                        user.setPhoneNumber(request.getPhoneNumber());
+                }
+
+                user.setFullName(request.getFullName());
 
                 userRepository.save(user);
 
                 return getCurrentUser();
 
+        }
+
+        @Override
+        public UserProfileResponse uploadProfileImage(MultipartFile file) {
+                User user = getLoggedInUser();
+                if (file == null || file.isEmpty()) {
+                        throw new IllegalArgumentException("File cannot be empty.");
+                }
+
+                try {
+                        String uploadDir = "uploads/profile-images/";
+                        Files.createDirectories(Paths.get(uploadDir));
+                        
+                        String originalName = file.getOriginalFilename();
+                        String extension = "";
+                        if (originalName != null && originalName.contains(".")) {
+                                extension = originalName.substring(originalName.lastIndexOf("."));
+                        }
+                        String fileName = "avatar_" + user.getId() + "_" + System.currentTimeMillis() + extension;
+                        Path path = Paths.get(uploadDir + fileName);
+
+                        Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+
+                        user.setProfileImage("/uploads/profile-images/" + fileName);
+                        userRepository.save(user);
+
+                        return getCurrentUser();
+                } catch (Exception e) {
+                        throw new FileStorageException("Failed to upload profile image: " + e.getMessage(), e);
+                }
         }
 
         @Override
@@ -82,7 +132,7 @@ public class UserServiceImpl implements UserService {
                                 request.getOldPassword(),
                                 user.getPassword())) {
 
-                        throw new RuntimeException(
+                        throw new ValidationException(
                                         "Old password is incorrect");
 
                 }
@@ -130,7 +180,7 @@ public class UserServiceImpl implements UserService {
 
                 User user = userRepository.findById(id)
 
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
                 return map(user);
 
@@ -142,7 +192,7 @@ public class UserServiceImpl implements UserService {
 
                 User user = userRepository.findById(id)
 
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
                 user.setFullName(request.getFullName());
 
@@ -165,7 +215,7 @@ public class UserServiceImpl implements UserService {
 
                 User user = userRepository.findById(id)
 
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
                 userRepository.delete(user);
 
@@ -177,7 +227,7 @@ public class UserServiceImpl implements UserService {
 
                 User user = userRepository.findById(id)
 
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
                 user.setEnabled(enabled);
 

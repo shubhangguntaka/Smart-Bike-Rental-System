@@ -10,6 +10,10 @@ public class UpdateProfileRequest {
     @NotBlank(message = "Full name is required")
     private String fullName;
 
+    @NotBlank(message = "Email is required")
+    @jakarta.validation.constraints.Email(message = "Invalid email format")
+    private String email;
+
     @Pattern(
             regexp = "^[6-9]\\d{9}$",
             message = "Invalid phone number"

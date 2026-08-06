@@ -17,4 +17,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registrar.registerFormatters(registry);
     }
+
+    @Override
+    public void addResourceHandlers(org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:uploads/");
+    }
 }

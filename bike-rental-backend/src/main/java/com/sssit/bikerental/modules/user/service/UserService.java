@@ -11,6 +11,8 @@ public interface UserService {
         UserProfileResponse updateProfile(
                         UpdateProfileRequest request);
 
+        UserProfileResponse uploadProfileImage(org.springframework.web.multipart.MultipartFile file);
+
         void changePassword(
                         ChangePasswordRequest request);
 

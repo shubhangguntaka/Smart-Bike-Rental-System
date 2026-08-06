@@ -13,6 +13,7 @@ import com.sssit.bikerental.modules.verification.bikedocument.entity.BikeDocumen
 import com.sssit.bikerental.modules.verification.bikedocument.service.BikeDocumentService;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.sssit.bikerental.common.security.SecurityUtils;
 
 @RestController
 @RequestMapping("/api/bike-document")
@@ -35,7 +36,11 @@ public class BikeDocumentController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "ownerId", required = false) Long ownerId,
             @RequestParam(value = "bikeId", required = false) Long bikeId) {
-        return service.verifyBikeDocument(file, ownerId, bikeId);
+        Long resolvedOwnerId = SecurityUtils.getCurrentUserId();
+        if (resolvedOwnerId == null) {
+            resolvedOwnerId = ownerId;
+        }
+        return service.verifyBikeDocument(file, resolvedOwnerId, bikeId);
     }
 
     //-----------------------------------
@@ -49,10 +54,14 @@ public class BikeDocumentController {
 
     @GetMapping("/status")
     public ResponseEntity<BikeDocument> getStatus(
-            @RequestParam("ownerId") Long ownerId,
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
             @RequestParam("bikeId") Long bikeId) {
 
-        BikeDocument result = service.getApprovedDocument(ownerId, bikeId);
+        Long resolvedOwnerId = SecurityUtils.getCurrentUserId();
+        if (resolvedOwnerId == null) {
+            resolvedOwnerId = ownerId;
+        }
+        BikeDocument result = service.getApprovedDocument(resolvedOwnerId, bikeId);
 
         return result != null
                 ? ResponseEntity.ok(result)

@@ -52,4 +52,10 @@ public class UserController {
 
     }
 
+    @PostMapping("/profile-image")
+    public ResponseEntity<UserProfileResponse> uploadProfileImage(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        return ResponseEntity.ok(userService.uploadProfileImage(file));
+    }
 }

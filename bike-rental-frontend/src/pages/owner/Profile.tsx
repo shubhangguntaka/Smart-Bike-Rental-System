@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import useAuth from "@/hooks/useAuth";
-import { Mail, Phone, ShieldCheck } from "lucide-react";
+import { Mail, Phone, ShieldCheck, Camera } from "lucide-react";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
-import { updateProfile, changePassword } from "@/services/userService";
+import { updateProfile, changePassword, uploadProfileImage } from "@/services/userService";
+import env from "@/config/env";
 import toast from "react-hot-toast";
 
 export default function OwnerProfile() {
@@ -14,6 +15,7 @@ export default function OwnerProfile() {
 
   const [profileForm, setProfileForm] = useState({
     fullName: "",
+    email: "",
     phoneNumber: "",
   });
 
@@ -26,6 +28,7 @@ export default function OwnerProfile() {
     if (user) {
       setProfileForm({
         fullName: user.fullName || "",
+        email: user.email || "",
         phoneNumber: user.phoneNumber || "",
       });
     }
@@ -39,10 +42,41 @@ export default function OwnerProfile() {
     setPasswordForm({ ...passwordForm, [e.target.name]: e.target.value });
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image file size should not exceed 2 MB");
+      return;
+    }
+
+    try {
+      setProfileLoading(true);
+      await uploadProfileImage(file);
+      await refreshUser();
+      toast.success("Profile avatar uploaded successfully!");
+    } catch (error: any) {
+      const response = error.response?.data;
+      toast.error(response?.message || "Failed to upload avatar");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileForm.fullName.trim()) {
       toast.error("Full Name is required");
+      return;
+    }
+    if (!profileForm.email.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileForm.email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
     if (!profileForm.phoneNumber.trim()) {
@@ -51,7 +85,7 @@ export default function OwnerProfile() {
     }
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(profileForm.phoneNumber)) {
-      toast.error("Please enter a valid 10-digit phone number");
+      toast.error("Please enter a valid 10-digit phone number starting with 6-9");
       return;
     }
 
@@ -78,8 +112,11 @@ export default function OwnerProfile() {
       toast.error("New Password is required");
       return;
     }
-    if (passwordForm.newPassword.length < 8) {
-      toast.error("New Password must be at least 8 characters");
+    
+    // Strong password validation: 8+ characters, uppercase, lowercase, digit, special character
+    const strongPasswordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!\-_])(?=\S+$).{8,}$/;
+    if (!strongPasswordRegex.test(passwordForm.newPassword)) {
+      toast.error("Password must be at least 8 characters long, contain at least one digit, one lowercase, one uppercase, and one special character.");
       return;
     }
 
@@ -107,8 +144,31 @@ export default function OwnerProfile() {
       {/* Profile Card */}
       <div className="bg-card border border-border rounded-2xl p-6 space-y-6 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-4 border-b border-border pb-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xl border border-primary/20">
-            {user?.fullName ? user.fullName[0].toUpperCase() : "O"}
+          <div className="relative group cursor-pointer shrink-0">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-2xl border border-primary/20 overflow-hidden shadow-inner">
+              {user?.profileImage ? (
+                <img 
+                  src={`${env.API_BASE_URL.replace("/api", "")}${user.profileImage}`} 
+                  alt="Avatar" 
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                user?.fullName ? user.fullName[0].toUpperCase() : "O"
+              )}
+            </div>
+            <label 
+              htmlFor="avatar-file-upload"
+              className="absolute inset-0 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-200 cursor-pointer"
+            >
+              <Camera className="h-5 w-5 text-white" />
+            </label>
+            <input 
+              type="file" 
+              id="avatar-file-upload" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleAvatarChange}
+            />
           </div>
           <div className="text-center sm:text-left space-y-1">
             <h3 className="text-lg font-bold">{user?.fullName}</h3>
@@ -118,12 +178,12 @@ export default function OwnerProfile() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="flex items-center gap-3 text-sm">
             <Mail className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="font-semibold text-xs text-muted-foreground">Email Address</p>
-              <p className="text-foreground">{user?.email}</p>
+              <p className="text-foreground font-mono">{user?.email}</p>
             </div>
           </div>
 
@@ -139,7 +199,9 @@ export default function OwnerProfile() {
             <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="font-semibold text-xs text-muted-foreground">KYC Partner Verification</p>
-              <p className="text-green-500 font-bold">Approved & Verified Partner</p>
+              <p className={`${user?.enabled ? 'text-green-500' : 'text-amber-500'} font-bold`}>
+                {user?.enabled ? 'Approved & Verified Partner' : 'Verification Pending'}
+              </p>
             </div>
           </div>
         </div>
@@ -149,12 +211,19 @@ export default function OwnerProfile() {
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
         <h3 className="text-base font-bold border-b border-border pb-3 mb-4">Edit Profile</h3>
         <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
               label="Full Name"
               name="fullName"
               type="text"
               value={profileForm.fullName}
+              onChange={handleProfileChange}
+            />
+            <Input
+              label="Email Address"
+              name="email"
+              type="email"
+              value={profileForm.email}
               onChange={handleProfileChange}
             />
             <Input

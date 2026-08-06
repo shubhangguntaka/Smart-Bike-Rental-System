@@ -85,7 +85,8 @@ public class SecurityConfig {
                         // User profile/change-password endpoints accessible by authenticated users
                         .requestMatchers(
                                 "/api/users/profile",
-                                "/api/users/change-password"
+                                "/api/users/change-password",
+                                "/api/users/profile-image"
                         ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
 
                         // ADMIN

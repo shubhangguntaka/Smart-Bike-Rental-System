@@ -9,6 +9,7 @@ import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerificat
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.sssit.bikerental.common.security.SecurityUtils;
 
 @RestController
 @RequestMapping("/api/aadhaar")
@@ -43,7 +44,11 @@ public class AadhaarController {
             @RequestParam(value = "customerId", required = false) Long customerId,
             @RequestParam(value = "purpose", required = false) String purpose) {
 
-        return aadhaarService.verifyAadhaar(file, customerId, purpose);
+        Long resolvedCustomerId = SecurityUtils.getCurrentUserId();
+        if (resolvedCustomerId == null) {
+            resolvedCustomerId = customerId;
+        }
+        return aadhaarService.verifyAadhaar(file, resolvedCustomerId, purpose);
     }
 
     //-----------------------------------
@@ -56,10 +61,14 @@ public class AadhaarController {
 
     @GetMapping("/status")
     public ResponseEntity<AadhaarVerification> getStatus(
-            @RequestParam("customerId") Long customerId,
+            @RequestParam(value = "customerId", required = false) Long customerId,
             @RequestParam(value = "purpose", required = false) String purpose) {
 
-        AadhaarVerification result = aadhaarService.getApprovedAadhaar(customerId, purpose);
+        Long resolvedCustomerId = SecurityUtils.getCurrentUserId();
+        if (resolvedCustomerId == null) {
+            resolvedCustomerId = customerId;
+        }
+        AadhaarVerification result = aadhaarService.getApprovedAadhaar(resolvedCustomerId, purpose);
 
         return result != null
                 ? ResponseEntity.ok(result)
