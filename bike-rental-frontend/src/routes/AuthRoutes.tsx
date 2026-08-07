@@ -5,7 +5,8 @@ import ForgotPassword from "../pages/auth/ForgotPassword";
 import VerifyOtp from "../pages/auth/VerifyOtp";
 import ResetPassword from "../pages/auth/ResetPassword";
 import AuthGuard from "./AuthGuard";
-
+import Reviews from "../pages/customer/Reviews";
+import Notifications from "../pages/customer/Notifications";
 const AuthRoutes = (
   <>
     <Route
@@ -48,6 +49,9 @@ const AuthRoutes = (
         </AuthGuard>
       }
     />
+    <Route path="/reviews" element={<Reviews />} />
+
+<Route path="/notifications" element={<Notifications />} />
   </>
 );
 

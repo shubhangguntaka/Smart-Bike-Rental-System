@@ -105,12 +105,16 @@ public class SecurityConfig {
 
                         // CUSTOMER
                         .requestMatchers(
-                                "/api/customer/**",
-                                "/api/bookings/**",
-                                "/api/cart/**",
-                                "/api/profile/**",
-                                "/api/reviews/**"
-                        ).hasRole("CUSTOMER")
+                        	    "/api/reviews/**",
+                        	    "/api/notifications/**"
+                        	).permitAll()
+
+                        	.requestMatchers(
+                        	    "/api/customer/**",
+                        	    "/api/bookings/**",
+                        	    "/api/cart/**",
+                        	    "/api/profile/**"
+                        	).hasRole("CUSTOMER")
 
                         // All other APIs require authentication
                         .anyRequest().authenticated()
