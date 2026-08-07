@@ -1,30 +1,30 @@
-interface Props{
+interface Props {
 
-message?:string;
-
-}
-
-const ErrorMessage=({
-
-message
-
-}:Props)=>{
-
-if(!message){
-
-return null;
+    message?: string;
 
 }
 
-return(
+const ErrorMessage = ({
 
-<p className="mt-1 text-sm text-red-500">
+    message
 
-{message}
+}: Props) => {
 
-</p>
+    if (!message) {
 
-)
+        return null;
+
+    }
+
+    return (
+
+        <p className="mt-1 text-sm text-red-500">
+
+            {message}
+
+        </p>
+
+    )
 
 }
 

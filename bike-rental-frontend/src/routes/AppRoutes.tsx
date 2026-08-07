@@ -23,6 +23,8 @@ import CustomerBikes from "../pages/customer/Bikes";
 import CustomerBookings from "../pages/customer/Bookings";
 import CustomerProfile from "../pages/customer/Profile";
 import CustomerSettings from "../pages/customer/Settings";
+import CreateBooking from "../pages/customer/CreateBooking";
+import BookingDetails from "../pages/customer/BookingDetails";
 
 // Owner Pages
 import OwnerDashboard from "@/pages/owner/Dashboard";
@@ -81,6 +83,8 @@ const AppRoutes = () => {
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="bikes" element={<CustomerBikes />} />
           <Route path="bookings" element={<CustomerBookings />} />
+          <Route path="book/:bikeId" element={<CreateBooking />} />
+          <Route path="bookings/:id" element={<BookingDetails />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="settings" element={<CustomerSettings />} />
         </Route>
