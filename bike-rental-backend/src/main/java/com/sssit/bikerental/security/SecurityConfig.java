@@ -95,7 +95,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/profile",
                                 "/api/users/change-password",
-                                "/api/users/profile-image"
+                                "/api/users/profile-image",
+                                "/api/bookings/**"
                         ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
 
                         // ADMIN
@@ -114,16 +115,14 @@ public class SecurityConfig {
 
                         // CUSTOMER
                         .requestMatchers(
-                        	    "/api/reviews/**",
-                        	    "/api/notifications/**"
-                        	).permitAll()
-
-                        	.requestMatchers(
-                        	    "/api/customer/**",
-                        	    "/api/bookings/**",
-                        	    "/api/cart/**",
-                        	    "/api/profile/**"
-                        	).hasRole("CUSTOMER")
+                                "/api/customer/**",
+                                "/api/cart/**",
+                                "/api/profile/**"
+                        ).hasRole("CUSTOMER")
+                        .requestMatchers(
+                                "/api/reviews/**",
+                                "/api/notifications/**"
+                        ).permitAll()
 
                         // All other APIs require authentication
                         .anyRequest().authenticated()

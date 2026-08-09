@@ -57,6 +57,15 @@ export default function OwnerPayments() {
         }).format(val);
     };
 
+    const formatDate = (dateStr: string) => {
+        try {
+            if (!dateStr) return "N/A";
+            return new Date(dateStr).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
+        } catch {
+            return dateStr;
+        }
+    };
+
     const handleRetry = () => {
         fetchEarnings(true);
         fetchBookingRequests(true);
@@ -169,7 +178,7 @@ export default function OwnerPayments() {
         }
         const headers = ["Date", "Booking ID", "Customer", "Amount (INR)", "Status"];
         const rows = sorted.map(b => 
-            `"${b.pickupDate}","BR-${b.bookingId}","${b.customerName}",${b.rentalAmount},"${b.bookingStatus}"`
+            `"${formatDate(b.pickupDate)}","BR-${b.bookingId}","${b.customerName}",${b.rentalAmount},"${b.bookingStatus}"`
         );
         const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
         const encodedUri = encodeURI(csvContent);
@@ -435,7 +444,7 @@ export default function OwnerPayments() {
                             ) : paginated.length > 0 ? (
                                 paginated.map((booking) => (
                                     <tr key={booking.bookingId} className="hover:bg-muted/10 transition-colors">
-                                        <td className="p-4 text-muted-foreground">{booking.pickupDate}</td>
+                                        <td className="p-4 text-muted-foreground">{formatDate(booking.pickupDate)}</td>
                                         <td className="p-4 font-mono font-bold text-foreground">BR-{booking.bookingId}</td>
                                         <td className="p-4 text-foreground font-medium">{booking.customerName}</td>
                                         <td className="p-4 text-foreground font-medium">{booking.bikeName}</td>

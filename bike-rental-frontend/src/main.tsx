@@ -6,7 +6,7 @@ import "./index.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { NotificationProvider } from "./context/NotificationContext";
-
+import { BookingProvider } from "./context/BookingContext";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 
 ReactDOM.createRoot(
@@ -17,7 +17,9 @@ ReactDOM.createRoot(
             <ThemeProvider>
                 <AuthProvider>
                     <NotificationProvider>
-                        <App />
+                        <BookingProvider>
+                            <App />
+                        </BookingProvider>
                     </NotificationProvider>
                 </AuthProvider>
             </ThemeProvider>

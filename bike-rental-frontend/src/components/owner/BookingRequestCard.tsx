@@ -16,7 +16,7 @@ const BookingRequestCard = () => {
     const [actioningId, setActioningId] = useState<number | null>(null);
 
     useEffect(() => {
-        fetchBookingRequests();
+        fetchBookingRequests(true);
     }, [fetchBookingRequests]);
 
     const handleApprove = async (id: number) => {

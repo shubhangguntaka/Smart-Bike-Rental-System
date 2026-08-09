@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ShieldCheck } from "lucide-react";
 
 import AadhaarVerification from "./AadhaarVerification";
 import DrivingLicenseVerification from "../customer/DrivingLicenseVerification";
+import { BookingService } from "../../services/bookingService";
+import useAuth from "../../hooks/useAuth";
 
 import type {
   AadhaarVerificationResult,
@@ -12,20 +15,50 @@ import type {
 
 type Step = "aadhaar" | "license" | "done";
 
-// Two-step KYC flow: verify Aadhaar first, then Driving License.
-// The Aadhaar record's id is passed into the DL step so the backend
-// can cross-check the DL holder's name against the verified Aadhaar
-// name.
 const DocumentVerification = () => {
+  const { user } = useAuth();
+  const customerId = user?.id || 11;
+  const navigate = useNavigate();
+
   const [step, setStep] = useState<Step>("aadhaar");
+  const [loading, setLoading] = useState(true);
   const [aadhaarResult, setAadhaarResult] = useState<AadhaarVerificationResult | null>(null);
   const [licenseResult, setLicenseResult] = useState<DrivingLicenseVerificationResult | null>(null);
 
-  const handleAadhaarVerified = (result: AadhaarVerificationResult) => {
+  useEffect(() => {
+    const checkVerification = async () => {
+      try {
+        setLoading(true);
+        const details = await BookingService.getVerificationDetails(customerId);
+        setAadhaarResult(details.aadhaarData);
+        setLicenseResult(details.dlData);
+
+        if (details.aadhaarVerified && details.dlVerified) {
+          setStep("done");
+        } else if (details.aadhaarVerified) {
+          setStep("license");
+        } else {
+          setStep("aadhaar");
+        }
+      } catch (err) {
+        console.error("Failed to load verification status", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkVerification();
+  }, [customerId]);
+
+  const handleAadhaarVerified = async (result: AadhaarVerificationResult) => {
     setAadhaarResult(result);
 
     if (result.status !== "REJECTED") {
-      setStep("license");
+      const details = await BookingService.getVerificationDetails(customerId);
+      if (details.dlVerified) {
+        setStep("done");
+      } else {
+        setStep("license");
+      }
     }
   };
 
@@ -37,11 +70,31 @@ const DocumentVerification = () => {
     }
   };
 
-  // No dashboard route is wired up in this app yet - falling back to
-  // browser history keeps the button honest (it actually leaves this
-  // flow) rather than doing nothing. Swap for `navigate(-1)` /
-  // `navigate("/dashboard")` once routing is added.
-  const exitVerification = () => window.history.back();
+  const exitVerification = () => navigate(-1);
+
+  const pendingBookingStr = localStorage.getItem("pending_booking");
+  const handleContinue = () => {
+    if (pendingBookingStr) {
+      try {
+        const { returnRoute } = JSON.parse(pendingBookingStr);
+        navigate(returnRoute || "/customer/bikes");
+      } catch {
+        navigate("/customer/bikes");
+      }
+    } else {
+      navigate("/customer/bikes");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-parchment">
+        <p className="font-mono text-xs uppercase tracking-[0.25em] text-brass">
+          Loading Verification Status...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center gap-10 bg-parchment px-4 py-14">
@@ -102,6 +155,17 @@ const DocumentVerification = () => {
               </p>
             </div>
           </div>
+
+          {pendingBookingStr && (
+            <div className="border-t border-ink/10 p-6 bg-slate-50 flex justify-center">
+              <button
+                onClick={handleContinue}
+                className="w-full max-w-xs rounded-xl bg-bureau px-6 py-3 font-semibold text-white transition-colors hover:bg-bureau/90"
+              >
+                Continue to Booking
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
     </div>

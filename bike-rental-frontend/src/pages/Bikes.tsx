@@ -5,10 +5,11 @@ import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Star, Shield, Battery, Navigation, BadgeAlert, Award, Loader2, FileText, CheckCircle2, ShieldCheck, Upload, Sparkles, ArrowRight } from "lucide-react";
+import { Star, Shield, Battery, Navigation, BadgeAlert, Award, Loader2, FileText, CheckCircle2, ShieldCheck, Upload, Sparkles, ArrowRight, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 import bikeService from "@/services/bikeService";
 import { verifyAadhaar, verifyDrivingLicense } from "@/services/verificationService";
+import { BookingService } from "@/services/bookingService";
 import api from "@/api/axios";
 import useAuth from "@/hooks/useAuth";
 import type { Bike } from "@/types/bike";
@@ -71,6 +72,39 @@ export default function Bikes() {
   const [bookingBike, setBookingBike] = useState<any | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [isUnavailableModalOpen, setIsUnavailableModalOpen] = useState(false);
+
+  const getTodayDateTimeString = () => {
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    now.setHours(now.getHours() + 1);
+    const tzoffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
+  };
+
+  const getTomorrowDateTimeString = () => {
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    now.setHours(now.getHours() + 25);
+    const tzoffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
+  };
+
+  const [pickupDate, setPickupDate] = useState(getTodayDateTimeString());
+  const [returnDate, setReturnDate] = useState(getTomorrowDateTimeString());
+
+  const getTimeString = (dateTimeStr: string) => {
+    if (!dateTimeStr) return "";
+    const parts = dateTimeStr.split(/[T ]/);
+    return parts[1] ? parts[1].slice(0, 5) : "";
+  };
+
+  const updateTimeInDateTimeString = (dateTimeStr: string, timeStr: string) => {
+    if (!dateTimeStr) return "";
+    const parts = dateTimeStr.split(/[T ]/);
+    const separator = dateTimeStr.includes("T") ? "T" : " ";
+    return `${parts[0]}${separator}${timeStr}`;
+  };
 
   // Document Scan / Verification Modal States
   const [showScanModal, setShowScanModal] = useState(false);
@@ -101,6 +135,7 @@ export default function Bikes() {
           name: b.bikeName || `${b.brand} ${b.model}`.trim() || "Rental Bike",
           type: (b.fuelType || "petrol").toLowerCase(),
           price: b.hourlyRate || Math.round((b.rentalPrice || 500) / 8),
+          rentalPrice: b.rentalPrice || 500,
           rating: 4.9,
           range: b.mileage || "45 km/l",
           battery: b.fuelType?.toUpperCase() === "ELECTRIC" ? "98%" : "N/A",
@@ -127,6 +162,35 @@ export default function Bikes() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || allBikes.length === 0) return;
+
+    const restorePendingBooking = async () => {
+      const pendingStr = localStorage.getItem("pending_booking");
+      if (!pendingStr) return;
+
+      try {
+        const pending = JSON.parse(pendingStr);
+        if (pending && pending.bikeId) {
+          const isVerified = await BookingService.checkVerificationStatus(Number(user.id));
+          if (isVerified) {
+            const bike = allBikes.find((b) => Number(b.id) === Number(pending.bikeId));
+            if (bike) {
+              setBookingBike(bike);
+              setIsBookingOpen(true);
+              toast.success("Identity verified! Continuing your booking for " + bike.name);
+            }
+            localStorage.removeItem("pending_booking");
+          }
+        }
+      } catch (err) {
+        console.error("Error restoring pending booking:", err);
+      }
+    };
+
+    restorePendingBooking();
+  }, [allBikes, user]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -168,7 +232,6 @@ export default function Bikes() {
   const totalPages = Math.ceil(filteredBikes.length / itemsPerPage);
   const paginatedBikes = filteredBikes.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-  // Triggered when customer clicks "Rent Now" / "Book Now"
   const handleBookClick = async (bike: any) => {
     if (!user) {
       toast.error("Please login to book a bike.");
@@ -185,41 +248,44 @@ export default function Bikes() {
       return;
     }
 
-    setBookingBike(bike);
-
     try {
-      const customerId = user.id;
-      let aadhaarVerified = false;
-      let dlVerified = false;
+      // 0. Check bike availability for selected time
+      const isAvailable = await BookingService.checkAvailability(
+        bike.id,
+        pickupDate,
+        returnDate
+      );
 
-      // 1. Check Aadhaar Verification Status
-      try {
-        const aRes = await api.get("/aadhaar/status", { params: { customerId } });
-        aadhaarVerified = Boolean(aRes.data);
-      } catch {
-        aadhaarVerified = false;
-      }
-
-      // 2. Check Driving License (DL) Verification Status
-      try {
-        const dRes = await api.get("/driving-license/status", { params: { customerId } });
-        dlVerified = Boolean(dRes.data);
-      } catch {
-        dlVerified = false;
-      }
-
-      // If either Aadhaar or DL is not verified, open the Scan & Verify Modal before booking
-      if (!aadhaarVerified || !dlVerified) {
-        setScanStep(!aadhaarVerified ? "aadhaar" : "dl");
-        setShowScanModal(true);
+      if (!isAvailable) {
+        setIsUnavailableModalOpen(true);
         return;
       }
 
-      // Both documents verified -> open booking confirmation modal directly
-      setIsBookingOpen(true);
-    } catch {
-      // Fallback: open booking modal directly
-      setIsBookingOpen(true);
+      setBookingBike(bike);
+      const customerId = Number(user.id);
+
+      // 1. Check overall verification status from backend
+      const isVerified = await BookingService.checkVerificationStatus(customerId);
+
+      if (isVerified) {
+        // Both documents verified -> open booking confirmation modal directly
+        setIsBookingOpen(true);
+        return;
+      }
+
+      // If either Aadhaar or DL is not verified, save pending booking and redirect to Verification Module
+      toast.error("You need to complete identity verification to rent a bike.");
+      localStorage.setItem(
+        "pending_booking",
+        JSON.stringify({
+          bikeId: bike.id,
+          returnRoute: window.location.pathname,
+        })
+      );
+      navigate("/verification");
+    } catch (err) {
+      console.error("Verification check failed:", err);
+      toast.error("Could not verify listing status. Please try again.");
     }
   };
 
@@ -236,7 +302,7 @@ export default function Bikes() {
     reader.readAsDataURL(file);
   };
 
-  // Submit & Scan Document (Aadhaar or DL)
+  // Handles Aadhaar/DL document upload OCR scanning
   const handleProcessScan = async () => {
     if (!docFile || !user) {
       toast.error("Please select a document image to scan.");
@@ -248,7 +314,7 @@ export default function Bikes() {
 
       if (scanStep === "aadhaar") {
         const result = await verifyAadhaar(docFile, user.id, "USER");
-        if (result.status !== "VERIFIED") {
+        if (result.status !== "VERIFIED" && result.status !== "APPROVED") {
           toast.error(result.rejectionReason || "Aadhaar OCR scan failed. Ensure card is clear.");
           setScanningDoc(false);
           return;
@@ -282,14 +348,41 @@ export default function Bikes() {
   };
 
   const handleConfirmBooking = async () => {
-    setConfirmLoading(true);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setConfirmLoading(false);
-    setIsBookingOpen(false);
-    toast.success(`Successfully booked ${bookingBike?.name}! Redirecting to Dashboard...`);
-    setBookingBike(null);
-    navigate("/dashboard");
+    if (!bookingBike || !user) return;
+    try {
+      setConfirmLoading(true);
+
+      // Check bike availability for selected time
+      const isAvailable = await BookingService.checkAvailability(
+        Number(bookingBike.id),
+        pickupDate,
+        returnDate
+      );
+
+      if (!isAvailable) {
+        setIsBookingOpen(false);
+        setIsUnavailableModalOpen(true);
+        setConfirmLoading(false);
+        return;
+      }
+
+      const bookingRequest = {
+        bikeId: Number(bookingBike.id),
+        startTime: pickupDate,
+        returnTime: returnDate,
+      };
+
+      await BookingService.createBooking(Number(user.id), bookingRequest);
+      toast.success(`Successfully booked ${bookingBike.name}! Redirecting to Bookings...`);
+      setIsBookingOpen(false);
+      setBookingBike(null);
+      navigate("/customer/bookings");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Booking failed.");
+    } finally {
+      setConfirmLoading(false);
+    }
   };
 
   return (
@@ -555,10 +648,41 @@ export default function Bikes() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Start Time</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="time"
+                      value={getTimeString(pickupDate)}
+                      onChange={(e) => setPickupDate(updateTimeInDateTimeString(pickupDate, e.target.value))}
+                      className="w-full rounded-xl border border-border bg-card pl-3 pr-10 py-2 text-xs text-foreground focus:border-primary focus:outline-none [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-8 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                    <Clock className="absolute right-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Return Time</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="time"
+                      value={getTimeString(returnDate)}
+                      onChange={(e) => setReturnDate(updateTimeInDateTimeString(returnDate, e.target.value))}
+                      className="w-full rounded-xl border border-border bg-card pl-3 pr-10 py-2 text-xs text-foreground focus:border-primary focus:outline-none [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-8 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                    <Clock className="absolute right-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-3.5">
                 <div className="flex justify-between text-xs font-medium">
                   <span className="text-muted-foreground">Rental rate</span>
                   <span className="text-foreground font-semibold">₹{bookingBike.price} / hour</span>
+                </div>
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-muted-foreground font-medium">Daily Rate (Est.)</span>
+                  <span className="text-foreground font-semibold">₹{bookingBike.rentalPrice || 500} / day</span>
                 </div>
                 <div className="flex justify-between text-xs font-medium">
                   <span className="text-muted-foreground font-medium">Verified Identity</span>
@@ -567,8 +691,16 @@ export default function Bikes() {
                   </span>
                 </div>
                 <div className="border-t border-border pt-3.5 flex justify-between text-sm font-bold">
-                  <span>Estimated Rate</span>
-                  <span className="text-primary">₹{bookingBike.price} / hr</span>
+                  <span>Estimated Total</span>
+                  <span className="text-primary font-black">
+                    ₹{(() => {
+                      const start = new Date(pickupDate);
+                      const end = new Date(returnDate);
+                      const diffTime = Math.abs(end.getTime() - start.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                      return diffDays * (bookingBike.rentalPrice || 500);
+                    })()}
+                  </span>
                 </div>
               </div>
 
@@ -600,6 +732,31 @@ export default function Bikes() {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             )}
             {confirmLoading ? "Processing..." : "Confirm & Pay"}
+          </button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Unavailable Bike Modal */}
+      <Modal
+        isOpen={isUnavailableModalOpen}
+        onClose={() => setIsUnavailableModalOpen(false)}
+        size="sm"
+      >
+        <ModalHeader onClose={() => setIsUnavailableModalOpen(false)}>
+          Bike Unavailable
+        </ModalHeader>
+        <ModalBody>
+          <div className="p-5 text-center">
+            <p className="text-sm font-semibold text-foreground">Bike is already booked.</p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button
+            type="button"
+            onClick={() => setIsUnavailableModalOpen(false)}
+            className="w-full px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center justify-center cursor-pointer"
+          >
+            OK
           </button>
         </ModalFooter>
       </Modal>

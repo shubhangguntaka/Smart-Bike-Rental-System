@@ -246,7 +246,8 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             //-----------------------------------
 
             List<AadhaarVerification> approvedAadhaars =
-                    aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED);
+                    new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
+            approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
 
             AadhaarVerification matchedAadhaar = null;
 
@@ -470,9 +471,16 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             return null;
         }
 
-        return repository
+        BikeDocument doc = repository
                 .findFirstByOwnerIdAndBikeIdAndStatusOrderByVerifiedAtDesc(
                         ownerId, bikeId, VerificationConstants.STATUS_APPROVED)
                 .orElse(null);
+        if (doc == null) {
+            doc = repository
+                    .findFirstByOwnerIdAndBikeIdAndStatusOrderByVerifiedAtDesc(
+                            ownerId, bikeId, "VERIFIED")
+                    .orElse(null);
+        }
+        return doc;
     }
 }

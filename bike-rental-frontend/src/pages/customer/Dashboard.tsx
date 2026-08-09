@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 import bikeService from "@/services/bikeService";
+import { BookingService } from "@/services/bookingService";
 import type { Bike } from "@/types/bike";
 import { format12Hour } from "@/utils/timeUtils";
 import api from "@/api/axios";
@@ -51,8 +52,7 @@ export default function CustomerDashboard() {
         // Fetch customer bookings if logged in
         if (user?.id) {
           try {
-            const bRes = await api.get(`/bookings/user/${user.id}`).catch(() => api.get("/bookings"));
-            const rawBookings = bRes.data?.data || bRes.data || [];
+            const rawBookings = await BookingService.getCustomerBookings(user.id);
             if (isMounted) {
               setUserBookings(Array.isArray(rawBookings) ? rawBookings : []);
             }
@@ -81,7 +81,7 @@ export default function CustomerDashboard() {
     return "CU";
   };
 
-  const isIdentityVerified = Boolean(user?.phoneVerified || user?.emailVerified || user?.id);
+  const isIdentityVerified = Boolean(user?.enabled || user?.id);
 
   // Filter bikes based on search & category
   const filteredBikes = bikes.filter((bike) => {
@@ -273,7 +273,7 @@ export default function CustomerDashboard() {
               </Link>
 
               <Link
-                to="/verification/aadhaar"
+                to="/verification"
                 className="flex flex-col items-center justify-center p-4 rounded-2xl border border-border bg-card hover:bg-blue-500/5 hover:border-blue-500/30 transition-all text-center group shadow-xs"
               >
                 <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 group-hover:scale-110 transition-transform mb-2">

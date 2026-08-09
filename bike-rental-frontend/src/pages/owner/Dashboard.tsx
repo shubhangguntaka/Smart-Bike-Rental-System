@@ -29,7 +29,7 @@ export default function OwnerDashboard() {
     const fetchDashboard = useOwnerStore((s) => s.fetchDashboard);
 
     useEffect(() => {
-        fetchDashboard();
+        fetchDashboard(true);
         const timer = setInterval(() => {
             fetchDashboard(true);
         }, 30000);

@@ -25,6 +25,12 @@ import CustomerProfile from "../pages/customer/Profile";
 import CustomerSettings from "../pages/customer/Settings";
 import CreateBooking from "../pages/customer/CreateBooking";
 import BookingDetails from "../pages/customer/BookingDetails";
+import BookBike from "../pages/customer/BookBike";
+import BookingHistory from "../pages/customer/BookingHistory";
+import RideTracking from "../pages/customer/RideTracking";
+import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
+import Payment from "../pages/customer/Payment";
+import QRScannerPage from "../pages/owner/QRScannerPage";
 
 // Owner Pages
 import OwnerDashboard from "@/pages/owner/Dashboard";
@@ -87,6 +93,11 @@ const AppRoutes = () => {
           <Route path="bookings/:id" element={<BookingDetails />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="settings" element={<CustomerSettings />} />
+          <Route path="book-bike" element={<BookBike />} />
+          <Route path="booking-history" element={<BookingHistory />} />
+          <Route path="ride-tracking" element={<RideTracking />} />
+          <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
+          <Route path="payment/:bookingId" element={<Payment />} />
         </Route>
 
         {/* Owner Dashboard Routes */}
@@ -108,6 +119,7 @@ const AppRoutes = () => {
           <Route path="payments" element={<OwnerPayments />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="settings" element={<OwnerSettings />} />
+          <Route path="scan-booking" element={<QRScannerPage />} />
         </Route>
 
         {/* Admin Dashboard Routes */}

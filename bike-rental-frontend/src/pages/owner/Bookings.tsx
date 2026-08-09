@@ -59,7 +59,7 @@ export default function OwnerBookings() {
     const [actioningId, setActioningId] = useState<number | null>(null);
 
     useEffect(() => {
-        fetchBookingRequests();
+        fetchBookingRequests(true);
     }, [fetchBookingRequests]);
 
     const handleApprove = async (id: number) => {
@@ -101,6 +101,21 @@ export default function OwnerBookings() {
             currency: "INR",
             maximumFractionDigits: 0
         }).format(val);
+    };
+
+    const formatDateTime = (dtStr: string) => {
+        try {
+            if (!dtStr) return "N/A";
+            return new Date(dtStr).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            });
+        } catch {
+            return dtStr;
+        }
     };
 
     const handleRetry = () => {
@@ -271,7 +286,7 @@ export default function OwnerBookings() {
                                 <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
                                         <Calendar className="h-4 w-4 text-primary shrink-0" />
-                                        <span>{booking.pickupDate} to {booking.returnDate}</span>
+                                        <span>{formatDateTime(booking.pickupDate)} to {formatDateTime(booking.returnDate)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -380,12 +395,12 @@ export default function OwnerBookings() {
                                     <span className="text-foreground font-bold">{selectedBooking.customerPhone || "N/A"}</span>
                                 </div>
                                 <div className="flex justify-between items-center border-t border-border/40 pt-2">
-                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Pickup Date</span>
-                                    <span className="text-foreground font-bold">{selectedBooking.pickupDate}</span>
+                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Start Time</span>
+                                    <span className="text-foreground font-bold">{formatDateTime(selectedBooking.pickupDate)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Return Date</span>
-                                    <span className="text-foreground font-bold">{selectedBooking.returnDate}</span>
+                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Return Time</span>
+                                    <span className="text-foreground font-bold">{formatDateTime(selectedBooking.returnDate)}</span>
                                 </div>
                             </div>
 

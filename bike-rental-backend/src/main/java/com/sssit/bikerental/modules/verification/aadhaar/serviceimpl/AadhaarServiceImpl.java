@@ -236,7 +236,8 @@ public class AadhaarServiceImpl implements AadhaarService {
             AadhaarVerification existingRecord = existing.get();
 
             boolean alreadyApproved =
-                    VerificationConstants.STATUS_APPROVED.equals(existingRecord.getStatus());
+                    VerificationConstants.STATUS_APPROVED.equals(existingRecord.getStatus())
+                            || "VERIFIED".equals(existingRecord.getStatus());
 
             boolean belongsToDifferentCustomer =
                     existingRecord.getCustomerId() != null
@@ -695,12 +696,19 @@ public class AadhaarServiceImpl implements AadhaarService {
             return null;
         }
 
-        return repository
+        AadhaarVerification res = repository
                 .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                         customerId, VerificationConstants.STATUS_APPROVED)
                 .or(() -> repository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                         customerId, "VERIFIED"))
                 .orElse(null);
+        if (res == null) {
+            res = repository
+                    .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                            customerId, "VERIFIED")
+                    .orElse(null);
+        }
+        return res;
     }
 
 }

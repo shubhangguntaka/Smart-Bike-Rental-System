@@ -362,8 +362,8 @@ public class OwnerServiceImpl implements OwnerService {
                                 .customerEmail(customerEmail)
                                 .customerPhone(customerPhone)
                                 .bikeName(bikeName)
-                                .pickupDate(bk.getPickupDate() != null ? bk.getPickupDate().toLocalDate().toString() : "")
-                                .returnDate(bk.getReturnDate() != null ? bk.getReturnDate().toLocalDate().toString() : "")
+                                .pickupDate(bk.getStartTime() != null ? bk.getStartTime().toString() : "")
+                                .returnDate(bk.getReturnTime() != null ? bk.getReturnTime().toString() : "")
                                 .rentalAmount(bk.getRentalAmount())
                                 .bookingStatus(bk.getStatus())
                                 .build();

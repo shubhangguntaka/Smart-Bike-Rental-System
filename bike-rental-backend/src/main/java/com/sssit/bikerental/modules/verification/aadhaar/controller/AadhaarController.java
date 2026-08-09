@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.sssit.bikerental.common.security.SecurityUtils;
 

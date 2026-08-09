@@ -205,6 +205,21 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
         }).format(val);
     };
 
+    const formatDateTime = (dtStr: string) => {
+        try {
+            if (!dtStr) return "N/A";
+            return new Date(dtStr).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            });
+        } catch {
+            return dtStr;
+        }
+    };
+
     // Render Camera Permission State
     if (permission === "prompt" || permission === "requesting") {
         return (
@@ -370,7 +385,7 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Duration</span>
-                                    <span className="font-semibold text-foreground">{scannedBooking.pickupDate} to {scannedBooking.returnDate}</span>
+                                    <span className="font-semibold text-foreground">{formatDateTime(scannedBooking.pickupDate)} to {formatDateTime(scannedBooking.returnDate)}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Rental Cost</span>

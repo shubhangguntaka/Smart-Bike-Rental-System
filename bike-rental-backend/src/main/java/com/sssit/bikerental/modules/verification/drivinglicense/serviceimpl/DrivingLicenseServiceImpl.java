@@ -178,7 +178,8 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             //-----------------------------------
 
             List<AadhaarVerification> approvedAadhaars =
-                    aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED);
+                    new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
+            approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
 
             AadhaarVerification matchedAadhaar = null;
 
@@ -397,9 +398,16 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             return null;
         }
 
-        return repository
+        DrivingLicense res = repository
                 .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                         customerId, VerificationConstants.STATUS_APPROVED)
                 .orElse(null);
+        if (res == null) {
+            res = repository
+                    .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                            customerId, "VERIFIED")
+                    .orElse(null);
+        }
+        return res;
     }
 }
