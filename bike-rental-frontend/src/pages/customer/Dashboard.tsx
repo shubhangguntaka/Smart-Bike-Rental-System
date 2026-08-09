@@ -214,7 +214,7 @@ export default function CustomerDashboard() {
           <div className="text-2xl font-black text-foreground">
             {userBookings.filter((b) => b.status === "APPROVED" || b.status === "ACTIVE").length} Active
           </div>
-          <p className="text-[11px] text-muted-foreground font-medium font-medium">Current ongoing rentals</p>
+          <p className="text-[11px] text-muted-foreground font-medium">Current ongoing rentals</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-xs transition hover:shadow-md space-y-2">

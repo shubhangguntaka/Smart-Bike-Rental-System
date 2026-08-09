@@ -192,6 +192,8 @@ export default function Bikes() {
     restorePendingBooking();
   }, [allBikes, user]);
 
+
+
   const handleSearch = (val: string) => {
     setSearch(val);
     setPage(1);
@@ -204,6 +206,7 @@ export default function Bikes() {
 
   // Filter client-side
   const filteredBikes = allBikes.filter((bike) => {
+
     // Search filter
     if (search && !bike.name.toLowerCase().includes(search.toLowerCase())) {
       return false;
@@ -732,6 +735,8 @@ export default function Bikes() {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             )}
             {confirmLoading ? "Processing..." : "Confirm & Pay"}
+            {/* if valid user with aadhar and drivving license then it should show rent now otherwise it should show verify */}
+            
           </button>
         </ModalFooter>
       </Modal>

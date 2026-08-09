@@ -23,7 +23,9 @@ import type { AadhaarVerificationResult } from "../../types/verification";
 interface Props {
   onVerified?: (result: AadhaarVerificationResult) => void;
   onBack?: () => void;
+  /** Logged-in user id — links Aadhaar to this account */
   customerId?: number;
+  /** "BIKE_OWNER" when verifying for bike listing; default USER */
   purpose?: string;
   autoReturnMs?: number;
 }
