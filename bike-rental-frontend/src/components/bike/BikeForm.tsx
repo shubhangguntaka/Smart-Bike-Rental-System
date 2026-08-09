@@ -123,36 +123,26 @@ const BikeForm = ({
 
   const validate = (draftBike: Bike): { valid: boolean; prepared: Bike; errors: Record<string, string> } => {
     const prepared: Bike = { ...draftBike };
+    
+    // Set fallback default image if user did not provide one
     if (!prepared.imageUrl?.trim()) {
       prepared.imageUrl = "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80";
     }
-    if (!prepared.fuelType?.trim()) {
-      prepared.fuelType = "PETROL";
-    }
-    if (!prepared.location?.trim()) {
-      prepared.location = "Hyderabad";
-    }
-    if (!prepared.hourlyRate || prepared.hourlyRate <= 0) {
-      prepared.hourlyRate = 80;
-    }
+
+    const rate = Number(prepared.hourlyRate);
+    prepared.hourlyRate = rate > 0 ? rate : 0;
     prepared.rentalType = "HOURLY";
     prepared.rentalPrice = prepared.hourlyRate * 8;
-    if (!prepared.bikeName?.trim()) {
-      prepared.bikeName = [prepared.brand, prepared.model].filter(Boolean).join(" ") || "Yamaha R15 V4";
-    }
-
-    if (!prepared.registrationNumber?.trim()) {
-      prepared.registrationNumber = initial.registrationNumber || "TS09AB1234";
-    }
-    if (!prepared.rcNumber?.trim()) {
-      prepared.rcNumber = prepared.registrationNumber;
-    }
 
     const next: Record<string, string> = {};
-    if (!prepared.bikeName?.trim()) next.bikeName = "Required";
-    if (!prepared.brand?.trim()) next.brand = "Required";
-    if (!prepared.model?.trim()) next.model = "Required";
-    if (!prepared.registrationNumber?.trim()) next.registrationNumber = "Required";
+    if (!prepared.bikeName?.trim()) next.bikeName = "Bike Name is required";
+    if (!prepared.brand?.trim()) next.brand = "Brand is required";
+    if (!prepared.model?.trim()) next.model = "Model is required";
+    if (!prepared.fuelType?.trim()) next.fuelType = "Fuel Type is required";
+    if (!prepared.registrationNumber?.trim()) next.registrationNumber = "Registration Number is required";
+    if (!prepared.rcNumber?.trim()) next.rcNumber = "RC Number is required";
+    if (!prepared.location?.trim()) next.location = "Location is required";
+    if (!prepared.hourlyRate || prepared.hourlyRate <= 0) next.hourlyRate = "Rental price (rate/hr) is required";
 
     setErrors(next);
     return { valid: Object.keys(next).length === 0, prepared, errors: next };
@@ -163,7 +153,7 @@ const BikeForm = ({
     try {
       const result = validate(bike);
       if (!result.valid) {
-        toast.error("Please complete required fields: " + Object.keys(result.errors).join(", "));
+        toast.error("Please fill in all mandatory fields marked with * to proceed.");
         return;
       }
       await onSubmit(result.prepared);
@@ -210,18 +200,18 @@ const BikeForm = ({
     <form onSubmit={handleSubmit} className="space-y-8">
       <Section title="Basic details" subtitle="Name, brand, and how customers see this bike.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Bike name" error={errors.bikeName}>
-            <input name="bikeName" value={bike.bikeName} onChange={handleChange} className={inputClass("bikeName")} placeholder="Honda Activa 6G" />
+          <Field label="Bike name" required error={errors.bikeName}>
+            <input name="bikeName" value={bike.bikeName} onChange={handleChange} className={inputClass("bikeName")} placeholder="e.g. KTM Duke 390" />
           </Field>
-          <Field label="Brand" error={errors.brand}>
-            <input name="brand" value={bike.brand} onChange={handleChange} className={inputClass("brand")} placeholder="Honda" />
+          <Field label="Brand" required error={errors.brand}>
+            <input name="brand" value={bike.brand} onChange={handleChange} className={inputClass("brand")} placeholder="e.g. KTM" />
           </Field>
-          <Field label="Model" error={errors.model}>
-            <input name="model" value={bike.model} onChange={handleChange} className={inputClass("model")} placeholder="Activa 6G" />
+          <Field label="Model" required error={errors.model}>
+            <input name="model" value={bike.model} onChange={handleChange} className={inputClass("model")} placeholder="e.g. Duke 390" />
           </Field>
-          <Field label="Fuel type" error={errors.fuelType}>
+          <Field label="Fuel type" required error={errors.fuelType}>
             <select name="fuelType" value={bike.fuelType} onChange={handleChange} className={inputClass("fuelType")}>
-              <option value="">Select</option>
+              <option value="">Select Fuel Type</option>
               <option value="Petrol">Petrol</option>
               <option value="Electric">Electric</option>
               <option value="Diesel">Diesel</option>
@@ -233,19 +223,19 @@ const BikeForm = ({
 
       <Section title="Identity" subtitle="Verified registration details stay locked after RC check.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Registration number" error={errors.registrationNumber}>
-            <input name="registrationNumber" value={bike.registrationNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("registrationNumber")} placeholder="TS09AB1234" />
+          <Field label="Registration number" required error={errors.registrationNumber}>
+            <input name="registrationNumber" value={bike.registrationNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("registrationNumber")} placeholder="e.g. TS09AB1234" />
           </Field>
-          <Field label="RC number" error={errors.rcNumber}>
-            <input name="rcNumber" value={bike.rcNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("rcNumber")} placeholder="RC number" />
+          <Field label="RC number" required error={errors.rcNumber}>
+            <input name="rcNumber" value={bike.rcNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("rcNumber")} placeholder="e.g. TS09AB1234" />
           </Field>
         </div>
       </Section>
 
       <Section title="Pricing & availability" subtitle="Set your hourly rate, operational hours, and availability status.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Rental price (₹ / hour)" error={errors.hourlyRate}>
-            <input type="number" name="hourlyRate" min={1} value={bike.hourlyRate || ""} onChange={handleChange} className={inputClass("hourlyRate")} placeholder="80" />
+          <Field label="Rental price (₹ / hour)" required error={errors.hourlyRate}>
+            <input type="number" name="hourlyRate" min={1} value={bike.hourlyRate || ""} onChange={handleChange} className={inputClass("hourlyRate")} placeholder="e.g. 80" />
           </Field>
 
           <Field label="Operational Start Time (12-Hour AM/PM)">
@@ -315,7 +305,7 @@ const BikeForm = ({
             </select>
           </Field>
 
-          <Field label="Location" error={errors.location}>
+          <Field label="Location" required error={errors.location}>
             <div className="space-y-2">
               <div className="flex gap-2">
                 <input
@@ -553,19 +543,22 @@ const Section = ({
 
 const Field = ({
   label,
+  required,
   error,
   children,
 }: {
   label: string;
+  required?: boolean;
   error?: string;
   children: React.ReactNode;
 }) => (
   <label className="block space-y-1.5">
-    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-      {label}
+    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+      <span>{label}</span>
+      {required && <span className="text-destructive font-black text-sm">*</span>}
     </span>
     {children}
-    {error && <span className="block text-xs text-destructive">{error}</span>}
+    {error && <span className="block text-xs font-semibold text-destructive">{error}</span>}
   </label>
 );
 

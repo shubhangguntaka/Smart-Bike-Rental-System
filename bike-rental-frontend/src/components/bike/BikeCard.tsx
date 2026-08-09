@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, MapPin, Pencil, Star, Trash2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Clock, MapPin, Pencil, Star, Trash2, ChevronLeft, ChevronRight, Eye, Wrench, CheckCircle2 } from "lucide-react";
 import type { Bike } from "../../types/bike";
 import BikeAvailability from "./BikeAvailability";
 import { ROUTES } from "@/constants/routes";
@@ -10,6 +10,7 @@ interface BikeCardProps {
   bike: Bike;
   showOwnerActions?: boolean;
   onDelete?: (bikeId: number) => void;
+  onStatusToggle?: (bikeId: number, currentStatus: string) => void;
   rating?: number;
 }
 
@@ -53,8 +54,11 @@ const BikeCard = ({
       {/* Image Gallery Showcase */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
         <img
-          src={currentPhotoUrl}
+          src={currentPhotoUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80"}
           alt={bike.bikeName}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80";
+          }}
           onClick={() => setIsZoomOpen(true)}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105 cursor-zoom-in"
         />
@@ -91,7 +95,12 @@ const BikeCard = ({
         )}
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          <BikeAvailability status={bike.bikeStatus} compact />
+          <BikeAvailability
+            status={bike.bikeStatus}
+            availableStartTime={bike.availableStartTime}
+            availableEndTime={bike.availableEndTime}
+            compact
+          />
         </div>
         <div className="absolute right-3 top-3">
           <span
@@ -217,11 +226,44 @@ const BikeCard = ({
               </Link>
               <button
                 type="button"
+                onClick={() =>
+                  bike.bikeId &&
+                  onStatusToggle?.(
+                    bike.bikeId,
+                    bike.bikeStatus === "UNDER_MAINTENANCE" || bike.bikeStatus === "MAINTENANCE"
+                      ? "AVAILABLE"
+                      : "UNDER_MAINTENANCE"
+                  )
+                }
+                title={
+                  bike.bikeStatus === "UNDER_MAINTENANCE" || bike.bikeStatus === "MAINTENANCE"
+                    ? "Set status to Available"
+                    : "Set status to Maintenance"
+                }
+                className={`inline-flex items-center justify-center gap-1 rounded-2xl border px-2.5 py-2.5 text-xs font-bold transition ${
+                  bike.bikeStatus === "UNDER_MAINTENANCE" || bike.bikeStatus === "MAINTENANCE"
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                }`}
+              >
+                {bike.bikeStatus === "UNDER_MAINTENANCE" || bike.bikeStatus === "MAINTENANCE" ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Available
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="h-3.5 w-3.5" />
+                    Maintenance
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => bike.bikeId && onDelete?.(bike.bikeId)}
                 className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-xs font-bold text-destructive transition hover:bg-destructive/10"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Delete
               </button>
             </>
           ) : (

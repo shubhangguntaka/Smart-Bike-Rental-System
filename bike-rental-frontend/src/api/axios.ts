@@ -107,7 +107,7 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      window.location.href = "/unauthorized";
+      console.warn("API 403 Forbidden Response:", error.config?.url);
     }
 
     return Promise.reject(error);

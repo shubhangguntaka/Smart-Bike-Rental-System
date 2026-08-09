@@ -18,6 +18,8 @@ export interface UserInfo {
     email: string;
     role: string;
     phoneNumber?: string;
+    phoneVerified?: boolean;
+    emailVerified?: boolean;
     enabled?: boolean;
     profileImage?: string;
     name?: string;

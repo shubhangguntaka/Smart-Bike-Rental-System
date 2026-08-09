@@ -18,11 +18,8 @@ import com.sssit.bikerental.security.jwt.JwtAuthenticationEntryPoint;
 import com.sssit.bikerental.security.jwt.JwtFilter;
 import com.sssit.bikerental.security.user.CustomUserDetailsService;
 
-import lombok.RequiredArgsConstructor;
-
 @Configuration
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
@@ -30,6 +27,18 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+
+        public SecurityConfig(JwtFilter jwtFilter,
+                                                  JwtAuthenticationEntryPoint authenticationEntryPoint,
+                                                  CustomAccessDeniedHandler accessDeniedHandler,
+                                                  CustomUserDetailsService userDetailsService,
+                                                  PasswordEncoder passwordEncoder) {
+                this.jwtFilter = jwtFilter;
+                this.authenticationEntryPoint = authenticationEntryPoint;
+                this.accessDeniedHandler = accessDeniedHandler;
+                this.userDetailsService = userDetailsService;
+                this.passwordEncoder = passwordEncoder;
+        }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {

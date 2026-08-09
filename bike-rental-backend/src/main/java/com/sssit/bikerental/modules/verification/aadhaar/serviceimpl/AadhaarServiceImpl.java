@@ -698,6 +698,8 @@ public class AadhaarServiceImpl implements AadhaarService {
         return repository
                 .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                         customerId, VerificationConstants.STATUS_APPROVED)
+                .or(() -> repository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                        customerId, "VERIFIED"))
                 .orElse(null);
     }
 

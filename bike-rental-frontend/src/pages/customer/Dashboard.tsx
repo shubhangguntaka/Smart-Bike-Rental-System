@@ -26,6 +26,7 @@ import useAuth from "@/hooks/useAuth";
 import bikeService from "@/services/bikeService";
 import type { Bike } from "@/types/bike";
 import { format12Hour } from "@/utils/timeUtils";
+import api from "@/api/axios";
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -50,7 +51,7 @@ export default function CustomerDashboard() {
         // Fetch customer bookings if logged in
         if (user?.id) {
           try {
-            const bRes = await api.get("/owner/bookings");
+            const bRes = await api.get(`/bookings/user/${user.id}`).catch(() => api.get("/bookings"));
             const rawBookings = bRes.data?.data || bRes.data || [];
             if (isMounted) {
               setUserBookings(Array.isArray(rawBookings) ? rawBookings : []);

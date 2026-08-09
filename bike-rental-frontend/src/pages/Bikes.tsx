@@ -87,7 +87,16 @@ export default function Bikes() {
         const apiBikes = await bikeService.getAllBikes();
         if (!active) return;
 
-        const mappedRealBikes = (apiBikes || []).map((b: Bike, index: number) => ({
+        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+        const combinedRaw = [...(apiBikes || [])];
+
+        localCached.forEach((b) => {
+          if (!combinedRaw.some((cb) => cb.registrationNumber === b.registrationNumber)) {
+            combinedRaw.unshift(b);
+          }
+        });
+
+        const mappedRealBikes = combinedRaw.map((b: Bike, index: number) => ({
           id: b.bikeId || b.id || index + 1,
           name: b.bikeName || `${b.brand} ${b.model}`.trim() || "Rental Bike",
           type: (b.fuelType || "petrol").toLowerCase(),
@@ -163,7 +172,16 @@ export default function Bikes() {
   const handleBookClick = async (bike: any) => {
     if (!user) {
       toast.error("Please login to book a bike.");
-      navigate(ROUTES.AUTH.LOGIN);
+      navigate(ROUTES.LOGIN);
+      return;
+    }
+
+    if (!isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime)) {
+      toast.error(
+        `This bike is outside its operational shift (${format12Hour(
+          bike.availableStartTime || "09:00"
+        )} – ${format12Hour(bike.availableEndTime || "21:00")}). Bookings resume during shift hours!`
+      );
       return;
     }
 
@@ -230,7 +248,7 @@ export default function Bikes() {
 
       if (scanStep === "aadhaar") {
         const result = await verifyAadhaar(docFile, user.id, "USER");
-        if (!result.verified) {
+        if (result.status !== "VERIFIED") {
           toast.error(result.rejectionReason || "Aadhaar OCR scan failed. Ensure card is clear.");
           setScanningDoc(false);
           return;
@@ -244,7 +262,7 @@ export default function Bikes() {
       } else {
         const result = await verifyDrivingLicense(docFile, user.id);
         if (!result.verified) {
-          toast.error(result.rejectionReason || "Driving License OCR scan failed. Ensure DL name matches Aadhaar.");
+          toast.error(result.message || "Driving License OCR scan failed. Ensure DL name matches Aadhaar.");
           setScanningDoc(false);
           return;
         }
@@ -308,70 +326,107 @@ export default function Bikes() {
       {/* Grid List */}
       {paginatedBikes.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {paginatedBikes.map((bike) => (
-            <div
-              key={bike.id}
-              className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg hover:shadow-xl transition-all duration-300 group"
-            >
-              {/* Bike Image */}
-              <div className="relative h-48 w-full overflow-hidden bg-muted">
-                <img
-                  src={bike.image}
-                  alt={bike.name}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm">
-                  {bike.location}
-                </div>
-              </div>
+          {paginatedBikes.map((bike) => {
+            const isShiftActive = isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime);
 
-              {/* Card Body */}
-              <div className="flex-1 p-5 space-y-4 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                      {bike.type}
+            return (
+              <div
+                key={bike.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg hover:shadow-xl transition-all duration-300 group"
+              >
+                {/* Bike Image & Live Shift Badge */}
+                <div className="relative h-48 w-full overflow-hidden bg-muted">
+                  <img
+                    src={bike.image}
+                    alt={bike.name}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-md backdrop-blur-md ${
+                        isShiftActive
+                          ? "bg-emerald-500/90 text-white"
+                          : "bg-amber-500/90 text-white"
+                      }`}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                      {isShiftActive ? "Available Now" : "Shift Closed"}
                     </span>
-                    <div className="flex items-center gap-1 text-xs font-bold text-foreground">
-                      <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                      <span>{bike.rating}</span>
+                  </div>
+                  <div className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm">
+                    {bike.location}
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="flex-1 p-5 space-y-4 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                        {bike.type}
+                      </span>
+                      <div className="flex items-center gap-1 text-xs font-bold text-foreground">
+                        <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                        <span>{bike.rating}</span>
+                      </div>
                     </div>
+                    <h3 className="font-bold text-base text-foreground leading-tight truncate">
+                      {bike.name}
+                    </h3>
                   </div>
-                  <h3 className="font-bold text-base text-foreground leading-tight truncate">
-                    {bike.name}
-                  </h3>
-                </div>
 
-                {/* Tech Specs */}
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground border-y border-border py-3">
-                  <div className="flex items-center gap-1.5">
-                    <Battery className="h-4 w-4 text-primary" />
-                    <span>Battery: {bike.battery}</span>
+                  {/* Tech Specs & Shift Hours */}
+                  <div className="space-y-2 border-y border-border py-3 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Battery className="h-4 w-4 text-primary" />
+                        <span>Battery: {bike.battery}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Navigation className="h-4 w-4 text-primary" />
+                        <span>Range: {bike.range}</span>
+                      </div>
+                    </div>
+                    {(bike.availableStartTime || bike.availableEndTime) && (
+                      <div className="flex items-center gap-1 text-[11px] font-medium text-foreground/80 pt-1">
+                        <span className="font-bold text-primary">Operating Shift:</span>{" "}
+                        {format12Hour(bike.availableStartTime || "09:00")} –{" "}
+                        {format12Hour(bike.availableEndTime || "21:00")}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Navigation className="h-4 w-4 text-primary" />
-                    <span>Range: {bike.range}</span>
-                  </div>
-                </div>
 
-                {/* Footer Pricing & CTA */}
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    <span className="text-lg font-black text-foreground">₹{bike.price}</span>
-                    <span className="text-xs text-muted-foreground">/ hr</span>
+                  {/* Footer Pricing & CTA */}
+                  <div className="flex items-center justify-between pt-2">
+                    <div>
+                      <span className="text-lg font-black text-foreground">₹{bike.price}</span>
+                      <span className="text-xs text-muted-foreground">/ hr</span>
+                    </div>
+
+                    {isShiftActive ? (
+                      <button
+                        type="button"
+                        onClick={() => handleBookClick(bike)}
+                        className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Rent Now
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        title="Outside operating hours"
+                        className="px-4 py-2 text-xs font-semibold rounded-xl bg-muted text-muted-foreground border border-border cursor-not-allowed flex items-center gap-1"
+                      >
+                        Shift Closed
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleBookClick(bike)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Rent Now
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 border border-dashed border-border rounded-2xl bg-card">

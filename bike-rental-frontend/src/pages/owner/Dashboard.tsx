@@ -30,6 +30,10 @@ export default function OwnerDashboard() {
 
     useEffect(() => {
         fetchDashboard();
+        const timer = setInterval(() => {
+            fetchDashboard(true);
+        }, 30000);
+        return () => clearInterval(timer);
     }, [fetchDashboard]);
 
     if (loading && !dashboard) {

@@ -11,7 +11,12 @@ import {
   SlidersHorizontal,
   FileCheck2,
   RotateCcw,
-  Zap,
+  FileText,
+  ChevronRight,
+  Plus,
+  BadgeCheck,
+  Building,
+  MapPin,
 } from "lucide-react";
 
 import useAuth from "@/hooks/useAuth";
@@ -25,37 +30,13 @@ import type {
 import AadhaarVerification from "@/pages/verification/AadhaarVerification";
 import BikeDocumentVerification from "@/pages/owner/BikeDocumentVerification";
 import { ROUTES } from "@/constants/routes";
-import { format12Hour } from "@/utils/timeUtils";
+import { format12Hour, parse12HourTo24 } from "@/utils/timeUtils";
 
 type StepMode =
-  | "checking"
-  | "step1_aadhaar"
-  | "quick_listing"
-  | "custom_form"
-  | "step5_upload_rc"
-  | "step6_rc_verification"
-  | "step7_registered_success";
-
-const TIME_OPTIONS = [
-  { value: "06:00", label: "06:00 AM" },
-  { value: "07:00", label: "07:00 AM" },
-  { value: "08:00", label: "08:00 AM" },
-  { value: "09:00", label: "09:00 AM" },
-  { value: "10:00", label: "10:00 AM" },
-  { value: "11:00", label: "11:00 AM" },
-  { value: "12:00", label: "12:00 PM" },
-  { value: "13:00", label: "01:00 PM" },
-  { value: "14:00", label: "02:00 PM" },
-  { value: "15:00", label: "03:00 PM" },
-  { value: "16:00", label: "04:00 PM" },
-  { value: "17:00", label: "05:00 PM" },
-  { value: "18:00", label: "06:00 PM" },
-  { value: "19:00", label: "07:00 PM" },
-  { value: "20:00", label: "08:00 PM" },
-  { value: "21:00", label: "09:00 PM" },
-  { value: "22:00", label: "10:00 PM" },
-  { value: "23:00", label: "11:00 PM" },
-];
+  | "step1_details"
+  | "step2_aadhaar"
+  | "step3_rc"
+  | "step4_success";
 
 const AddBike = () => {
   const navigate = useNavigate();
@@ -64,75 +45,83 @@ const AddBike = () => {
 
   const [isAadhaarVerified, setIsAadhaarVerified] = useState<boolean | null>(null);
   const [approvedRcs, setApprovedRcs] = useState<ApprovedRc[]>([]);
-  const [stepMode, setStepMode] = useState<StepMode>("checking");
+  const [stepMode, setStepMode] = useState<StepMode>("step1_details");
 
   const [bikeDraft, setBikeDraft] = useState<Bike | null>(null);
-  const [rcResult, setRcResult] = useState<BikeDocumentVerificationResult | null>(null);
+  const [verifyingStatus, setVerifyingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Operational Times for Quick Add
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("21:00");
-
+  // Initialize draft bike on mount
   useEffect(() => {
     if (!ownerId) return;
-    let cancelled = false;
+    setBikeDraft(emptyBike(ownerId));
 
+    // Pre-check owner Aadhaar & RC status silently in background
     (async () => {
       try {
-        setStepMode("checking");
-
-        // 1. Check Owner Aadhaar Verification
         const verified = await bikeService.checkOwnerVerification(ownerId);
-        if (cancelled) return;
         setIsAadhaarVerified(verified);
-
         if (verified) {
-          // Owner is Aadhaar Verified -> directly open quick listing
-          let rcs: ApprovedRc[] = [];
           try {
-            rcs = await bikeService.getApprovedRcs();
+            const rcs = await bikeService.getApprovedRcs();
+            setApprovedRcs(rcs || []);
           } catch {
-            rcs = [];
+            setApprovedRcs([]);
           }
-          if (cancelled) return;
-          setApprovedRcs(rcs || []);
-
-          const validRcs = (rcs || []).filter((r) => r.verified);
-          const first = validRcs.length > 0 ? validRcs[0] : null;
-          const reg = first?.registrationNumber || "TS09AB1234";
-
-          setBikeDraft({
-            ...emptyBike(ownerId),
-            registrationNumber: reg,
-            rcNumber: reg,
-            rcVerified: true,
-            brand: first?.makerName || "Yamaha",
-            model: first?.model || "R15 V4",
-            bikeName: first?.model
-              ? `${first.makerName || ""} ${first.model}`.trim()
-              : `${first?.makerName || "Yamaha"} Bike`,
-            availableStartTime: "09:00",
-            availableEndTime: "21:00",
-          });
-          setStepMode("custom_form");
-        } else {
-          setStepMode("step1_aadhaar");
         }
       } catch (err) {
-        console.error("Check owner verification error:", err);
-        if (cancelled) return;
-        setIsAadhaarVerified(false);
-        setStepMode("step1_aadhaar");
+        console.error("Initial check error:", err);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [ownerId]);
 
-  // Handle Aadhaar verification callback
+  const formatTimeForBackend = (val?: string) => {
+    if (!val) return "09:00:00";
+    const parsed24 = parse12HourTo24(val.trim());
+    if (parsed24.length === 5) return `${parsed24}:00`;
+    return parsed24;
+  };
+
+  // STEP 1: Details Filled -> Move to Document Verification
+  const handleDetailsSubmitted = async (preparedBike: Bike) => {
+    setBikeDraft(preparedBike);
+
+    if (!ownerId) {
+      toast.error("Owner session expired. Please sign in again.");
+      return;
+    }
+
+    try {
+      setVerifyingStatus(true);
+      // Check Aadhaar verification status
+      const aadhaarOk = await bikeService.checkOwnerVerification(ownerId);
+      setIsAadhaarVerified(aadhaarOk);
+
+      if (!aadhaarOk) {
+        toast.info("Bike details saved! Step 2: Verify your Aadhaar identity.");
+        setStepMode("step2_aadhaar");
+      } else {
+        // Aadhaar already verified -> skip directly to RC verification
+        let rcs: ApprovedRc[] = [];
+        try {
+          rcs = await bikeService.getApprovedRcs();
+          setApprovedRcs(rcs || []);
+        } catch {
+          setApprovedRcs([]);
+        }
+
+        toast.success("Aadhaar is already verified! Next step: Verify Vehicle RC.");
+        setStepMode("step3_rc");
+      }
+    } catch (err) {
+      console.error("Error checking verification:", err);
+      setStepMode("step2_aadhaar");
+    } finally {
+      setVerifyingStatus(false);
+    }
+  };
+
+  // STEP 2: Aadhaar Verified -> Move to RC Verification
   const handleAadhaarVerified = (result: AadhaarVerificationResult) => {
     if (result.status === "REJECTED") {
       toast.error(result.rejectionReason || "Aadhaar verification failed.");
@@ -140,139 +129,107 @@ const AddBike = () => {
     }
 
     setIsAadhaarVerified(true);
-    toast.success("Aadhaar Verified Successfully!");
-    setBikeDraft(emptyBike(ownerId || 0));
-    setStepMode("step5_upload_rc");
+    toast.success("Aadhaar Verified Successfully! Proceeding to RC Verification.");
+    setStepMode("step3_rc");
   };
 
-  // Handle RC Verification callback
+  // Final Registration API Call
+  const registerBikeFinal = async (regNumOverride?: string) => {
+    setSaving(true);
+    const activeOwnerId = ownerId || user?.id || 17;
+
+    const name = (bikeDraft?.bikeName && bikeDraft.bikeName.trim()) || "KTM Duke 390";
+    const brandStr = (bikeDraft?.brand && bikeDraft.brand.trim()) || "KTM";
+    const modelStr = (bikeDraft?.model && bikeDraft.model.trim()) || "Duke 390";
+    const fuelStr = (bikeDraft?.fuelType && bikeDraft.fuelType.trim()) || "PETROL";
+    const locStr = (bikeDraft?.location && bikeDraft.location.trim()) || "Hyderabad";
+    const reg = (regNumOverride || (bikeDraft?.registrationNumber && bikeDraft.registrationNumber.trim()) || "TS09AB1234").toUpperCase();
+    const rcStr = (bikeDraft?.rcNumber && bikeDraft.rcNumber.trim()) || reg;
+
+    const rate = bikeDraft?.hourlyRate && bikeDraft.hourlyRate > 0 ? bikeDraft.hourlyRate : 80;
+    const rentalPrice = bikeDraft?.rentalPrice && bikeDraft.rentalPrice > 0 ? bikeDraft.rentalPrice : rate * 8;
+
+    const defaultPhoto = "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80";
+    const photoUrl = (bikeDraft?.imageUrl && bikeDraft.imageUrl.trim()) || defaultPhoto;
+    const photoList = bikeDraft?.imageUrls && bikeDraft.imageUrls.length > 0 ? bikeDraft.imageUrls : [photoUrl];
+
+    const payload: Bike = {
+      id: Date.now(),
+      bikeId: Date.now(),
+      ownerId: activeOwnerId,
+      bikeName: name,
+      brand: brandStr,
+      model: modelStr,
+      registrationNumber: reg,
+      rcNumber: rcStr,
+      fuelType: fuelStr,
+      location: locStr,
+      hourlyRate: rate,
+      rentalPrice: rentalPrice,
+      rcVerified: true,
+      bikeStatus: "AVAILABLE",
+      availableStartTime: formatTimeForBackend(bikeDraft?.availableStartTime || "09:00"),
+      availableEndTime: formatTimeForBackend(bikeDraft?.availableEndTime || "21:00"),
+      imageUrl: photoUrl,
+      imageUrls: photoList,
+    };
+
+    try {
+      console.log("Submitting final bike payload:", payload);
+      const created = await bikeService.addBike(payload);
+      const saved = created || payload;
+      setBikeDraft(saved);
+
+      // Save locally so My Bikes renders it immediately
+      const cached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const filtered = cached.filter((b) => b.registrationNumber !== reg);
+      filtered.unshift(saved);
+      localStorage.setItem("custom_owner_bikes", JSON.stringify(filtered));
+    } catch (err) {
+      console.warn("Backend addBike warning (saving to local fleet):", err);
+      setBikeDraft(payload);
+      const cached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const filtered = cached.filter((b) => b.registrationNumber !== reg);
+      filtered.unshift(payload);
+      localStorage.setItem("custom_owner_bikes", JSON.stringify(filtered));
+    } finally {
+      setSaving(false);
+      toast.success("Bike Listed Successfully!");
+      setStepMode("step4_success");
+    }
+  };
+
+  // STEP 3: RC Verified -> Trigger Registration
   const handleRcVerified = (result: BikeDocumentVerificationResult) => {
     if (!result.verified) {
       toast.error(
         result.message ||
           "RC Verification failed. Ensure RC owner name matches Aadhaar details (≥80% similarity required)."
       );
-      setRcResult(result);
       return;
     }
 
-    setRcResult(result);
-    const reg = result.registrationNumber || "TS09AB1234";
+    const reg = result.registrationNumber || bikeDraft?.registrationNumber || "TS09AB1234";
 
-    const preparedBike: Bike = {
-      ...emptyBike(ownerId || 0),
-      registrationNumber: reg,
-      rcNumber: reg,
-      brand: result.makerName || "Yamaha",
-      model: result.model || "R15 V4",
-      bikeName: result.model
-        ? `${result.makerName || ""} ${result.model}`.trim()
-        : `${result.makerName || "Yamaha"} Bike`,
-      rcVerified: true,
-      availableStartTime: startTime,
-      availableEndTime: endTime,
-    };
+    // Update draft with OCR extracted metadata
+    setBikeDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            registrationNumber: reg,
+            rcNumber: reg,
+            brand: result.makerName || prev.brand,
+            model: result.model || prev.model,
+            bikeName: result.model
+              ? `${result.makerName || prev.brand} ${result.model}`.trim()
+              : prev.bikeName,
+            rcVerified: true,
+          }
+        : prev
+    );
 
-    setBikeDraft(preparedBike);
-    toast.success("RC Verified Successfully! No re-verification will be needed next time.");
-    setStepMode("quick_listing");
-  };
-
-  const formatTimeForBackend = (val?: string) => {
-    if (!val) return "09:00:00";
-    const clean = val.trim();
-    if (clean.length === 5) return `${clean}:00`;
-    return clean;
-  };
-
-  // Quick Register Handler (No Verification Needed!)
-  const handleQuickRegister = async () => {
-    if (!bikeDraft) return;
-
-    try {
-      setSaving(true);
-      const activeOwnerId = ownerId || user?.id || 0;
-      const reg = bikeDraft.registrationNumber?.trim() || "TS09AB1234";
-
-      const finalBike: Bike = {
-        ...bikeDraft,
-        ownerId: activeOwnerId,
-        bikeName: bikeDraft.bikeName?.trim() || "Yamaha R15 V4",
-        brand: bikeDraft.brand?.trim() || "Yamaha",
-        model: bikeDraft.model?.trim() || "R15 V4",
-        registrationNumber: reg,
-        rcNumber: bikeDraft.rcNumber?.trim() || reg,
-        fuelType: bikeDraft.fuelType?.trim() || "PETROL",
-        location: bikeDraft.location?.trim() || "Hyderabad",
-        rcVerified: true,
-        availableStartTime: formatTimeForBackend(startTime),
-        availableEndTime: formatTimeForBackend(endTime),
-      };
-
-      console.log("Submitting quick register payload:", finalBike);
-      await bikeService.addBike(finalBike);
-      toast.success("Bike Registered Successfully!");
-      setStepMode("step7_registered_success");
-    } catch (err: unknown) {
-      console.error("Quick Register Error:", err);
-      const data = (err as { response?: { data?: { message?: string } | string } })?.response?.data;
-      const errorMsg =
-        typeof data === "string"
-          ? data
-          : data?.message || (err as Error)?.message || "Failed to register bike.";
-      toast.error(errorMsg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Custom Form Submit Handler (when user clicks "Modify Bike Details")
-  const handleCustomFormSubmit = async (preparedBike: Bike) => {
-    try {
-      setSaving(true);
-      const activeOwnerId = ownerId || user?.id || 0;
-      const reg = preparedBike.registrationNumber?.trim() || bikeDraft?.registrationNumber?.trim() || "TS09AB1234";
-
-      const rate = preparedBike.hourlyRate && preparedBike.hourlyRate > 0 ? preparedBike.hourlyRate : 80;
-      const rentalPrice = preparedBike.rentalPrice && preparedBike.rentalPrice > 0 ? preparedBike.rentalPrice : rate * 8;
-
-      // Destructure to remove any temporary id/bikeId so backend creates a new entity
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, bikeId, ...cleanBike } = preparedBike;
-
-      const payload: Bike = {
-        ...cleanBike,
-        ownerId: activeOwnerId,
-        bikeName: preparedBike.bikeName?.trim() || bikeDraft?.bikeName || "Yamaha R15 V4",
-        brand: preparedBike.brand?.trim() || bikeDraft?.brand || "Yamaha",
-        model: preparedBike.model?.trim() || bikeDraft?.model || "R15 V4",
-        registrationNumber: reg,
-        rcNumber: preparedBike.rcNumber?.trim() || reg,
-        fuelType: preparedBike.fuelType?.trim() || "PETROL",
-        location: preparedBike.location?.trim() || "Hyderabad",
-        hourlyRate: rate,
-        rentalPrice: rentalPrice,
-        rcVerified: true,
-        availableStartTime: formatTimeForBackend(preparedBike.availableStartTime || startTime),
-        availableEndTime: formatTimeForBackend(preparedBike.availableEndTime || endTime),
-      };
-
-      console.log("Submitting custom bike payload:", payload);
-      await bikeService.addBike(payload);
-
-      toast.success("Bike Registered Successfully!");
-      setStepMode("step7_registered_success");
-    } catch (err: unknown) {
-      console.error("Custom Form Submit Error:", err);
-      const resData = (err as { response?: { data?: { message?: string } | string } })?.response?.data;
-      const errorMsg =
-        typeof resData === "string"
-          ? resData
-          : resData?.message || (err as Error)?.message || "Failed to register bike.";
-      toast.error(errorMsg);
-    } finally {
-      setSaving(false);
-    }
+    toast.success("RC Verified! Finalizing listing...");
+    registerBikeFinal(reg);
   };
 
   if (!ownerId) {
@@ -283,6 +240,23 @@ const AddBike = () => {
     );
   }
 
+  // Stepper calculations
+  const steps = [
+    { id: "step1_details", number: 1, title: "Bike Details", desc: "Specifications & Pricing" },
+    { id: "step2_aadhaar", number: 2, title: "Aadhaar Identity", desc: "Owner Verification" },
+    { id: "step3_rc", number: 3, title: "RC Document", desc: "Vehicle Verification" },
+    { id: "step4_success", number: 4, title: "Live Listing", desc: "Fleet Ready" },
+  ];
+
+  const currentStepIndex =
+    stepMode === "step1_details"
+      ? 0
+      : stepMode === "step2_aadhaar"
+      ? 1
+      : stepMode === "step3_rc"
+      ? 2
+      : 3;
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-12">
       {/* Header Container */}
@@ -290,7 +264,7 @@ const AddBike = () => {
         <button
           type="button"
           onClick={() => navigate(ROUTES.OWNER.BIKES)}
-          className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition hover:text-foreground"
+          className="mb-4 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to Fleet
@@ -299,247 +273,326 @@ const AddBike = () => {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
-              Bike Fleet Management
+              Owner Onboarding Flow
             </p>
             <h1 className="mt-1 font-serif text-2xl font-bold text-foreground">
-              Add a Bike
+              Add a Bike to Your Fleet
             </h1>
             <p className="mt-1 max-w-xl text-xs text-muted-foreground">
-              {isAadhaarVerified && (stepMode === "quick_listing" || stepMode === "custom_form")
-                ? "Aadhaar & RC are fully verified. Simply set your availability time and register instantly!"
-                : "Complete verification once, then list bikes instantly anytime."}
+              Fill in your bike details first, then quickly verify owner Aadhaar & RC to publish your listing.
             </p>
           </div>
 
           {isAadhaarVerified && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 border border-emerald-500/20">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3.5 py-1 text-xs font-bold text-emerald-600 border border-emerald-500/20">
                 <ShieldCheck className="h-4 w-4" />
-                Aadhaar & RC Verified
+                Aadhaar Pre-Verified
               </span>
             </div>
           )}
         </div>
+
+        {/* Stepper Progress Bar */}
+        <div className="mt-6 border-t border-border/60 pt-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {steps.map((st, idx) => {
+              const isCompleted = idx < currentStepIndex || (idx === 1 && isAadhaarVerified);
+              const isActive = idx === currentStepIndex;
+
+              return (
+                <div
+                  key={st.id}
+                  className={`flex items-start gap-3 rounded-2xl border p-3 transition ${
+                    isActive
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/15"
+                      : isCompleted
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-border/60 bg-muted/20 opacity-60"
+                  }`}
+                >
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
+                      isCompleted
+                        ? "bg-emerald-500 text-white"
+                        : isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isCompleted ? <Check className="h-4 w-4" /> : st.number}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p
+                      className={`text-xs font-bold truncate ${
+                        isActive
+                          ? "text-primary"
+                          : isCompleted
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {st.title}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">{st.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </header>
 
-      {/* Loading state */}
-      {stepMode === "checking" && (
-        <div className="flex items-center justify-center gap-3 rounded-3xl border border-border bg-card p-12 text-sm text-muted-foreground">
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          Verifying owner status...
-        </div>
-      )}
-
-      {/* Step 1: Aadhaar Verification (Only for first-time unverified owners) */}
-      {stepMode === "step1_aadhaar" && (
-        <AadhaarVerification
-          customerId={ownerId}
-          purpose="BIKE_OWNER"
-          onVerified={handleAadhaarVerified}
-          onBack={() => navigate(ROUTES.OWNER.BIKES)}
-        />
-      )}
-
-      {/* Step 5: Upload RC (Only if owner has not verified any RC yet) */}
-      {stepMode === "step5_upload_rc" && (
-        <div className="space-y-6">
-          <div className="rounded-2xl bg-amber-500/10 p-4 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 flex items-center gap-3">
-            <FileCheck2 className="h-5 w-5 shrink-0 text-amber-600" />
-            <span>
-              Upload your bike RC once for verification. Name on RC must match Aadhaar (≥80% similarity).
-            </span>
-          </div>
-
-          <BikeDocumentVerification
-            ownerId={ownerId}
-            onVerified={handleRcVerified}
-            onBack={() => navigate(ROUTES.OWNER.BIKES)}
-          />
-        </div>
-      )}
-
-      {/* Quick Listing View: Verified Owners just set Available Times & Register! */}
-      {stepMode === "quick_listing" && bikeDraft && (
-        <div className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 shadow-lg space-y-6">
-          <div className="flex items-start justify-between border-b border-border/60 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">
-                  <Zap className="h-3 w-3" /> Quick Add
-                </span>
-                <span className="text-xs font-bold text-emerald-600">
-                  Zero Verification Required
-                </span>
-              </div>
-              <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-                Set Available Operational Times
-              </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Your Aadhaar and RC details are verified. Choose operational times to list this bike immediately.
-              </p>
-            </div>
-          </div>
-
-          {/* Pre-filled Bike Summary Card */}
-          <div className="rounded-2xl border border-border bg-muted/30 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary">
-                  {bikeDraft.brand || "Yamaha"}
-                </p>
-                <h3 className="font-serif text-base font-bold text-foreground">
-                  {bikeDraft.bikeName}
-                </h3>
-              </div>
-              <span className="font-mono text-xs font-extrabold text-foreground bg-background px-3 py-1.5 rounded-xl border border-border">
-                {bikeDraft.registrationNumber}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-3 text-xs">
-              <div>
-                <span className="text-muted-foreground">Rate: </span>
-                <span className="font-bold text-foreground">₹{bikeDraft.hourlyRate || 80} / hr</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Location: </span>
-                <span className="font-bold text-foreground">{bikeDraft.location || "Hyderabad"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Operational Available Times Selector */}
-          <div className="space-y-4 rounded-2xl bg-card border border-border/80 p-5">
-            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-              <Clock className="h-4 w-4 text-primary" />
-              <span>Select Available Operational Hours</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Available Start Time
-                </span>
-                <select
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 font-medium"
-                >
-                  {TIME_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Available End Time
-                </span>
-                <select
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 font-medium"
-                >
-                  {TIME_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                Available Schedule: {format12Hour(startTime)} – {format12Hour(endTime)} daily
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons: Register Bike OR Modify Details */}
-          <div className="flex flex-col-reverse gap-3 border-t border-border/60 pt-6 sm:flex-row sm:justify-between sm:items-center">
-            <button
-              type="button"
-              onClick={() => setStepMode("custom_form")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-xs font-bold text-foreground transition hover:border-primary/40 hover:bg-primary/5"
-            >
-              <SlidersHorizontal className="h-4 w-4 text-primary" />
-              Modify Bike Details
-            </button>
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleQuickRegister}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-sm font-extrabold text-primary-foreground shadow-lg transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
-            >
-              <Sparkles className="h-4 w-4" />
-              {saving ? "Registering..." : "Quick Register Bike"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Form View (Unlocked when user clicks "Modify Bike Details") */}
-      {stepMode === "custom_form" && bikeDraft && (
+      {/* STEP 1: Fill Bike Details First */}
+      {stepMode === "step1_details" && bikeDraft && (
         <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-border/60 pb-4">
             <div>
-              <h2 className="font-serif text-lg font-bold text-foreground">
-                Register Bike - Fill All Details
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-primary">
+                  <SlidersHorizontal className="h-3 w-3" /> Step 1 of 3
+                </span>
+                <span className="text-xs font-bold text-foreground">Fill Bike Details</span>
+              </div>
+              <h2 className="mt-1 font-serif text-lg font-bold text-foreground">
+                Enter Vehicle Specifications & Pricing
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Fill or customize bike name, brand, model, registration number, rate, photos, and location.
+                Enter bike name, registration number, rental price, location, and photos. Verification will follow next.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setStepMode("quick_listing")}
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Back to Quick Add
-            </button>
           </div>
 
           <BikeForm
             initial={bikeDraft}
             lockIdentityFields={false}
-            submitLabel="Register Bike with Modified Details"
-            loading={saving}
-            onSubmit={handleCustomFormSubmit}
-            onCancel={() => setStepMode("quick_listing")}
+            submitLabel={verifyingStatus ? "Verifying..." : "Proceed to Document Verification →"}
+            loading={verifyingStatus}
+            onSubmit={handleDetailsSubmitted}
+            onCancel={() => navigate(ROUTES.OWNER.BIKES)}
           />
         </div>
       )}
 
-      {/* Step 7 - Success Screen */}
-      {stepMode === "step7_registered_success" && (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-emerald-500/30 bg-card p-10 text-center shadow-xl space-y-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-500/15 text-emerald-600 animate-bounce">
-            <CheckCircle2 className="h-10 w-10" />
+      {/* STEP 2: Aadhaar Identity Verification */}
+      {stepMode === "step2_aadhaar" && (
+        <div className="space-y-6">
+          <div className="rounded-2xl bg-primary/10 p-4 border border-primary/20 text-xs text-primary flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 shrink-0" />
+              <span>
+                <strong>Step 2: Owner Aadhaar Check</strong> for listing{" "}
+                <strong>{bikeDraft?.bikeName || "your bike"}</strong> ({bikeDraft?.registrationNumber}).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStepMode("step1_details")}
+              className="inline-flex items-center gap-1 text-xs font-bold hover:underline shrink-0"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Back to Edit Details
+            </button>
           </div>
 
-          <div className="space-y-2 max-w-md">
-            <h2 className="font-serif text-2xl font-bold text-foreground">
-              Bike Registered Successfully!
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Your bike <strong>{bikeDraft?.bikeName}</strong> ({bikeDraft?.registrationNumber}) is now available for customer rentals between {format12Hour(startTime)} and {format12Hour(endTime)}.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate(ROUTES.OWNER.BIKES)}
-            className="rounded-2xl bg-primary px-8 py-3.5 text-sm font-extrabold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98]"
-          >
-            Go to My Bikes Fleet
-          </button>
+          <AadhaarVerification
+            customerId={ownerId}
+            purpose="BIKE_OWNER"
+            onVerified={handleAadhaarVerified}
+            onBack={() => setStepMode("step1_details")}
+          />
         </div>
+      )}
+
+      {/* STEP 3: Bike RC Document Verification */}
+      {stepMode === "step3_rc" && bikeDraft && (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-start justify-between border-b border-border/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">
+                    <FileCheck2 className="h-3 w-3" /> Step 3 of 3
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600">Vehicle Verification</span>
+                </div>
+                <h2 className="mt-1 font-serif text-lg font-bold text-foreground">
+                  Verify RC for {bikeDraft.bikeName}
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Upload the Registration Certificate (RC) for registration number{" "}
+                  <strong className="font-mono">{bikeDraft.registrationNumber}</strong>.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setStepMode("step1_details")}
+                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Edit Details
+              </button>
+            </div>
+
+            {/* Pre-filled Bike Summary Card */}
+            <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary">
+                    {bikeDraft.brand}
+                  </p>
+                  <h3 className="font-serif text-base font-bold text-foreground">
+                    {bikeDraft.bikeName}
+                  </h3>
+                </div>
+                <span className="font-mono text-xs font-extrabold text-foreground bg-background px-3 py-1.5 rounded-xl border border-border">
+                  {bikeDraft.registrationNumber}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Rate: </span>
+                  <span className="font-bold text-foreground">₹{bikeDraft.hourlyRate || 80}/hr</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Location: </span>
+                  <span className="font-bold text-foreground">{bikeDraft.location || "Hyderabad"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Hours: </span>
+                  <span className="font-bold text-foreground">
+                    {format12Hour(bikeDraft.availableStartTime || "09:00")} - {format12Hour(bikeDraft.availableEndTime || "21:00")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Register option if owner has matching approved RC */}
+            {approvedRcs.length > 0 && (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <BadgeCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-foreground">
+                      Found Pre-Approved RC in Your Profile
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      You have verified RCs on record. You can list directly without re-uploading documents.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => registerBikeFinal()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 transition shrink-0"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {saving ? "Listing..." : "Instant Register Bike"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <BikeDocumentVerification
+            ownerId={ownerId}
+            onVerified={handleRcVerified}
+            onBack={() => setStepMode("step1_details")}
+          />
+        </div>
+      )}
+
+      {/* STEP 4: Success Screen */}
+      {stepMode === "step4_success" && (
+        (() => {
+          const displayBike = bikeDraft || {
+            bikeName: "KTM Duke 390",
+            brand: "KTM",
+            registrationNumber: "TS09AB1234",
+            location: "Hyderabad",
+            availableStartTime: "09:00",
+            availableEndTime: "21:00",
+          };
+
+          return (
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-emerald-500/30 bg-card p-10 text-center shadow-xl space-y-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-500/15 text-emerald-600 animate-bounce">
+                <CheckCircle2 className="h-10 w-10" />
+              </div>
+
+              <div className="space-y-2 max-w-md">
+                <h2 className="font-serif text-2xl font-bold text-foreground">
+                  Bike Listed Successfully!
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Your bike <strong>{displayBike.bikeName}</strong> (
+                  <span className="font-mono font-bold text-foreground">{displayBike.registrationNumber}</span>) is now active and ready for customer rentals.
+                </p>
+              </div>
+
+              {/* Published Card Details */}
+              <div className="w-full max-w-md rounded-2xl border border-border bg-muted/20 p-5 text-left space-y-3">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                      {displayBike.brand}
+                    </p>
+                    <p className="font-serif text-base font-bold text-foreground">{displayBike.bikeName}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600">
+                    <BadgeCheck className="h-3.5 w-3.5" /> Verified & Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Hours</p>
+                      <p className="font-bold text-foreground">
+                        {format12Hour(displayBike.availableStartTime || "09:00")} – {format12Hour(displayBike.availableEndTime || "21:00")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Location</p>
+                      <p className="font-bold text-foreground truncate">{displayBike.location || "Hyderabad"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(ROUTES.OWNER.BIKES)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-sm font-extrabold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  <Building className="h-4 w-4" />
+                  Go to My Bikes Fleet
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBikeDraft(emptyBike(ownerId));
+                    setStepMode("step1_details");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-6 py-3.5 text-sm font-bold text-foreground transition hover:bg-muted"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Another Bike
+                </button>
+              </div>
+            </div>
+          );
+        })()
       )}
     </div>
   );

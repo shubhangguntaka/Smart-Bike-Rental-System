@@ -8,6 +8,7 @@ import BikeCard from "@/components/bike/BikeCard";
 import bikeService from "@/services/bikeService";
 import type { Bike } from "@/types/bike";
 import { ROUTES } from "@/constants/routes";
+import { isBikeAvailableNow } from "@/utils/timeUtils";
 
 const MyBikes = () => {
   const { user } = useAuth();
@@ -18,17 +19,32 @@ const MyBikes = () => {
   const [search, setSearch] = useState("");
 
   const loadBikes = async () => {
-    if (!ownerId) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const data = await bikeService.getOwnerBikes(ownerId);
-      setBikes(data);
-    } catch {
-      toast.error("Unable to load your bikes");
+      const targetOwnerId = ownerId || 0;
+      const data = await bikeService.getOwnerBikes(targetOwnerId);
+      const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+
+      const serverBikes = data || [];
+      const mergedMap = new Map<string, Bike>();
+
+      // Local newly added bikes first so they take priority
+      localCached.forEach((b) => {
+        const key = (b.registrationNumber || String(b.bikeId || b.id)).toUpperCase();
+        if (key) mergedMap.set(key, b);
+      });
+
+      // Server bikes second
+      serverBikes.forEach((b) => {
+        const key = (b.registrationNumber || String(b.bikeId || b.id)).toUpperCase();
+        if (key) mergedMap.set(key, b);
+      });
+
+      setBikes(Array.from(mergedMap.values()));
+    } catch (err) {
+      console.error("Failed to load bikes from server:", err);
+      const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      setBikes(localCached);
     } finally {
       setLoading(false);
     }
@@ -36,6 +52,11 @@ const MyBikes = () => {
 
   useEffect(() => {
     loadBikes();
+    // Auto-refresh fleet every 30 seconds for live updates
+    const timer = setInterval(() => {
+      loadBikes();
+    }, 30000);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId]);
 
@@ -52,11 +73,55 @@ const MyBikes = () => {
   }, [bikes, search]);
 
   const stats = useMemo(() => {
-    const available = bikes.filter((b) => b.bikeStatus === "AVAILABLE").length;
-    const booked = bikes.filter((b) => b.bikeStatus === "BOOKED").length;
+    let activeNow = 0;
+    let shiftClosed = 0;
+    let booked = 0;
+    let maintenance = 0;
+
+    bikes.forEach((b) => {
+      const st = (b.bikeStatus || "AVAILABLE").toUpperCase();
+      if (st === "BOOKED") {
+        booked++;
+      } else if (st === "UNDER_MAINTENANCE" || st === "MAINTENANCE") {
+        maintenance++;
+      } else if (st === "AVAILABLE") {
+        const isActive = isBikeAvailableNow(b.availableStartTime, b.availableEndTime);
+        if (isActive) {
+          activeNow++;
+        } else {
+          shiftClosed++;
+        }
+      }
+    });
+
     const verified = bikes.filter((b) => b.rcVerified || b.rcVerificationStatus).length;
-    return { total: bikes.length, available, booked, verified };
+    return { total: bikes.length, activeNow, shiftClosed, booked, maintenance, verified };
   }, [bikes]);
+
+  const handleStatusToggle = async (bikeId: number, newStatus: string) => {
+    const targetBike = bikes.find((b) => (b.bikeId || b.id) === bikeId);
+    if (!targetBike) return;
+
+    try {
+      const updatedBike: Bike = {
+        ...targetBike,
+        bikeStatus: newStatus as any,
+      };
+
+      await bikeService.updateBike(bikeId, updatedBike);
+      toast.success(
+        newStatus === "UNDER_MAINTENANCE"
+          ? "Bike set to Maintenance"
+          : "Bike marked Available!"
+      );
+      setBikes((prev) =>
+        prev.map((b) => ((b.bikeId || b.id) === bikeId ? { ...b, bikeStatus: newStatus as any } : b))
+      );
+    } catch (err) {
+      console.error("Status update error:", err);
+      toast.error("Failed to update bike status");
+    }
+  };
 
   const handleDelete = async (bikeId: number) => {
     const ok = window.confirm("Delete this bike from your fleet?");
@@ -86,13 +151,13 @@ const MyBikes = () => {
       <div className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-            Fleet
+            Real-Time Fleet Management
           </p>
           <h1 className="mt-1 font-serif text-2xl font-semibold text-foreground">
             My Bikes
           </h1>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            List, update, and manage every bike registered to your account.
+            Monitor live shifts, toggle maintenance, and manage your rental fleet in real time.
           </p>
         </div>
         <Link
@@ -104,21 +169,22 @@ const MyBikes = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
-          { label: "Total", value: stats.total },
-          { label: "Available", value: stats.available },
-          { label: "Booked", value: stats.booked },
-          { label: "RC verified", value: stats.verified },
+          { label: "Total Fleet", value: stats.total, color: "text-foreground" },
+          { label: "Active Now 🟢", value: stats.activeNow, color: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Shift Closed 🟠", value: stats.shiftClosed, color: "text-amber-600 dark:text-amber-400" },
+          { label: "Booked 🔴", value: stats.booked, color: "text-rose-600 dark:text-rose-400" },
+          { label: "Maintenance 🟡", value: stats.maintenance, color: "text-slate-600 dark:text-slate-400" },
         ].map((item) => (
           <div
             key={item.label}
-            className="rounded-2xl border border-border bg-card px-4 py-4"
+            className="rounded-2xl border border-border bg-card px-4 py-4 shadow-xs"
           >
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               {item.label}
             </p>
-            <p className="mt-1 font-serif text-2xl font-semibold text-foreground">
+            <p className={`mt-1 font-serif text-2xl font-bold ${item.color}`}>
               {item.value}
             </p>
           </div>
@@ -170,10 +236,11 @@ const MyBikes = () => {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((bike) => (
             <BikeCard
-              key={bike.bikeId}
+              key={bike.bikeId || bike.id}
               bike={bike}
               showOwnerActions
               onDelete={handleDelete}
+              onStatusToggle={handleStatusToggle}
             />
           ))}
         </div>
