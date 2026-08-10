@@ -18,6 +18,7 @@ const BikeCard = ({
   bike,
   showOwnerActions = false,
   onDelete,
+  onStatusToggle,
   rating,
 }: BikeCardProps) => {
   const rcOk = Boolean(bike.rcVerified || bike.rcVerificationStatus);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import RatingStars from "./ratingStars";
+import RatingStars from "./RatingStars";
 
 interface Props {
   onSubmit: (review: any) => void;

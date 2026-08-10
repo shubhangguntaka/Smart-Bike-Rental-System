@@ -1,5 +1,5 @@
 import type { Review } from "../../types/review";
-import RatingStars from "./ratingStars";
+import RatingStars from "./RatingStars";
 
 interface Props {
   review: Review;

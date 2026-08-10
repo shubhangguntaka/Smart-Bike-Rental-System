@@ -98,7 +98,7 @@ const AddBike = () => {
       setIsAadhaarVerified(aadhaarOk);
 
       if (!aadhaarOk) {
-        toast.info("Bike details saved! Step 2: Verify your Aadhaar identity.");
+        toast("Bike details saved! Step 2: Verify your Aadhaar identity.");
         setStepMode("step2_aadhaar");
       } else {
         // Aadhaar already verified -> skip directly to RC verification

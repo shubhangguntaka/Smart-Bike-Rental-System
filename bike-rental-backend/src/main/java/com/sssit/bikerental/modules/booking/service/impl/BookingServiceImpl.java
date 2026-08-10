@@ -33,6 +33,8 @@ import com.sssit.bikerental.modules.booking.validation.BookingValidator;
 import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 import com.sssit.bikerental.modules.verification.drivinglicense.service.DrivingLicenseService;
+import com.sssit.bikerental.modules.notification.entity.NotificationService;
+import com.sssit.bikerental.modules.notification.entity.Notification;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,42 +53,36 @@ public class BookingServiceImpl implements BookingService {
     private final AadhaarService aadhaarService;
     private final DrivingLicenseService drivingLicenseService;
     private final QRCodeService qrCodeService;
+    private final NotificationService notificationService;
 
-    @Override
-    public BookingResponse createBooking(Long customerId, BookingRequest request) {
-        log.info("Starting booking creation for customerId: {} and bikeId: {}", customerId, request.getBikeId());
-        
-        bookingValidator.validateBookingRequest(request);
-        userRepository.findById(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found."));
-
-        Bike bike = bikeRepository.findById(request.getBikeId())
-                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
-
-        // 1. Check verification status
-        log.info("Evaluating customer verification status for customerId: {}", customerId);
-        boolean isVerified = checkVerificationStatus(customerId);
-        BookingStatus initialStatus = isVerified ? BookingStatus.PENDING : BookingStatus.VERIFICATION_REQUIRED;
-
-        // 2. Check bike availability
+    private void checkBikeAvailability(Bike bike, LocalDateTime startTime, LocalDateTime endTime, Long currentBookingId) {
+        // 1. Check permanent status
         if (bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
-            log.warn("BikeId: {} is not available. Current status: {}", bike.getBikeId(), bike.getBikeStatus());
-            throw new BookingNotAvailableException("Bike is not available.");
+            throw new BookingNotAvailableException("Bike is not available during the selected time.");
         }
 
-        // A bike already booked by another customer cannot be booked again until it is freed up
-        // (booking cancelled/completed, which resets bikeStatus back to AVAILABLE).
-        if (bike.getBikeStatus() == BikeStatus.BOOKED) {
-            log.warn("BikeId: {} is already booked. Rejecting new booking attempt.", bike.getBikeId());
-            throw new BookingNotAvailableException("Bike is already booked.");
+        // 2. Check bike owner availability window (operational shift)
+        if (bike.getAvailableStartTime() != null) {
+            java.time.LocalTime reqStartLocal = startTime.toLocalTime();
+            if (reqStartLocal.isBefore(bike.getAvailableStartTime())) {
+                throw new BookingNotAvailableException("Bike is not available during the selected time.");
+            }
+        }
+        if (bike.getAvailableEndTime() != null) {
+            java.time.LocalTime reqEndLocal = endTime.toLocalTime();
+            if (reqEndLocal.isAfter(bike.getAvailableEndTime())) {
+                throw new BookingNotAvailableException("Bike is not available during the selected time.");
+            }
         }
 
-        // Check for overlapping bookings (if start/return times overlap with any active rental contract)
-        java.util.List<Booking> activeBookings = bookingRepository.findByBikeId(request.getBikeId());
-        java.time.LocalDateTime reqStart = request.getStartTime();
-        java.time.LocalDateTime reqEnd = request.getReturnTime();
-
+        // 3. Check for overlapping bookings
+        java.util.List<Booking> activeBookings = bookingRepository.findByBikeId(bike.getBikeId());
         for (Booking existing : activeBookings) {
+            // Exclude current booking if we are updating it
+            if (currentBookingId != null && existing.getId().equals(currentBookingId)) {
+                continue;
+            }
+
             if (existing.getBookingStatus() == BookingStatus.PENDING ||
                 existing.getBookingStatus() == BookingStatus.VERIFICATION_REQUIRED ||
                 existing.getBookingStatus() == BookingStatus.CONFIRMED ||
@@ -96,17 +92,42 @@ public class BookingServiceImpl implements BookingService {
                 java.time.LocalDateTime extEnd = existing.getReturnTime();
                 
                 // Overlap condition: (Start1 < End2) AND (Start2 < End1)
-                if (reqStart.isBefore(extEnd) && extStart.isBefore(reqEnd)) {
-                    log.warn("BikeId: {} is already booked during this period. Overlapping booking ID: {}", 
-                        request.getBikeId(), existing.getId());
-                    throw new BookingNotAvailableException("Bike is booked for this duration. Please choose another slot.");
+                if (startTime.isBefore(extEnd) && extStart.isBefore(endTime)) {
+                    log.warn("Overlap detected with existing booking ID: {}", existing.getId());
+                    throw new BookingNotAvailableException("Bike is already booked for the selected time.");
                 }
             }
         }
+    }
 
-        // 3. Calculate rental amount
-        int totalDays = bookingCalculator.calculateTotalDays(request.getStartTime(), request.getReturnTime());
-        BigDecimal rentalAmount = bookingCalculator.calculateTotalAmount(bike.getRentalPrice(), totalDays);
+    @Override
+    public BookingResponse createBooking(Long customerId, BookingRequest request) {
+        log.info("Starting booking creation for customerId: {} and bikeId: {}", customerId, request.getBikeId());
+        
+        bookingValidator.validateBookingRequest(request);
+        userRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found."));
+
+        // Use findByIdForUpdate to acquire pessimistic lock on the bike record to protect against concurrent bookings
+        Bike bike = bikeRepository.findByIdForUpdate(request.getBikeId())
+                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+
+        // 1. Check verification status
+        log.info("Evaluating customer verification status for customerId: {}", customerId);
+        boolean isVerified = checkVerificationStatus(customerId);
+        BookingStatus initialStatus = isVerified ? BookingStatus.PENDING : BookingStatus.VERIFICATION_REQUIRED;
+
+        // 2. Check bike availability and overlaps
+        checkBikeAvailability(bike, request.getStartTime(), request.getReturnTime(), null);
+
+        // 3. Calculate rental amount hourly
+        BigDecimal hourlyRate = bike.getHourlyRate();
+        if (hourlyRate == null || hourlyRate.compareTo(BigDecimal.ZERO) == 0) {
+            hourlyRate = bike.getRentalPrice().divide(BigDecimal.valueOf(24), 2, java.math.RoundingMode.HALF_UP);
+        }
+        long minutes = java.time.Duration.between(request.getStartTime(), request.getReturnTime()).toMinutes();
+        double hours = (double) minutes / 60.0;
+        BigDecimal rentalAmount = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(2, java.math.RoundingMode.HALF_UP);
 
         // 4. Create booking in PENDING or VERIFICATION_REQUIRED status
         Booking booking = Booking.builder()
@@ -138,59 +159,42 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = findBooking(bookingId);
         validateBookingAccess(booking);
 
-        Bike bike = bikeRepository.findById(request.getBikeId())
+        Bike bike = bikeRepository.findByIdForUpdate(request.getBikeId())
                 .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
 
-        // If bike changed, check availability of the new bike
-        if (!booking.getBikeId().equals(request.getBikeId())) {
-            if (bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
-                log.warn("New BikeId: {} is not available.", bike.getBikeId());
-                throw new BookingNotAvailableException("The selected bike is not available.");
+        // Check availability if bike or start/return times have changed
+        if (!booking.getBikeId().equals(request.getBikeId()) ||
+            !booking.getStartTime().equals(request.getStartTime()) ||
+            !booking.getReturnTime().equals(request.getReturnTime())) {
+            
+            checkBikeAvailability(bike, request.getStartTime(), request.getReturnTime(), booking.getId());
+            
+            // If bike changed, free up the old one
+            if (!booking.getBikeId().equals(request.getBikeId())) {
+                bikeRepository.findById(booking.getBikeId()).ifPresent(oldBike -> {
+                    oldBike.setBikeStatus(BikeStatus.AVAILABLE);
+                    bikeRepository.save(oldBike);
+                    log.info("Old bikeId: {} set to AVAILABLE", oldBike.getBikeId());
+                });
+                
+                bike.setBikeStatus(BikeStatus.BOOKED);
+                bikeRepository.save(bike);
+                log.info("New bikeId: {} set to BOOKED", bike.getBikeId());
             }
-
-            if (bike.getBikeStatus() == BikeStatus.BOOKED) {
-                log.warn("New BikeId: {} is already booked. Rejecting bike change.", bike.getBikeId());
-                throw new BookingNotAvailableException("The selected bike is already booked.");
-            }
-
-            // Check for overlapping bookings (if start/return times overlap with any active rental contract for new bike)
-            java.util.List<Booking> activeBookings = bookingRepository.findByBikeId(request.getBikeId());
-            java.time.LocalDateTime reqStart = request.getStartTime();
-            java.time.LocalDateTime reqEnd = request.getReturnTime();
-
-            for (Booking existing : activeBookings) {
-                if (existing.getBookingStatus() == BookingStatus.PENDING ||
-                    existing.getBookingStatus() == BookingStatus.CONFIRMED ||
-                    existing.getBookingStatus() == BookingStatus.ACTIVE) {
-                    
-                    java.time.LocalDateTime extStart = existing.getStartTime();
-                    java.time.LocalDateTime extEnd = existing.getReturnTime();
-                    
-                    if (reqStart.isBefore(extEnd) && extStart.isBefore(reqEnd)) {
-                        log.warn("New BikeId: {} is already booked during this period. Overlapping booking ID: {}", 
-                            request.getBikeId(), existing.getId());
-                        throw new BookingNotAvailableException("The selected bike is booked for this duration. Please choose another slot.");
-                    }
-                }
-            }
-
-            // Mark old bike as AVAILABLE
-            bikeRepository.findById(booking.getBikeId()).ifPresent(oldBike -> {
-                oldBike.setBikeStatus(BikeStatus.AVAILABLE);
-                bikeRepository.save(oldBike);
-                log.info("Old bikeId: {} set to AVAILABLE", oldBike.getBikeId());
-            });
-            // Mark new bike as BOOKED
-            bike.setBikeStatus(BikeStatus.BOOKED);
-            bikeRepository.save(bike);
-            log.info("New bikeId: {} set to BOOKED", bike.getBikeId());
         }
 
-        int totalDays = bookingCalculator.calculateTotalDays(request.getStartTime(), request.getReturnTime());
+        BigDecimal hourlyRate = bike.getHourlyRate();
+        if (hourlyRate == null || hourlyRate.compareTo(BigDecimal.ZERO) == 0) {
+            hourlyRate = bike.getRentalPrice().divide(BigDecimal.valueOf(24), 2, java.math.RoundingMode.HALF_UP);
+        }
+        long minutes = java.time.Duration.between(request.getStartTime(), request.getReturnTime()).toMinutes();
+        double hours = (double) minutes / 60.0;
+        BigDecimal rentalAmount = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(2, java.math.RoundingMode.HALF_UP);
+
         booking.setBikeId(request.getBikeId());
         booking.setStartTime(request.getStartTime());
         booking.setReturnTime(request.getReturnTime());
-        booking.setRentalAmount(bookingCalculator.calculateTotalAmount(bike.getRentalPrice(), totalDays));
+        booking.setRentalAmount(rentalAmount);
 
         // Re-generate QR code with updated details if already generated
         if (booking.getQrCode() != null && !booking.getQrCode().isEmpty()) {
@@ -356,7 +360,50 @@ public class BookingServiceImpl implements BookingService {
             log.info("QR Code generated during status transition to CONFIRMED for bookingId: {}", booking.getId());
         }
 
-        return convertToResponse(bookingRepository.save(booking));
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // Send completion notification to bike owner if ride is completed
+        if (bookingStatus == BookingStatus.COMPLETED) {
+            try {
+                java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+                String formattedStart = savedBooking.getStartTime() != null ? savedBooking.getStartTime().format(timeFormatter) : "N/A";
+                String formattedEnd = savedBooking.getReturnTime() != null ? savedBooking.getReturnTime().format(timeFormatter) : "N/A";
+
+                String customerName = "Unknown Customer";
+                com.sssit.bikerental.modules.user.User customer = userRepository.findById(savedBooking.getCustomerId()).orElse(null);
+                if (customer != null) {
+                    customerName = customer.getFullName();
+                }
+
+                Bike bike = bikeRepository.findById(savedBooking.getBikeId()).orElse(null);
+                if (bike != null && bike.getOwnerId() != null) {
+                    String messageContent = String.format(
+                            "Rental Completed\n\n" +
+                            "Bike: %s\n" +
+                            "Customer: %s\n" +
+                            "Booking: BK-%d\n" +
+                            "Rental: %s - %s\n\n" +
+                            "The rental has been successfully completed.",
+                            bike.getBikeName(), customerName, savedBooking.getId(), formattedStart, formattedEnd);
+
+                    Notification notif = Notification.builder()
+                            .userId(bike.getOwnerId())
+                            .title("Rental Completed")
+                            .message(messageContent)
+                            .notificationType("RIDE")
+                            .isRead(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+
+                    notificationService.sendNotification(notif);
+                    log.info("Sent ride completion notification to owner: {}", bike.getOwnerId());
+                }
+            } catch (Exception e) {
+                log.error("Failed to send ride completion notification to owner", e);
+            }
+        }
+
+        return convertToResponse(savedBooking);
     }
 
     @Override
@@ -526,23 +573,14 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public boolean isBikeAvailable(Long bikeId, java.time.LocalDateTime startTime, java.time.LocalDateTime returnTime) {
         log.info("Checking availability for bikeId: {} from {} to {}", bikeId, startTime, returnTime);
-        
-        Bike bike = bikeRepository.findById(bikeId)
-                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
-
-        if (bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
-            log.warn("BikeId: {} is not available due to status: {}", bikeId, bike.getBikeStatus());
+        try {
+            Bike bike = bikeRepository.findById(bikeId)
+                    .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+            checkBikeAvailability(bike, startTime, returnTime, null);
+            return true;
+        } catch (Exception e) {
+            log.info("Bike {} is not available from {} to {}: {}", bikeId, startTime, returnTime, e.getMessage());
             return false;
         }
-
-        // A bike that is currently BOOKED by another customer is not available,
-        // regardless of the dates being requested. It stays unavailable until its
-        // active booking is cancelled or completed (which resets it to AVAILABLE).
-        if (bike.getBikeStatus() == BikeStatus.BOOKED) {
-            log.warn("BikeId: {} is already booked.", bikeId);
-            return false;
-        }
-
-        return true;
     }
 }

@@ -82,16 +82,29 @@ export default function Bikes() {
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
-  const getTomorrowDateTimeString = () => {
+  const getReturnDateTimeString = () => {
     const now = new Date();
     now.setMinutes(0, 0, 0);
-    now.setHours(now.getHours() + 25);
+    now.setHours(now.getHours() + 3);
     const tzoffset = now.getTimezoneOffset() * 60000;
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
+  const timeSlots: { value: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const period = h >= 12 ? "PM" : "AM";
+      const displayHour = h % 12 === 0 ? 12 : h % 12;
+      const padHour = String(displayHour).padStart(2, "0");
+      const padMin = String(m).padStart(2, "0");
+      const val = `${String(h).padStart(2, "0")}:${padMin}`;
+      const label = `${padHour}:${padMin} ${period}`;
+      timeSlots.push({ value: val, label });
+    }
+  }
+
   const [pickupDate, setPickupDate] = useState(getTodayDateTimeString());
-  const [returnDate, setReturnDate] = useState(getTomorrowDateTimeString());
+  const [returnDate, setReturnDate] = useState(getReturnDateTimeString());
 
   const getTimeString = (dateTimeStr: string) => {
     if (!dateTimeStr) return "";
@@ -177,6 +190,8 @@ export default function Bikes() {
           if (isVerified) {
             const bike = allBikes.find((b) => Number(b.id) === Number(pending.bikeId));
             if (bike) {
+              setPickupDate(getTodayDateTimeString());
+              setReturnDate(getReturnDateTimeString());
               setBookingBike(bike);
               setIsBookingOpen(true);
               toast.success("Identity verified! Continuing your booking for " + bike.name);
@@ -252,11 +267,16 @@ export default function Bikes() {
     }
 
     try {
+      const freshPickup = getTodayDateTimeString();
+      const freshReturn = getReturnDateTimeString();
+      setPickupDate(freshPickup);
+      setReturnDate(freshReturn);
+
       // 0. Check bike availability for selected time
       const isAvailable = await BookingService.checkAvailability(
         bike.id,
-        pickupDate,
-        returnDate
+        freshPickup,
+        freshReturn
       );
 
       if (!isAvailable) {
@@ -651,29 +671,57 @@ export default function Bikes() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Start Time</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pickup Date</label>
+                  <input
+                    type="date"
+                    value={pickupDate.split(/[T ]/)[0]}
+                    onChange={(e) => setPickupDate(e.target.value + "T" + getTimeString(pickupDate))}
+                    className="w-full rounded-xl border border-border bg-card px-2.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pickup Time</label>
                   <div className="relative flex items-center">
-                    <input
-                      type="time"
+                    <select
                       value={getTimeString(pickupDate)}
-                      onChange={(e) => setPickupDate(updateTimeInDateTimeString(pickupDate, e.target.value))}
-                      className="w-full rounded-xl border border-border bg-card pl-3 pr-10 py-2 text-xs text-foreground focus:border-primary focus:outline-none [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-8 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    />
-                    <Clock className="absolute right-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      onChange={(e) => setPickupDate(pickupDate.split(/[T ]/)[0] + "T" + e.target.value)}
+                      className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
+                    >
+                      {timeSlots.map((slot) => (
+                        <option key={slot.value} value={slot.value}>
+                          {slot.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Clock className="absolute right-2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Return Date</label>
+                  <input
+                    type="date"
+                    value={returnDate.split(/[T ]/)[0]}
+                    onChange={(e) => setReturnDate(e.target.value + "T" + getTimeString(returnDate))}
+                    className="w-full rounded-xl border border-border bg-card px-2.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Return Time</label>
                   <div className="relative flex items-center">
-                    <input
-                      type="time"
+                    <select
                       value={getTimeString(returnDate)}
-                      onChange={(e) => setReturnDate(updateTimeInDateTimeString(returnDate, e.target.value))}
-                      className="w-full rounded-xl border border-border bg-card pl-3 pr-10 py-2 text-xs text-foreground focus:border-primary focus:outline-none [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-8 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    />
-                    <Clock className="absolute right-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      onChange={(e) => setReturnDate(returnDate.split(/[T ]/)[0] + "T" + e.target.value)}
+                      className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
+                    >
+                      {timeSlots.map((slot) => (
+                        <option key={slot.value} value={slot.value}>
+                          {slot.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Clock className="absolute right-2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -700,8 +748,8 @@ export default function Bikes() {
                       const start = new Date(pickupDate);
                       const end = new Date(returnDate);
                       const diffTime = Math.abs(end.getTime() - start.getTime());
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-                      return diffDays * (bookingBike.rentalPrice || 500);
+                      const diffHours = diffTime / (1000 * 60 * 60);
+                      return Math.round(diffHours * bookingBike.price);
                     })()}
                   </span>
                 </div>

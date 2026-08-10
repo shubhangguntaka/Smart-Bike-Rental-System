@@ -76,6 +76,17 @@ public class GlobalExceptionHandler {
         }
 
         /**
+         * Invalid Booking Exception
+         */
+        @ExceptionHandler(com.sssit.bikerental.modules.booking.exception.InvalidBookingException.class)
+        public ResponseEntity<ApiResponse<Object>> handleInvalidBookingException(
+                        com.sssit.bikerental.modules.booking.exception.InvalidBookingException ex) {
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.error(ex.getMessage()));
+        }
+
+        /**
          * Unauthorized
          */
         @ExceptionHandler(UnauthorizedException.class)

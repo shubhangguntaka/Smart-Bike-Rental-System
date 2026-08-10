@@ -134,6 +134,27 @@ const BookingDetails = () => {
 
     };
 
+    const formatDateTime = (dateStr: string) => {
+        try {
+            if (!dateStr) return "N/A";
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            const day = date.getDate();
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const month = monthNames[date.getMonth()];
+            const year = date.getFullYear();
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            const ampm = hours >= 12 ? "PM" : "AM";
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const formattedHours = String(hours).padStart(2, "0");
+            return `${day} ${month} ${year}, ${formattedHours}:${minutes} ${ampm}`;
+        } catch {
+            return dateStr;
+        }
+    };
+
     if (loading) {
 
         return (
@@ -245,13 +266,13 @@ const BookingDetails = () => {
 
                                 <Typography>
 
-                                    Start Time: {new Date(booking.startTime).toLocaleString()}
+                                    Start Time: {formatDateTime(booking.startTime)}
 
                                 </Typography>
 
                                 <Typography>
 
-                                    Return Time: {new Date(booking.returnTime).toLocaleString()}
+                                    Return Time: {formatDateTime(booking.returnTime)}
 
                                 </Typography>
 

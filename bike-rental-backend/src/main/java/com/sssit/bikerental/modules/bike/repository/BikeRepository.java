@@ -14,6 +14,10 @@ import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 @Repository
 public interface BikeRepository extends JpaRepository<Bike, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM Bike b WHERE b.bikeId = :bikeId")
+    Optional<Bike> findByIdForUpdate(@Param("bikeId") Long bikeId);
+
     long countByOwnerId(Long ownerId);
 
     long countByOwnerIdAndBikeStatus(Long ownerId, BikeStatus bikeStatus);

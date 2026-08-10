@@ -28,16 +28,12 @@ public class BookingValidator {
             throw new InvalidBookingException("Return time is required.");
         }
 
-        if (request.getStartTime().isBefore(LocalDateTime.now().minusMinutes(5))) {
-            throw new InvalidBookingException("Start time cannot be in the past.");
+        if (request.getStartTime().isBefore(LocalDateTime.now().minusMinutes(1))) {
+            throw new InvalidBookingException("Please select a future pickup time.");
         }
 
-        if (request.getReturnTime().isBefore(request.getStartTime())) {
-            throw new InvalidBookingException("Return time must be after start time.");
-        }
-
-        if (request.getStartTime().isEqual(request.getReturnTime())) {
-            throw new InvalidBookingException("Start time and return time cannot be equal.");
+        if (request.getReturnTime().isBefore(request.getStartTime()) || request.getStartTime().isEqual(request.getReturnTime())) {
+            throw new InvalidBookingException("Return time must be after pickup time.");
         }
     }
 

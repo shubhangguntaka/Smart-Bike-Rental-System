@@ -33,9 +33,26 @@ const BookBike = () => {
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
-  // Booking details state
-  const [pickupDate, setPickupDate] = useState(getTodayDateTimeString());
-  const [returnDate, setReturnDate] = useState("");
+  const timeSlots: { value: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const period = h >= 12 ? "PM" : "AM";
+      const displayHour = h % 12 === 0 ? 12 : h % 12;
+      const padHour = String(displayHour).padStart(2, "0");
+      const padMin = String(m).padStart(2, "0");
+      const val = `${String(h).padStart(2, "0")}:${padMin}`;
+      const label = `${padHour}:${padMin} ${period}`;
+      timeSlots.push({ value: val, label });
+    }
+  }
+
+  const [pickupDateOnly, setPickupDateOnly] = useState(getTodayDateTimeString().split("T")[0]);
+  const [pickupTimeOnly, setPickupTimeOnly] = useState("09:00");
+  const [returnDateOnly, setReturnDateOnly] = useState(getTodayDateTimeString().split("T")[0]);
+  const [returnTimeOnly, setReturnTimeOnly] = useState("18:00");
+
+  const pickupDate = `${pickupDateOnly}T${pickupTimeOnly}:00`;
+  const returnDate = `${returnDateOnly}T${returnTimeOnly}:00`;
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isUnavailableDialogOpen, setIsUnavailableDialogOpen] = useState(false);
@@ -81,19 +98,13 @@ const BookBike = () => {
     setFilteredBikes(result);
   }, [searchTerm, selectedLocation, bikes]);
 
-  const calculateDays = () => {
+  const calculateHours = () => {
     if (!pickupDate || !returnDate) return 0;
     const start = new Date(pickupDate);
     const end = new Date(returnDate);
     const diffTime = end.getTime() - start.getTime();
     if (diffTime <= 0) return 0;
-    const minutes = diffTime / (1000 * 60);
-    return Math.ceil(minutes / (24 * 60)) || 1;
-  };
-
-  const calculateAmount = (pricePerDay: number) => {
-    const days = calculateDays();
-    return days * pricePerDay;
+    return diffTime / (1000 * 60 * 60);
   };
 
   const handleBookNow = async (bike: Bike) => {
@@ -192,29 +203,59 @@ const BookBike = () => {
           Step 1: Choose Rental Times
         </Typography>
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={3}>
             <TextField
-              aria-label="Start Time"
+              aria-label="Pickup Date"
               fullWidth
-              label="Start Time"
-              type="datetime-local"
+              label="Pickup Date"
+              type="date"
               InputLabelProps={{ shrink: true }}
-              value={pickupDate}
-              onChange={(e) => setPickupDate(e.target.value)}
-              inputProps={{ min: getTodayDateTimeString() }}
+              value={pickupDateOnly}
+              onChange={(e) => setPickupDateOnly(e.target.value)}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              aria-label="Pickup Time"
+              fullWidth
+              select
+              label="Pickup Time"
+              value={pickupTimeOnly}
+              onChange={(e) => setPickupTimeOnly(e.target.value)}
+            >
+              {timeSlots.map((slot) => (
+                <MenuItem key={slot.value} value={slot.value}>
+                  {slot.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              aria-label="Return Date"
+              fullWidth
+              label="Return Date"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={returnDateOnly}
+              onChange={(e) => setReturnDateOnly(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
             <TextField
               aria-label="Return Time"
               fullWidth
+              select
               label="Return Time"
-              type="datetime-local"
-              InputLabelProps={{ shrink: true }}
-              value={returnDate}
-              onChange={(e) => setReturnDate(e.target.value)}
-              inputProps={{ min: pickupDate || getTodayDateTimeString() }}
-            />
+              value={returnTimeOnly}
+              onChange={(e) => setReturnTimeOnly(e.target.value)}
+            >
+              {timeSlots.map((slot) => (
+                <MenuItem key={slot.value} value={slot.value}>
+                  {slot.label}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
         </Grid>
       </Paper>
@@ -284,8 +325,9 @@ const BookBike = () => {
       ) : (
         <Grid container spacing={3}>
           {filteredBikes.map((bike) => {
-            const days = calculateDays();
-            const estAmount = calculateAmount(bike.rentalPrice);
+            const hours = calculateHours();
+            const hourlyPrice = bike.hourlyRate || Math.round(bike.rentalPrice / 24);
+            const estAmount = Math.round(hours * hourlyPrice);
             return (
               <Grid item xs={12} sm={6} md={4} key={bike.bikeId || bike.id}>
                 <Card sx={{
@@ -325,19 +367,19 @@ const BookBike = () => {
                     <Box display="flex" justifyContent="space-between" alignItems="center" mt="auto">
                       <Box>
                         <Typography variant="h6" fontWeight="black" color="primary">
-                          ₹{bike.rentalPrice}
+                          ₹{hourlyPrice}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          per day
+                          per hour
                         </Typography>
                       </Box>
-                      {days > 0 && (
+                      {hours > 0 && (
                         <Box textAlign="right">
                           <Typography variant="subtitle2" fontWeight="bold" color="success.main">
                             ₹{estAmount}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            for {days} days
+                            for {hours.toFixed(1)} hours
                           </Typography>
                         </Box>
                       )}
