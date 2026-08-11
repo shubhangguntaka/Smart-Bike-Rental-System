@@ -45,6 +45,8 @@ public class BikeServiceImpl implements BikeService {
     private final BikeDocumentRepository bikeDocumentRepository;
     private final CurrentUserService currentUserService;
     private final AuthorizationService authorizationService;
+    private final com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
+    private final com.sssit.bikerental.modules.review.Entity.ReviewService reviewService;
 
     @Override
     public BikeDTO addBike(BikeDTO bikeDTO) {
@@ -90,7 +92,7 @@ public class BikeServiceImpl implements BikeService {
                 if (bikeDTO.getImageUrl() != null) {
                     existing.setImageUrl(bikeDTO.getImageUrl());
                 }
-                return bikeMapper.toDTO(bikeRepository.save(existing));
+                return enrichDTO(bikeMapper.toDTO(bikeRepository.save(existing)));
             }
         }
 
@@ -123,7 +125,7 @@ public class BikeServiceImpl implements BikeService {
             bike.setBikeStatus(BikeStatus.AVAILABLE);
         }
 
-        return bikeMapper.toDTO(bikeRepository.save(bike));
+        return enrichDTO(bikeMapper.toDTO(bikeRepository.save(bike)));
     }
 
     @Override
@@ -136,7 +138,7 @@ public class BikeServiceImpl implements BikeService {
         }
 
         bikeMapper.applyUpdate(bike, bikeDTO);
-        return bikeMapper.toDTO(bikeRepository.save(bike));
+        return enrichDTO(bikeMapper.toDTO(bikeRepository.save(bike)));
     }
 
     @Override
@@ -149,7 +151,7 @@ public class BikeServiceImpl implements BikeService {
     @Override
     @Transactional(readOnly = true)
     public BikeDTO getBikeById(Long bikeId) {
-        return bikeMapper.toDTO(getBikeEntity(bikeId));
+        return enrichDTO(bikeMapper.toDTO(getBikeEntity(bikeId)));
     }
 
     @Override
@@ -157,6 +159,7 @@ public class BikeServiceImpl implements BikeService {
     public List<BikeDTO> getAllBikes() {
         return bikeRepository.findAll().stream()
                 .map(bikeMapper::toDTO)
+                .map(this::enrichDTO)
                 .collect(Collectors.toList());
     }
 
@@ -173,6 +176,7 @@ public class BikeServiceImpl implements BikeService {
 
         return bikeRepository.findByOwnerIdOrderByCreatedAtDesc(resolvedOwnerId).stream()
                 .map(bikeMapper::toDTO)
+                .map(this::enrichDTO)
                 .collect(Collectors.toList());
     }
 
@@ -290,6 +294,7 @@ public class BikeServiceImpl implements BikeService {
                         maxPrice)
                 .stream()
                 .map(bikeMapper::toDTO)
+                .map(this::enrichDTO)
                 .collect(Collectors.toList());
     }
 
@@ -343,5 +348,32 @@ public class BikeServiceImpl implements BikeService {
                 .status(doc.getStatus())
                 .alreadyListed(alreadyListed)
                 .build();
+    }
+
+    private BikeDTO enrichDTO(BikeDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        if (dto.getOwnerId() != null) {
+            try {
+                com.sssit.bikerental.modules.user.User user = userRepository.findById(dto.getOwnerId()).orElse(null);
+                if (user != null) {
+                    dto.setOwner(BikeDTO.OwnerInfo.builder()
+                            .ownerId(dto.getOwnerId())
+                            .ownerName(user.getFullName())
+                            .build());
+                }
+            } catch (Exception e) {
+                // Safe fallback
+            }
+        }
+        if (dto.getBikeId() != null) {
+            try {
+                dto.setRating(reviewService.getAverageRating(dto.getBikeId()));
+            } catch (Exception e) {
+                dto.setRating(0.0);
+            }
+        }
+        return dto;
     }
 }

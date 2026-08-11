@@ -170,15 +170,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 </button>
 
                 {/* Dropdown Menu Overlay */}
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute left-0 mt-2 z-30 min-w-[240px] max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl text-foreground focus:outline-none"
-                    >
+                {isDropdownOpen && (
+                  <div
+                    className="absolute left-0 mt-2 z-[1001] min-w-[240px] max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xl text-gray-950 dark:text-gray-50 focus:outline-none"
+                  >
                       {/* Dropdown Header */}
                       <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
                         <span className="text-xs font-bold text-muted-foreground">{filter.label}</span>
@@ -190,6 +185,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                             Clear
                           </button>
                         )}
+                      </div>
+
+                      {/* Visible Debug Information for Troubleshooting */}
+                      <div className="text-[10px] text-red-600 dark:text-red-400 font-mono bg-red-50 dark:bg-red-950/30 p-1.5 rounded-lg mb-3">
+                        ID: {filter.id} | Type: {filter.type} | Options: {filter.options?.length ?? 0}
                       </div>
 
                       {/* Dropdown Inputs based on Type */}
@@ -287,54 +287,42 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
                       {filter.type === "range" && (
                         <div className="space-y-3 pt-2">
-                          {(() => {
-                            const minVal = filter.min ?? 0;
-                            const maxVal = filter.max ?? 1000;
-                            const step = filter.step ?? 10;
-                            const [minSel, maxSel] = Array.isArray(value[filter.id])
-                              ? value[filter.id]
-                              : [minVal, maxVal];
-
-                            return (
-                              <>
-                                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                                  <span>Min: {minSel}</span>
-                                  <span>Max: {maxSel}</span>
-                                </div>
-                                <div className="space-y-2">
-                                  <input
-                                    type="range"
-                                    min={minVal}
-                                    max={maxVal}
-                                    step={step}
-                                    value={minSel}
-                                    onChange={(e) => {
-                                      const nextMin = Math.min(Number(e.target.value), maxSel);
-                                      handleFieldChange(filter.id, [nextMin, maxSel]);
-                                    }}
-                                    className="w-full accent-primary h-1 bg-muted rounded-lg appearance-none cursor-pointer"
-                                  />
-                                  <input
-                                    type="range"
-                                    min={minVal}
-                                    max={maxVal}
-                                    step={step}
-                                    value={maxSel}
-                                    onChange={(e) => {
-                                      const nextMax = Math.max(Number(e.target.value), minSel);
-                                      handleFieldChange(filter.id, [minSel, nextMax]);
-                                    }}
-                                    className="w-full accent-primary h-1 bg-muted rounded-lg appearance-none cursor-pointer"
-                                  />
-                                </div>
-                              </>
-                            );
-                          })()}
+                          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                            <span>Min: {Array.isArray(value[filter.id]) ? value[filter.id][0] : (filter.min ?? 0)}</span>
+                            <span>Max: {Array.isArray(value[filter.id]) ? value[filter.id][1] : (filter.max ?? 1000)}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <input
+                              type="range"
+                              min={filter.min ?? 0}
+                              max={filter.max ?? 1000}
+                              step={filter.step ?? 10}
+                              value={Array.isArray(value[filter.id]) ? value[filter.id][0] : (filter.min ?? 0)}
+                              onChange={(e) => {
+                                const currentVal = Array.isArray(value[filter.id]) ? value[filter.id] : [filter.min ?? 0, filter.max ?? 1000];
+                                const nextMin = Math.min(Number(e.target.value), currentVal[1]);
+                                handleFieldChange(filter.id, [nextMin, currentVal[1]]);
+                              }}
+                              className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                            <input
+                              type="range"
+                              min={filter.min ?? 0}
+                              max={filter.max ?? 1000}
+                              step={filter.step ?? 10}
+                              value={Array.isArray(value[filter.id]) ? value[filter.id][1] : (filter.max ?? 1000)}
+                              onChange={(e) => {
+                                const currentVal = Array.isArray(value[filter.id]) ? value[filter.id] : [filter.min ?? 0, filter.max ?? 1000];
+                                const nextMax = Math.max(Number(e.target.value), currentVal[0]);
+                                handleFieldChange(filter.id, [currentVal[0], nextMax]);
+                              }}
+                              className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
                         </div>
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -529,55 +517,44 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
                       {filter.type === "range" && (
                         <div className="space-y-3.5 pt-1">
-                          {(() => {
-                            const minVal = filter.min ?? 0;
-                            const maxVal = filter.max ?? 1000;
-                            const step = filter.step ?? 10;
-                            const [minSel, maxSel] = Array.isArray(value[filter.id])
-                              ? value[filter.id]
-                              : [minVal, maxVal];
-
-                            return (
-                              <>
-                                <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
-                                  <span>Min: {minSel}</span>
-                                  <span>Max: {maxSel}</span>
-                                </div>
-                                <div className="space-y-3.5">
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-muted-foreground">Minimum Range</span>
-                                    <input
-                                      type="range"
-                                      min={minVal}
-                                      max={maxVal}
-                                      step={step}
-                                      value={minSel}
-                                      onChange={(e) => {
-                                        const nextMin = Math.min(Number(e.target.value), maxSel);
-                                        handleFieldChange(filter.id, [nextMin, maxSel]);
-                                      }}
-                                      className="w-full accent-primary h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-muted-foreground">Maximum Range</span>
-                                    <input
-                                      type="range"
-                                      min={minVal}
-                                      max={maxVal}
-                                      step={step}
-                                      value={maxSel}
-                                      onChange={(e) => {
-                                        const nextMax = Math.max(Number(e.target.value), minSel);
-                                        handleFieldChange(filter.id, [minSel, nextMax]);
-                                      }}
-                                      className="w-full accent-primary h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
-                                    />
-                                  </div>
-                                </div>
-                              </>
-                            );
-                          })()}
+                          <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+                            <span>Min: {Array.isArray(value[filter.id]) ? value[filter.id][0] : (filter.min ?? 0)}</span>
+                            <span>Max: {Array.isArray(value[filter.id]) ? value[filter.id][1] : (filter.max ?? 1000)}</span>
+                          </div>
+                          <div className="space-y-3.5">
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-bold text-muted-foreground">Minimum Range</span>
+                              <input
+                                type="range"
+                                min={filter.min ?? 0}
+                                max={filter.max ?? 1000}
+                                step={filter.step ?? 10}
+                                value={Array.isArray(value[filter.id]) ? value[filter.id][0] : (filter.min ?? 0)}
+                                onChange={(e) => {
+                                  const currentVal = Array.isArray(value[filter.id]) ? value[filter.id] : [filter.min ?? 0, filter.max ?? 1000];
+                                  const nextMin = Math.min(Number(e.target.value), currentVal[1]);
+                                  handleFieldChange(filter.id, [nextMin, currentVal[1]]);
+                                }}
+                                className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-bold text-muted-foreground">Maximum Range</span>
+                              <input
+                                type="range"
+                                min={filter.min ?? 0}
+                                max={filter.max ?? 1000}
+                                step={filter.step ?? 10}
+                                value={Array.isArray(value[filter.id]) ? value[filter.id][1] : (filter.max ?? 1000)}
+                                onChange={(e) => {
+                                  const currentVal = Array.isArray(value[filter.id]) ? value[filter.id] : [filter.min ?? 0, filter.max ?? 1000];
+                                  const nextMax = Math.max(Number(e.target.value), currentVal[0]);
+                                  handleFieldChange(filter.id, [currentVal[0], nextMax]);
+                                }}
+                                className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

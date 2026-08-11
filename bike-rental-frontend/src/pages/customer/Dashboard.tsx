@@ -132,7 +132,7 @@ export default function CustomerDashboard() {
       desc: "Pay hourly rate with no upfront hidden security deposit fees.",
       time: "Active Benefit",
       icon: CreditCard,
-      color: "text-blue-500 bg-blue-500/10",
+      color: "text-primary bg-primary/10",
     },
   ];
 
@@ -220,7 +220,7 @@ export default function CustomerDashboard() {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-xs transition hover:shadow-md space-y-2">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-bold uppercase tracking-wider">Available Fleet</span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
               <Compass className="h-5 w-5" />
             </div>
           </div>
@@ -274,9 +274,9 @@ export default function CustomerDashboard() {
 
               <Link
                 to="/verification"
-                className="flex flex-col items-center justify-center p-4 rounded-2xl border border-border bg-card hover:bg-blue-500/5 hover:border-blue-500/30 transition-all text-center group shadow-xs"
+                className="flex flex-col items-center justify-center p-4 rounded-2xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-all text-center group shadow-xs"
               >
-                <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 group-hover:scale-110 transition-transform mb-2">
+                <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform mb-2">
                   <FileText className="h-5 w-5" />
                 </div>
                 <span className="text-xs font-bold text-foreground">Verification</span>

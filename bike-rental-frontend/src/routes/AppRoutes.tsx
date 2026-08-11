@@ -19,8 +19,8 @@ import OwnerVerification from "@/pages/owner/OwnerVerification";
 
 // Customer Pages
 import CustomerDashboard from "../pages/customer/Dashboard";
-import CustomerBikes from "../pages/customer/Bikes";
 import CustomerBookings from "../pages/customer/Bookings";
+import CustomerBikeDetails from "../pages/customer/BikeDetails";
 import CustomerProfile from "../pages/customer/Profile";
 import CustomerSettings from "../pages/customer/Settings";
 import CreateBooking from "../pages/customer/CreateBooking";
@@ -53,6 +53,9 @@ import AdminSettings from "@/pages/admin/Settings";
 import AdminProfile from "@/pages/admin/Profile";
 import AdminReports from "@/pages/admin/Reports";
 
+// Map Pages
+import MapPage from "@/pages/maps/MapPage";
+
 // Error Pages
 import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "../pages/errors/NotFound";
@@ -64,10 +67,12 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
-          <Route path="bikes" element={<Bikes />} />
+          <Route path="nearby-bikes" element={<Bikes />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
-          <Route path="test" element={<Test />} />
+          <Route path="maps" element={<MapPage />} />
+          <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
+          {/* <Route path="test" element={<Test />} /> */}
           {/* Public testing routes (intentionally bypass auth guards) */}
           <Route path="verification" element={<DocumentVerification />} />
           <Route path="bike-verification" element={<OwnerVerification />} />
@@ -87,7 +92,8 @@ const AppRoutes = () => {
         >
           <Route index element={<Navigate to="/customer/bikes" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
-          <Route path="bikes" element={<CustomerBikes />} />
+          <Route path="nearby-bikes" element={<Bikes />} />
+          <Route path="maps" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
           <Route path="book/:bikeId" element={<CreateBooking />} />
           <Route path="bookings/:id" element={<BookingDetails />} />
@@ -98,6 +104,7 @@ const AppRoutes = () => {
           <Route path="ride-tracking" element={<RideTracking />} />
           <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
           <Route path="payment/:bookingId" element={<Payment />} />
+          <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
         </Route>
 
         {/* Owner Dashboard Routes */}

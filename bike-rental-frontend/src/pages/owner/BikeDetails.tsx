@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 import bikeService from "@/services/bikeService";
 import type { Bike } from "@/types/bike";
 import BikeAvailability from "@/components/bike/BikeAvailability";
+import DistanceCard from "@/components/map/DistanceCard";
 import { ROUTES } from "@/constants/routes";
 import { format12Hour } from "@/utils/timeUtils";
 
@@ -154,6 +155,15 @@ const BikeDetails = () => {
               </p>
             </div>
           )}
+
+          {/* Location & Mini Map */}
+          <DistanceCard
+            bikeId={bike.bikeId}
+            latitude={bike.latitude || 17.385}
+            longitude={bike.longitude || 78.4867}
+            locationName={bike.location}
+            showMiniMap={true}
+          />
         </div>
 
         {/* Right Column: Key Details & Specs */}

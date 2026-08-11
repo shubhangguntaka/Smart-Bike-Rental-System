@@ -1,0 +1,179 @@
+package com.sssit.bikerental.modules.map.serviceimpl;
+
+import com.sssit.bikerental.modules.bike.entity.Bike;
+import com.sssit.bikerental.modules.bike.enums.BikeStatus;
+import com.sssit.bikerental.modules.bike.repository.BikeRepository;
+import com.sssit.bikerental.modules.map.dto.BikeLocationDTO;
+import com.sssit.bikerental.modules.map.dto.DistanceResponseDTO;
+import com.sssit.bikerental.modules.map.dto.NearbyBikeDTO;
+import com.sssit.bikerental.modules.map.dto.RouteResponseDTO;
+import com.sssit.bikerental.modules.map.service.MapsService;
+import com.sssit.bikerental.modules.map.utils.DistanceCalculator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RequiredArgsConstructor
+@Service
+public class MapsServiceImpl implements MapsService {
+
+    private final BikeRepository bikeRepository;
+    
+    private final RestTemplate restTemplate;
+
+
+
+    @Override
+    public List<NearbyBikeDTO> getNearbyBikes(
+            double latitude,
+            double longitude) {
+
+        List<Bike> bikes =
+        		bikeRepository.findAvailableVerifiedBikes();
+
+        return bikes.stream()
+                .map(bike -> {
+
+                    double distance =
+                            DistanceCalculator.calculateDistance(
+                                    latitude,
+                                    longitude,
+                                    bike.getLatitude() != null ? bike.getLatitude() : 0.0,
+                                    bike.getLongitude() != null ? bike.getLongitude() : 0.0
+                            );
+
+                    boolean isAvailable = bike.getBikeStatus() == BikeStatus.AVAILABLE;
+
+                    return NearbyBikeDTO.builder()
+                            .bikeId(bike.getBikeId())
+                            .bikeName(bike.getBikeName())
+                            .brand(bike.getBrand())
+                            .rentalPrice(bike.getRentalPrice() != null ? bike.getRentalPrice().doubleValue() : 0.0)
+                            .latitude(bike.getLatitude())
+                            .longitude(bike.getLongitude())
+                            .distance(distance)
+                            .imageUrl(bike.getImageUrl())
+                            .available(isAvailable)
+                            .build();
+
+                })
+                .sorted(Comparator.comparingDouble(b -> b.getDistance() != null ? b.getDistance() : Double.MAX_VALUE))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public BikeLocationDTO getBikeLocation(Long bikeId) {
+
+        Bike bike = bikeRepository.findById(bikeId)
+                .orElseThrow(() ->
+                        new RuntimeException("Bike not found"));
+
+        return BikeLocationDTO.builder()
+                .bikeId(bike.getBikeId())
+                .latitude(bike.getLatitude())
+                .longitude(bike.getLongitude())
+                .build();
+    }
+
+    @Override
+    public DistanceResponseDTO calculateDistance(
+            double customerLatitude,
+            double customerLongitude,
+            Long bikeId) {
+
+        Bike bike = bikeRepository.findById(bikeId)
+                .orElseThrow(() ->
+                        new RuntimeException("Bike not found"));
+
+        double distance =
+                DistanceCalculator.calculateDistance(
+                        customerLatitude,
+                        customerLongitude,
+                        bike.getLatitude(),
+                        bike.getLongitude()
+                );
+
+        return DistanceResponseDTO.builder()
+                .distanceInKm(distance)
+                .estimatedTime(
+                        DistanceCalculator.estimateTravelTime(distance)
+                )
+                .build();
+    }
+
+    @Override
+    public RouteResponseDTO getRoute(
+            double customerLatitude,
+            double customerLongitude,
+            Long bikeId) {
+
+        Bike bike = bikeRepository.findById(bikeId)
+                .orElseThrow(() -> new RuntimeException("Bike not found"));
+
+        try {
+
+            String url =
+                    "https://router.project-osrm.org/route/v1/driving/"
+                            + customerLongitude + ","
+                            + customerLatitude + ";"
+                            + bike.getLongitude() + ","
+                            + bike.getLatitude()
+                            + "?overview=full&geometries=geojson";
+
+            String response = restTemplate.getForObject(url, String.class);
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            JsonNode root = mapper.readTree(response);
+
+            JsonNode route = root.path("routes").get(0);
+
+            double distance =
+                    route.path("distance").asDouble() / 1000;
+
+            double duration =
+                    route.path("duration").asDouble() / 60;
+
+            List<List<Double>> coordinates = new java.util.ArrayList<>();
+
+            JsonNode geometry =
+                    route.path("geometry").path("coordinates");
+
+            for (JsonNode point : geometry) {
+
+                List<Double> coordinate =
+                        new java.util.ArrayList<>();
+
+                coordinate.add(point.get(1).asDouble());
+                coordinate.add(point.get(0).asDouble());
+
+                coordinates.add(coordinate);
+
+            }
+
+            return RouteResponseDTO.builder()
+                    .startLatitude(customerLatitude)
+                    .startLongitude(customerLongitude)
+                    .endLatitude(bike.getLatitude())
+                    .endLongitude(bike.getLongitude())
+                    .distance(distance)
+                    .duration(Math.round(duration) + " mins")
+                    .coordinates(coordinates)
+                    .build();
+
+        }
+
+        catch (Exception e) {
+
+            throw new RuntimeException("Unable to fetch route", e);
+
+        }
+
+    }
+}

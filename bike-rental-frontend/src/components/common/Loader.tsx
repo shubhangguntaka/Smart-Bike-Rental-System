@@ -20,7 +20,7 @@ const Loader = ({
       `}
     >
       <div
-        className="animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+        className="animate-spin rounded-full border-4 border-primary border-t-transparent"
         style={{
           width: size,
           height: size,
@@ -28,7 +28,7 @@ const Loader = ({
       />
 
       {text && (
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+        <p className="text-sm font-medium text-muted-foreground">
           {text}
         </p>
       )}

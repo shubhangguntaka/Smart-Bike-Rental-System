@@ -18,6 +18,7 @@ public interface BikeRepository extends JpaRepository<Bike, Long> {
     @Query("SELECT b FROM Bike b WHERE b.bikeId = :bikeId")
     Optional<Bike> findByIdForUpdate(@Param("bikeId") Long bikeId);
 
+
     long countByOwnerId(Long ownerId);
 
     long countByOwnerIdAndBikeStatus(Long ownerId, BikeStatus bikeStatus);
@@ -48,6 +49,13 @@ public interface BikeRepository extends JpaRepository<Bike, Long> {
     boolean existsByRcNumberAndBikeIdNot(String rcNumber, Long bikeId);
 
     List<Bike> findByBikeStatus(BikeStatus bikeStatus);
+
+   @Query("""
+        SELECT b FROM Bike b
+        WHERE b.bikeStatus = com.sssit.bikerental.modules.bike.enums.BikeStatus.AVAILABLE
+          AND b.rcVerified = true
+        """)
+List<Bike> findAvailableVerifiedBikes();
 
     List<Bike> findByLocationIgnoreCase(String location);
 

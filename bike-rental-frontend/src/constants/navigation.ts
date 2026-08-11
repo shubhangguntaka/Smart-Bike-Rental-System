@@ -12,6 +12,8 @@ import {
   Phone,
   TestTube2Icon,
   FileText,
+  MapPin,
+  Compass,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
@@ -26,9 +28,14 @@ export const PUBLIC_NAVIGATION = [
     icon: Home,
   },
   {
-    label: "Bikes",
-    path: "/bikes",
-    icon: Bike,
+        label: "Nearby Bikes",
+        path: "/nearby-bikes",
+        icon: Bike,
+      },
+  {
+    label: "Explore Map",
+    path: "/maps",
+    icon: MapPin,
   },
   {
     label: "About",
@@ -40,11 +47,6 @@ export const PUBLIC_NAVIGATION = [
     path: "/contact",
     icon: Phone,
   },
-  {
-    label: "Test",
-    path: "/test",
-    icon: TestTube2Icon,
-  }
 ];
 
 /* ===========================
@@ -62,9 +64,14 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
         icon: LayoutDashboard,
       },
       {
-        label: "Browse Bikes",
-        path: "/customer/bikes",
-        icon: Bike,
+        label: "Nearby Bikes",
+        path: "/customer/nearby-bikes",
+        icon: Compass,
+      },
+      {
+        label: "Explore Map",
+        path: "/customer/maps",
+        icon: MapPin,
       },
       {
         label: "Bookings",

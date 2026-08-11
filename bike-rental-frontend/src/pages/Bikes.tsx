@@ -519,25 +519,37 @@ export default function Bikes() {
                       <span className="text-xs text-muted-foreground">/ hr</span>
                     </div>
 
-                    {isShiftActive ? (
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => handleBookClick(bike)}
-                        className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
+                        onClick={() => {
+                          const routePrefix = user?.role === "CUSTOMER" ? "/customer" : "";
+                          navigate(`${routePrefix}/bikes/${bike.id}`);
+                        }}
+                        className="px-3.5 py-2 text-xs font-bold rounded-xl border border-primary text-primary hover:bg-primary/10 transition-all duration-200 cursor-pointer"
                       >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Rent Now
+                        View Details
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        title="Outside operating hours"
-                        className="px-4 py-2 text-xs font-semibold rounded-xl bg-muted text-muted-foreground border border-border cursor-not-allowed flex items-center gap-1"
-                      >
-                        Shift Closed
-                      </button>
-                    )}
+                      {isShiftActive ? (
+                        <button
+                          type="button"
+                          onClick={() => handleBookClick(bike)}
+                          className="px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Rent Now
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Outside operating hours"
+                          className="px-3.5 py-2 text-xs font-bold rounded-xl bg-muted text-muted-foreground border border-border cursor-not-allowed flex items-center gap-1"
+                        >
+                          Shift Closed
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

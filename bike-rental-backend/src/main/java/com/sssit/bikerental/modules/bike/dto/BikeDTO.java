@@ -26,6 +26,19 @@ public class BikeDTO {
 
     private Long ownerId;
 
+    private OwnerInfo owner;
+
+    private Double rating;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OwnerInfo {
+        private Long ownerId;
+        private String ownerName;
+    }
+
     @NotBlank(message = "Bike name is required")
     @Size(max = 120)
     private String bikeName;

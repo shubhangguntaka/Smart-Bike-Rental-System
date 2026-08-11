@@ -3,7 +3,7 @@ import { Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 
 interface RouteMapProps {
-  coordinates: Array<number[] | [number, number]>;
+  coordinates: number[][];
 }
 
 export default function RouteMap({
@@ -30,10 +30,11 @@ export default function RouteMap({
 
   return (
     <Polyline
-      positions={coordinates as unknown as L.LatLngExpression[]}
+      positions={coordinates.map(([lat, lng]) => [lat, lng] as [number, number])}
       pathOptions={{
-        color: "#2563eb",
-        weight: 6,
+        color: "blue",
+        weight: 5,
+        opacity: 0.8,
       }}
     />
   );

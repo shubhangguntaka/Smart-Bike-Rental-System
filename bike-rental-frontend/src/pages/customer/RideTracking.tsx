@@ -1,12 +1,41 @@
 import React, { useState, useEffect } from "react";
-import { Container, Card, CardContent, Typography, Box, CircularProgress, Alert, Button, Grid, Paper, Divider } from "@mui/material";
+import {
+  Container,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  CircularProgress,
+  Alert,
+  Button,
+  Grid,
+  Paper,
+  Divider,
+} from "@mui/material";
 import NavigationIcon from "@mui/icons-material/Navigation";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import MapIcon from "@mui/icons-material/Map";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
 import { BookingService } from "../../services/bookingService";
 import useAuth from "../../hooks/useAuth";
 import type { Booking } from "../../types/booking";
+
+const liveUserIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+const bikeMarkerIcon = new L.Icon({
+  iconUrl: "/icons/motorbike.png",
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
 
 const RideTracking = () => {
   const { user } = useAuth();
@@ -16,17 +45,16 @@ const RideTracking = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Live simulation states (as placeholders with TODO comments)
   const [rideDuration, setRideDuration] = useState("00:00:00");
   const [currentLocation, setCurrentLocation] = useState("Koramangala 4th Block, Bangalore");
   const [eta, setEta] = useState("15 mins");
+  const [trackingData, setTrackingData] = useState<any>(null);
 
   const loadActiveRide = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch bookings and find the active one
       const list = await BookingService.fetchBookingHistory(customerId);
       const active = list.find((b: any) => b.bookingStatus === "ACTIVE");
       setActiveBooking(active || null);
@@ -41,9 +69,6 @@ const RideTracking = () => {
     loadActiveRide();
   }, [customerId]);
 
-  const [trackingData, setTrackingData] = useState<any>(null);
-
-  // Poll live tracking details from the backend tracking API
   useEffect(() => {
     if (!activeBooking) return;
 
@@ -51,19 +76,22 @@ const RideTracking = () => {
       try {
         const data = await BookingService.getRideTracking(activeBooking.bookingId);
         setTrackingData(data);
-        setCurrentLocation(data.currentLocation);
-        setRideDuration(data.rideDuration);
-        setEta(data.eta);
+        if (data.currentLocation) setCurrentLocation(data.currentLocation);
+        if (data.rideDuration) setRideDuration(data.rideDuration);
+        if (data.eta) setEta(data.eta);
       } catch (err) {
         console.error("Failed to fetch ride tracking data:", err);
       }
     };
 
-    fetchTracking(); // initial fetch
-    const interval = setInterval(fetchTracking, 3000); // poll every 3 seconds
+    fetchTracking();
+    const interval = setInterval(fetchTracking, 3000);
 
     return () => clearInterval(interval);
   }, [activeBooking]);
+
+  const mapLat = trackingData?.latitude || 12.9352;
+  const mapLng = trackingData?.longitude || 77.6245;
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -167,7 +195,7 @@ const RideTracking = () => {
                   </Typography>
                 </Box>
 
-                <Box>
+                <Box mb={2.5}>
                   <Typography variant="caption" color="text.secondary" display="block">BOOKING REFERENCE</Typography>
                   <Typography variant="body2" fontWeight="bold">BK-{activeBooking.bookingId}</Typography>
                 </Box>
@@ -175,25 +203,31 @@ const RideTracking = () => {
             </Card>
           </Grid>
 
-          {/* Visual Map Simulator */}
+          {/* Interactive Leaflet GPS Map */}
           <Grid item xs={12}>
-            <Paper sx={{ height: 400, width: "100%", overflow: "hidden", borderRadius: 3, border: "1px solid #e0e0e0" }}>
-              {trackingData && (
-                <iframe
-                  title="Live GPS Tracking Map"
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${trackingData.longitude - 0.005}%2C${trackingData.latitude - 0.005}%2C${trackingData.longitude + 0.005}%2C${trackingData.latitude + 0.005}&layer=mapnik&marker=${trackingData.latitude}%2C${trackingData.longitude}`}
-                  style={{ border: 0 }}
+            <Paper sx={{ height: 420, width: "100%", overflow: "hidden", borderRadius: 3, border: "1px solid #e0e0e0" }}>
+              <MapContainer
+                center={[mapLat, mapLng]}
+                zoom={14}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  attribution="© OpenStreetMap contributors"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-              )}
+                <Marker position={[mapLat, mapLng]} icon={bikeMarkerIcon}>
+                  <Popup>
+                    <strong>Live Ride Location</strong>
+                    <br />
+                    {currentLocation}
+                  </Popup>
+                </Marker>
+              </MapContainer>
             </Paper>
           </Grid>
         </Grid>
       )}
 
-      {/* Global CSS for simulation pulse animation */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes pulse {
           0% { transform: scale(0.9); opacity: 0.7; }
