@@ -8,6 +8,7 @@ import bikeService from "../../services/bikeService";
 import { BookingService } from "../../services/bookingService";
 import useAuth from "../../hooks/useAuth";
 import type { Bike } from "../../types/bike";
+import { getShiftState } from "../../utils/timeUtils";
 
 const BookBike = () => {
   const navigate = useNavigate();
@@ -63,8 +64,11 @@ const BookBike = () => {
       try {
         setLoading(true);
         const data = await bikeService.getAllBikes();
-        // Filter only available bikes
-        const availableBikes = data.filter((b) => b.bikeStatus === "AVAILABLE" && b.rcVerified);
+        // Include verified bikes whose shift is active (not closed)
+        const availableBikes = data.filter((b) => {
+          const shiftState = getShiftState(b.availableStartTime, b.availableEndTime, b.bikeStatus);
+          return b.rcVerified && shiftState !== "SHIFT_CLOSED" && b.bikeStatus !== "UNDER_MAINTENANCE" && b.bikeStatus !== "NOT_AVAILABLE";
+        });
         setBikes(availableBikes);
         setFilteredBikes(availableBikes);
 
@@ -143,7 +147,8 @@ const BookBike = () => {
         returnDate
       );
 
-      if (!isAvailable) {
+      if (bike.bikeStatus === "BOOKED" || !isAvailable) {
+        setBookingError("This slot is booked at that time. Bike is already reserved by another customer.");
         setIsUnavailableDialogOpen(true);
         setBookingLoading(false);
         return;
@@ -180,6 +185,21 @@ const BookBike = () => {
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const getFilteredTimeSlots = (selectedDateStr: string) => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (selectedDateStr !== todayStr) {
+      return timeSlots;
+    }
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return timeSlots.filter((slot) => {
+      const [h, m] = slot.value.split(":").map(Number);
+      const slotMinutes = h * 60 + m;
+      return slotMinutes >= currentMinutes;
+    });
   };
 
   return (
@@ -411,11 +431,13 @@ const BookBike = () => {
         aria-describedby="unavailable-dialog-description"
       >
         <DialogTitle id="unavailable-dialog-title">
-          {"Bike Unavailable"}
+          {bookingError && bookingError.toLowerCase().includes("pending")
+            ? "Acceptance Pending by Owner"
+            : "Slot Already Booked"}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="unavailable-dialog-description">
-            Bike is already booked.
+            {bookingError || "This slot is booked at that time. Bike is already accepted and reserved by the owner for another customer."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>

@@ -20,6 +20,7 @@ export interface OwnerProfile {
 
 export interface BookingRequest {
   bookingId: number;
+  bikeId?: number;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -28,6 +29,8 @@ export interface BookingRequest {
   returnDate: string;
   rentalAmount: number;
   bookingStatus: string;
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 export interface Earnings {

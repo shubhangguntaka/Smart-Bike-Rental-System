@@ -98,7 +98,7 @@ const AddBike = () => {
       setIsAadhaarVerified(aadhaarOk);
 
       if (!aadhaarOk) {
-        toast("Bike details saved! Step 2: Verify your Aadhaar identity.");
+        toast("Bike details saved! Step 2: Verify your Aadhaar identity.", { icon: "ℹ️" });
         setStepMode("step2_aadhaar");
       } else {
         // Aadhaar already verified -> skip directly to RC verification
@@ -154,8 +154,6 @@ const AddBike = () => {
     const photoList = bikeDraft?.imageUrls && bikeDraft.imageUrls.length > 0 ? bikeDraft.imageUrls : [photoUrl];
 
     const payload: Bike = {
-      id: Date.now(),
-      bikeId: Date.now(),
       ownerId: activeOwnerId,
       bikeName: name,
       brand: brandStr,
@@ -182,20 +180,26 @@ const AddBike = () => {
 
       // Save locally so My Bikes renders it immediately
       const cached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
-      const filtered = cached.filter((b) => b.registrationNumber !== reg);
+      const filtered = cached.filter((b) => (b.registrationNumber || "").trim().toUpperCase() !== reg.toUpperCase());
       filtered.unshift(saved);
       localStorage.setItem("custom_owner_bikes", JSON.stringify(filtered));
-    } catch (err) {
-      console.warn("Backend addBike warning (saving to local fleet):", err);
-      setBikeDraft(payload);
-      const cached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
-      const filtered = cached.filter((b) => b.registrationNumber !== reg);
-      filtered.unshift(payload);
-      localStorage.setItem("custom_owner_bikes", JSON.stringify(filtered));
-    } finally {
-      setSaving(false);
+
+      // Clear deleted_bike_keys entry for this bike registration & name
+      const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_bike_keys") || "[]");
+      const updatedDeletedKeys = deletedKeys.filter((k) => k.toUpperCase() !== reg.toUpperCase() && k.toUpperCase() !== name.toUpperCase());
+      localStorage.setItem("deleted_bike_keys", JSON.stringify(updatedDeletedKeys));
+
+      window.dispatchEvent(new Event("custom_bikes_updated"));
+      window.dispatchEvent(new Event("storage"));
       toast.success("Bike Listed Successfully!");
       setStepMode("step4_success");
+    } catch (err: any) {
+      console.error("Backend addBike error:", err);
+      const serverMsg = err.response?.data?.message || err.message || "Failed to register bike on backend.";
+      toast.error(serverMsg);
+      throw err;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -499,6 +503,7 @@ const AddBike = () => {
 
           <BikeDocumentVerification
             ownerId={ownerId}
+            registrationNumber={bikeDraft.registrationNumber}
             onVerified={handleRcVerified}
             onBack={() => setStepMode("step1_details")}
           />

@@ -1,22 +1,35 @@
 package com.sssit.bikerental.modules.bike.mapper;
 
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
 import com.sssit.bikerental.modules.bike.dto.BikeDTO;
 import com.sssit.bikerental.modules.bike.entity.Bike;
 import com.sssit.bikerental.modules.bike.enums.BikeStatus;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
 
 @Component
+@RequiredArgsConstructor
 public class BikeMapper {
+
+    private final UserRepository userRepository;
 
     public BikeDTO toDTO(Bike bike) {
         if (bike == null) {
             return null;
         }
 
+        String ownerName = null;
+        if (bike.getOwnerId() != null) {
+            ownerName = userRepository.findById(bike.getOwnerId())
+                    .map(u -> u.getFullName())
+                    .orElse("Verified Owner");
+        }
+
         return BikeDTO.builder()
                 .bikeId(bike.getBikeId())
                 .ownerId(bike.getOwnerId())
+                .ownerName(ownerName)
                 .bikeName(bike.getBikeName())
                 .brand(bike.getBrand())
                 .model(bike.getModel())

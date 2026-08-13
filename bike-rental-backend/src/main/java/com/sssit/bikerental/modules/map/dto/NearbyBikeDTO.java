@@ -17,6 +17,26 @@ public class NearbyBikeDTO {
 
     private String brand;
 
+    private String model;
+
+    private String registrationNumber;
+
+    private String fuelType;
+
+    private String location;
+
+    private String description;
+
+    private String engineCapacity;
+
+    private String mileage;
+
+    private String transmission;
+
+    private Integer seatingCapacity;
+
+    private Double hourlyRate;
+
     private Double rentalPrice;
 
     private Double latitude;
@@ -28,4 +48,10 @@ public class NearbyBikeDTO {
     private String imageUrl;
 
     private Boolean available;
+
+    private String availableStartTime;
+
+    private String availableEndTime;
+
+    private String ownerName;
 }

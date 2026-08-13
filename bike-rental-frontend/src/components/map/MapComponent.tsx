@@ -114,17 +114,23 @@ export default function MapComponent({ bikes, searchedLocation }: MapComponentPr
             />
 
             {/* User Marker */}
-            <Marker
-                position={[
-                    currentLocation.latitude,
-                    currentLocation.longitude,
-                ]}
-                icon={userIcon}
-            >
-                <Popup>
-                    <strong>Your Current Location</strong>
-                </Popup>
-            </Marker>
+            {currentLocation &&
+              !isNaN(Number(currentLocation.latitude)) &&
+              !isNaN(Number(currentLocation.longitude)) &&
+              currentLocation.latitude !== null &&
+              currentLocation.longitude !== null && (
+                <Marker
+                    position={[
+                        Number(currentLocation.latitude),
+                        Number(currentLocation.longitude),
+                    ]}
+                    icon={userIcon}
+                >
+                    <Popup>
+                        <strong>Your Current Location</strong>
+                    </Popup>
+                </Marker>
+            )}
 
             {/* Bike Markers */}
             {(displayBikes ?? []).map((bike) => (

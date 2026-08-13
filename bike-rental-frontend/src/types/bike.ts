@@ -21,6 +21,7 @@ export interface Bike {
   id?: number;
   bikeId?: number;
   ownerId: number;
+  ownerName?: string;
   bikeName: string;
   brand: string;
   model: string;
@@ -46,6 +47,7 @@ export interface Bike {
   hourlyRate?: number;
   availableStartTime?: string;
   availableEndTime?: string;
+  isShiftPosted?: boolean;
   specifications?: BikeSpecification;
   images?: BikeImage[];
   createdAt?: string;

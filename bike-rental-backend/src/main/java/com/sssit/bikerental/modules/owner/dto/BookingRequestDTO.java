@@ -18,4 +18,6 @@ public class BookingRequestDTO {
     private String returnDate;
     private BigDecimal rentalAmount;
     private String bookingStatus;
+    private String updatedAt;
+    private String createdAt;
 }

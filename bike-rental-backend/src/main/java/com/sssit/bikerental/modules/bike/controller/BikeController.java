@@ -54,7 +54,7 @@ public class BikeController {
     }
 
     @GetMapping("/check-owner-verification")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<Boolean>> checkOwnerVerification(
             @RequestParam(required = false) Long ownerId) {
 
@@ -69,7 +69,7 @@ public class BikeController {
      * New bike registration → verified=false → must upload RC.
      */
     @GetMapping("/check-rc-verification")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<ApprovedRcDTO>> checkApprovedRc(
             @RequestParam String registrationNumber) {
 
@@ -81,7 +81,7 @@ public class BikeController {
 
     /** Previously approved RCs for the logged-in owner (re-list picker). */
     @GetMapping("/approved-rcs")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<List<ApprovedRcDTO>>> getApprovedRcs() {
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -90,7 +90,7 @@ public class BikeController {
     }
 
     @GetMapping("/owner/{ownerId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<List<BikeDTO>>> getOwnerBikes(@PathVariable Long ownerId) {
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -99,20 +99,21 @@ public class BikeController {
     }
 
     @PostMapping(value = "/verify-rc", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<BikeDocumentResponseDTO>> verifyBikeRC(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "ownerId", required = false) Long ownerId,
-            @RequestParam(value = "bikeId", required = false) Long bikeId) {
+            @RequestParam(value = "bikeId", required = false) Long bikeId,
+            @RequestParam(value = "registrationNumber", required = false) String registrationNumber) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "RC verification completed",
-                        bikeService.verifyBikeRC(file, ownerId, bikeId)));
+                        bikeService.verifyBikeRC(file, ownerId, bikeId, registrationNumber)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<BikeDTO>> addBike(@Valid @RequestBody BikeDTO bikeDTO) {
         BikeDTO saved = bikeService.addBike(bikeDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -120,7 +121,7 @@ public class BikeController {
     }
 
     @PutMapping("/{bikeId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<BikeDTO>> updateBike(
             @PathVariable Long bikeId,
             @Valid @RequestBody BikeDTO bikeDTO) {
@@ -132,7 +133,7 @@ public class BikeController {
     }
 
     @DeleteMapping("/{bikeId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<String>> deleteBike(@PathVariable Long bikeId) {
         bikeService.deleteBike(bikeId);
         return ResponseEntity.ok(

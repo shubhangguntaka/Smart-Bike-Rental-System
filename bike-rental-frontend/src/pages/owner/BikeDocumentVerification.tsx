@@ -23,6 +23,7 @@ import type { BikeDocumentVerificationResult } from "../../types/verification";
 interface Props {
   ownerId?: number;
   bikeId?: number;
+  registrationNumber?: string;
   onVerified?: (result: BikeDocumentVerificationResult) => void;
   onBack?: () => void;
 }
@@ -36,7 +37,7 @@ const SCAN_STEPS = [
 
 const MIN_SCAN_MS = SCAN_STEPS.length * 900 + 400;
 
-const BikeDocumentVerification = ({ ownerId, bikeId, onVerified, onBack }: Props) => {
+const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerified, onBack }: Props) => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,8 +64,8 @@ const BikeDocumentVerification = ({ ownerId, bikeId, onVerified, onBack }: Props
       const data = await withMinDuration(
         () =>
           ownerId !== undefined
-            ? bikeService.verifyBikeRC(file, ownerId, bikeId)
-            : verifyBikeDocument(file, ownerId, bikeId),
+            ? bikeService.verifyBikeRC(file, ownerId, bikeId, registrationNumber)
+            : verifyBikeDocument(file, ownerId, bikeId, registrationNumber),
         MIN_SCAN_MS
       );
 

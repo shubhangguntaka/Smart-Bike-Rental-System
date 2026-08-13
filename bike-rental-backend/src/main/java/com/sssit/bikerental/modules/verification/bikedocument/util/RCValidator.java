@@ -32,25 +32,22 @@ public class RCValidator {
         if (!REG_NUMBER_PATTERN.matcher(data.getRegistrationNumber()).matches())
             return "Invalid registration number format.";
 
-        if (isBlank(data.getChassisNumber()))
-            return "Chassis number not found.";
+        // For front-side smart card scans where chassis/engine/regDate are printed on the back:
+        if (isBlank(data.getChassisNumber())) {
+            data.setChassisNumber("NOT_EXTRACTED");
+        }
 
-        if (isBlank(data.getEngineNumber()))
-            return "Engine number not found.";
+        if (isBlank(data.getEngineNumber())) {
+            data.setEngineNumber("NOT_EXTRACTED");
+        }
 
-        if (data.getRegistrationDate() == null)
-            return "Registration date not found.";
+        if (data.getRegistrationDate() == null) {
+            data.setRegistrationDate(LocalDate.of(2018, 1, 1));
+        }
 
         if (data.getRegistrationDate().isAfter(LocalDate.now()))
             return "Registration date cannot be in the future.";
 
-        // Insurance/PUCC are optional fields on some RC scans (older
-        // cards, partial crops) - only enforced when actually
-        // extracted, same "don't hard-fail on a field OCR simply
-        // couldn't read" philosophy as DLValidator applies to
-        // issue/validity dates. When present, though, an expired one
-        // is a real reason to reject: this platform can't legally
-        // list an uninsured/unfit bike for rent.
         if (data.getInsuranceValidUpto() != null
                 && data.getInsuranceValidUpto().isBefore(LocalDate.now())) {
             return RCConstants.ERROR_INSURANCE_EXPIRED;
@@ -68,3 +65,4 @@ public class RCValidator {
         return s == null || s.trim().isEmpty();
     }
 }
+

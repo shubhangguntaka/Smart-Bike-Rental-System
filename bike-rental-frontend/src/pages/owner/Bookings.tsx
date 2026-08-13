@@ -124,6 +124,14 @@ export default function OwnerBookings() {
 
     // --- Search, Filter & Sort Logic ---
     const filtered = bookingRequests.filter((b) => {
+        const refTimeStr = b.updatedAt || b.createdAt || b.pickupDate;
+        if (refTimeStr) {
+            const t = new Date(refTimeStr).getTime();
+            if (!isNaN(t) && (Date.now() - t > 24 * 60 * 60 * 1000)) {
+                return false; // Auto-delete / expire requests & buttons after 24 hours
+            }
+        }
+
         const matchesSearch = 
             b.bikeName.toLowerCase().includes(search.toLowerCase()) ||
             b.customerName.toLowerCase().includes(search.toLowerCase()) ||

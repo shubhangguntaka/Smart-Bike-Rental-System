@@ -7,7 +7,12 @@
  */
 export const format12Hour = (timeStr?: string): string => {
   if (!timeStr) return "";
-  const parts = timeStr.split(":");
+  const str = timeStr.trim().toUpperCase();
+
+  // If already formatted as 12-hour AM/PM string
+  if (str.includes("AM") || str.includes("PM")) return str;
+
+  const parts = str.split(":");
   if (parts.length < 2) return timeStr;
 
   let hour = parseInt(parts[0], 10);
@@ -27,50 +32,90 @@ export const format12Hour = (timeStr?: string): string => {
  */
 export const parse12HourTo24 = (formatted12h: string): string => {
   if (!formatted12h) return "09:00";
-  const match = formatted12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return formatted12h;
+  const str = formatted12h.trim().toUpperCase();
+  const isPM = str.includes("PM");
+  const isAM = str.includes("AM");
 
-  let hour = parseInt(match[1], 10);
-  const minute = match[2];
-  const period = match[3].toUpperCase();
+  const parts = str.replace(/(AM|PM)/g, "").trim().split(":");
+  if (parts.length < 2) return formatted12h;
 
-  if (period === "PM" && hour < 12) hour += 12;
-  if (period === "AM" && hour === 12) hour = 0;
+  let hour = parseInt(parts[0], 10);
+  const minute = parts[1].slice(0, 2).padStart(2, "0");
+  if (isNaN(hour)) return formatted12h;
+
+  if (isPM && hour < 12) hour += 12;
+  if (isAM && hour === 12) hour = 0;
 
   return `${String(hour).padStart(2, "0")}:${minute}`;
 };
 
 /**
+ * Parses any time string ("12:00 PM", "09:00", "19:00:00") into minutes since midnight (0..1439).
+ */
+export const parseMinutes = (timeStr?: string): number | null => {
+  if (!timeStr) return null;
+  const str = timeStr.trim().toUpperCase();
+
+  const isPM = str.includes("PM");
+  const isAM = str.includes("AM");
+
+  const cleanStr = str.replace(/(AM|PM)/g, "").trim();
+  const parts = cleanStr.split(":");
+  if (parts.length < 2) return null;
+
+  let h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+
+  return h * 60 + m;
+};
+
+export type ShiftState = "AVAILABLE" | "YET_TO_START" | "SHIFT_CLOSED" | "BOOKED" | "MAINTENANCE";
+
+/**
+ * Evaluates the precise shift state based on start/end times and current clock time.
+ */
+export const getShiftState = (
+  availableStartTime?: string,
+  availableEndTime?: string,
+  bikeStatus?: string
+): ShiftState => {
+  const statusUpper = (bikeStatus || "AVAILABLE").toUpperCase().replace(/\s+/g, "_");
+  if (statusUpper === "BOOKED") return "BOOKED";
+  if (statusUpper === "UNDER_MAINTENANCE" || statusUpper === "MAINTENANCE") return "MAINTENANCE";
+
+  if (!availableStartTime || !availableEndTime) return "AVAILABLE";
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const startMinutes = parseMinutes(availableStartTime);
+  const endMinutes = parseMinutes(availableEndTime);
+
+  if (startMinutes === null || endMinutes === null) return "AVAILABLE";
+
+  if (startMinutes <= endMinutes) {
+    if (currentMinutes < startMinutes) return "YET_TO_START";
+    if (currentMinutes > endMinutes) return "SHIFT_CLOSED";
+    return "AVAILABLE";
+  } else {
+    // Overnight window (e.g., 9:00 PM to 5:00 AM)
+    if (currentMinutes >= startMinutes || currentMinutes <= endMinutes) {
+      return "AVAILABLE";
+    }
+    return "SHIFT_CLOSED";
+  }
+};
+
+/**
  * Checks if the bike is within its operational time window right now based on system time.
- * e.g., If operational time is 09:00 to 11:00, and current time is 09:57, returns true.
- * If current time is 11:05, returns false (time window expired).
  */
 export const isBikeAvailableNow = (
   availableStartTime?: string,
   availableEndTime?: string
 ): boolean => {
-  if (!availableStartTime && !availableEndTime) return true;
-
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-  const parseMinutes = (timeStr?: string): number | null => {
-    if (!timeStr) return null;
-    const parts = timeStr.split(":");
-    if (parts.length < 2) return null;
-    const h = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
-  };
-
-  const startMinutes = parseMinutes(availableStartTime) ?? 0;
-  const endMinutes = parseMinutes(availableEndTime) ?? 1439;
-
-  if (startMinutes <= endMinutes) {
-    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-  } else {
-    // Overnight window (e.g., 9:00 PM to 5:00 AM)
-    return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
-  }
+  return getShiftState(availableStartTime, availableEndTime) === "AVAILABLE";
 };

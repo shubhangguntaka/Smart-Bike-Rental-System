@@ -1,31 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import { ShieldCheck, ShieldAlert, FileText, Eye, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
-
-const MOCK_VERIFICATIONS = [
-  { id: 1, name: "Rahul Sharma", email: "rahul@gmail.com", role: "CUSTOMER", docType: "Driving License", docNumber: "DL-908231A", status: "Pending" },
-  { id: 2, name: "Amit Kumar", email: "amit.kumar@yahoo.com", role: "OWNER", docType: "Aadhaar Card", docNumber: "1283-9081-3112", status: "Pending" },
-];
+import api from "@/api/axios";
 
 export default function AdminVerification() {
-  const [verifications, setVerifications] = useState(MOCK_VERIFICATIONS);
+  const [verifications, setVerifications] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [activeItem, setActiveItem] = useState<typeof MOCK_VERIFICATIONS[0] | null>(null);
+  const [activeItem, setActiveItem] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const fetchVerifications = async () => {
+      try {
+        const res = await api.get("/admin/verifications");
+        const list = Array.isArray(res.data) ? res.data : [];
+        setVerifications(list);
+      } catch (err) {
+        console.error("Could not fetch verifications:", err);
+        setVerifications([]);
+      }
+    };
+    fetchVerifications();
+  }, []);
+
   const filtered = verifications.filter((v) =>
-    v.name.toLowerCase().includes(search.toLowerCase()) ||
-    v.docNumber.toLowerCase().includes(search.toLowerCase())
+    (v.name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (v.docNumber || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const paginated = filtered.slice((page - 1) * 5, page * 5);
 
-  const handleOpenModal = (item: typeof MOCK_VERIFICATIONS[0]) => {
+  const handleOpenModal = (item: any) => {
     setActiveItem(item);
     setModalOpen(true);
   };

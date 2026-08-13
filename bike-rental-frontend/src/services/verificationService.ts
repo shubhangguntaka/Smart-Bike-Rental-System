@@ -101,7 +101,8 @@ export const verifyDrivingLicense = async (
 export const verifyBikeDocument = async (
   file: File,
   ownerId?: number,
-  bikeId?: number
+  bikeId?: number,
+  registrationNumber?: string
 ): Promise<BikeDocumentVerificationResult> => {
 
   const formData = new FormData();
@@ -114,6 +115,10 @@ export const verifyBikeDocument = async (
 
   if (bikeId !== undefined) {
     formData.append("bikeId", String(bikeId));
+  }
+
+  if (registrationNumber) {
+    formData.append("registrationNumber", registrationNumber);
   }
 
   const response = await api.post<BikeDocumentVerificationResult>(

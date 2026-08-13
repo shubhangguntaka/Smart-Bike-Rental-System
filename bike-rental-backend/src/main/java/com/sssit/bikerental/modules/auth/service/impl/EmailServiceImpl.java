@@ -16,16 +16,15 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendOtpEmail(String to, String name, String otp) {
-
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setTo(to);
-
-        message.setSubject("Bike Rental System - OTP Verification");
-
-        message.setText(buildOtpMessage(name, otp));
-
-        mailSender.send(message);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Bike Rental System - OTP Verification");
+            message.setText(buildOtpMessage(name, otp));
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Email notification send skipped/failed: " + e.getMessage());
+        }
     }
 
     /**

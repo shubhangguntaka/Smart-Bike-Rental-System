@@ -28,7 +28,7 @@ public class BookingValidator {
             throw new InvalidBookingException("Return time is required.");
         }
 
-        if (request.getStartTime().isBefore(LocalDateTime.now().minusMinutes(1))) {
+        if (request.getStartTime().isBefore(LocalDateTime.now().minusMinutes(15))) {
             throw new InvalidBookingException("Please select a future pickup time.");
         }
 

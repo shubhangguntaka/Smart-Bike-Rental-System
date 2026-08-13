@@ -1,5 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, MapPin, Navigation, Map, Plus, Trash2, ZoomIn, Star } from "lucide-react";
+import {
+  ImagePlus,
+  MapPin,
+  Navigation,
+  Map,
+  Plus,
+  Trash2,
+  ZoomIn,
+  Star,
+  Sparkles,
+  ShieldCheck,
+  Clock,
+  SlidersHorizontal,
+  IndianRupee,
+  CheckCircle2,
+  ArrowRight,
+  Gauge,
+  Fuel,
+  Users,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import type { Bike, BikeStatus } from "../../types/bike";
 import { BIKE_STATUSES } from "../../types/bike";
@@ -17,7 +36,7 @@ export interface BikeFormProps {
 const BikeForm = ({
   initial,
   lockIdentityFields = false,
-  submitLabel = "Save bike",
+  submitLabel = "Save & Proceed to RC Verification →",
   loading = false,
   onSubmit,
   onCancel,
@@ -25,7 +44,6 @@ const BikeForm = ({
 }: BikeFormProps) => {
   const [bike, setBike] = useState<Bike>({ ...initial });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [imagePreview, setImagePreview] = useState(initial.imageUrl || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,10 +66,12 @@ const BikeForm = ({
             ? 0
             : Number(value)
           : value,
+      rcNumber: name === "registrationNumber" ? value : (prev.rcNumber || (name === "registrationNumber" ? value : prev.registrationNumber)),
     }));
     setErrors((prev) => {
       const next = { ...prev };
       delete next[name];
+      delete next.rcNumber;
       return next;
     });
   };
@@ -63,16 +83,16 @@ const BikeForm = ({
     if (!newUrlInput.trim()) return;
     const url = newUrlInput.trim();
     setBike((prev) => {
-      const list = [...(prev.imageUrls || (prev.imageUrl ? [prev.imageUrl] : []))];
-      if (!list.includes(url)) list.push(url);
+      const list = [...(prev.imageUrls || [])];
+      if (!list.includes(url)) list.unshift(url);
       return {
         ...prev,
-        imageUrl: prev.imageUrl || url,
+        imageUrl: url,
         imageUrls: list,
       };
     });
     setNewUrlInput("");
-    toast.success("Photo added to gallery");
+    toast.success("Photo added as primary bike image");
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
@@ -107,30 +127,26 @@ const BikeForm = ({
       reader.onload = () => {
         const dataUrl = String(reader.result || "");
         setBike((prev) => {
-          const list = [...(prev.imageUrls || (prev.imageUrl ? [prev.imageUrl] : []))];
-          if (!list.includes(dataUrl)) list.push(dataUrl);
+          const list = [...(prev.imageUrls || [])];
+          if (!list.includes(dataUrl)) list.unshift(dataUrl);
           return {
             ...prev,
-            imageUrl: prev.imageUrl || dataUrl,
+            imageUrl: dataUrl,
             imageUrls: list,
           };
         });
       };
       reader.readAsDataURL(file);
     });
-    toast.success(`${files.length} photo(s) uploaded`);
+    toast.success(`${files.length} photo(s) uploaded successfully!`);
   };
 
   const validate = (draftBike: Bike): { valid: boolean; prepared: Bike; errors: Record<string, string> } => {
     const prepared: Bike = { ...draftBike };
-    
-    // Set fallback default image if user did not provide one
-    if (!prepared.imageUrl?.trim()) {
-      prepared.imageUrl = "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80";
-    }
+    prepared.rcNumber = prepared.registrationNumber;
 
     const rate = Number(prepared.hourlyRate);
-    prepared.hourlyRate = rate > 0 ? rate : 0;
+    prepared.hourlyRate = rate > 0 ? rate : 80;
     prepared.rentalType = "HOURLY";
     prepared.rentalPrice = prepared.hourlyRate * 8;
 
@@ -140,9 +156,17 @@ const BikeForm = ({
     if (!prepared.model?.trim()) next.model = "Model is required";
     if (!prepared.fuelType?.trim()) next.fuelType = "Fuel Type is required";
     if (!prepared.registrationNumber?.trim()) next.registrationNumber = "Registration Number is required";
-    if (!prepared.rcNumber?.trim()) next.rcNumber = "RC Number is required";
     if (!prepared.location?.trim()) next.location = "Location is required";
-    if (!prepared.hourlyRate || prepared.hourlyRate <= 0) next.hourlyRate = "Rental price (rate/hr) is required";
+    if (!prepared.hourlyRate || prepared.hourlyRate <= 0) next.hourlyRate = "Rental rate is required";
+
+    const hasPhoto = Boolean(
+      (prepared.imageUrl && prepared.imageUrl.trim()) ||
+      (prepared.imageUrls && prepared.imageUrls.length > 0 && prepared.imageUrls.some((u) => u.trim()))
+    );
+
+    if (!hasPhoto) {
+      next.imageUrl = "Vehicle photo is required. Please upload or attach at least 1 photo.";
+    }
 
     setErrors(next);
     return { valid: Object.keys(next).length === 0, prepared, errors: next };
@@ -181,37 +205,69 @@ const BikeForm = ({
           longitude: lng,
           location: prev.location || "Hyderabad",
         }));
-        toast.success(`Live GPS Coordinates detected! (${lat}, ${lng})`);
+        toast.success(`Live GPS Coordinates attached! (${lat}, ${lng})`);
         setDetectingGps(false);
       },
       () => {
-        toast.error("Could not fetch GPS location. Please check location permissions.");
+        toast.error("Could not fetch GPS location. Please check browser permissions.");
         setDetectingGps(false);
       }
     );
   };
 
   const inputClass = (name: string) =>
-    `w-full rounded-xl border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary/40 focus:ring-2 focus:ring-primary/15 ${
-      errors[name] ? "border-destructive/50" : "border-border"
-    } ${lockIdentityFields && (name === "registrationNumber" || name === "rcNumber") ? "bg-muted/40 text-muted-foreground" : ""}`;
+    `w-full rounded-2xl border bg-background/90 px-4 py-3 text-sm font-medium text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary focus:ring-4 focus:ring-primary/10 ${
+      errors[name] ? "border-destructive/60 bg-destructive/5 ring-2 ring-destructive/10" : "border-border/80"
+    } ${lockIdentityFields && (name === "registrationNumber" || name === "rcNumber") ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}`;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <Section title="Basic details" subtitle="Name, brand, and how customers see this bike.">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Bike name" required error={errors.bikeName}>
-            <input name="bikeName" value={bike.bikeName} onChange={handleChange} className={inputClass("bikeName")} placeholder="e.g. KTM Duke 390" />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* SECTION 1: Vehicle Specifications */}
+      <Section
+        icon={<Sparkles className="h-4 w-4 text-primary" />}
+        badge="Step 1 of 3"
+        title="Vehicle Basic Specifications"
+        subtitle="Provide vehicle name, brand, model, and fuel type as customers will see it."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field label="Bike Display Name" required error={errors.bikeName}>
+            <input
+              name="bikeName"
+              value={bike.bikeName}
+              onChange={handleChange}
+              className={inputClass("bikeName")}
+              placeholder="e.g. Royal Enfield Classic 350"
+            />
           </Field>
-          <Field label="Brand" required error={errors.brand}>
-            <input name="brand" value={bike.brand} onChange={handleChange} className={inputClass("brand")} placeholder="e.g. KTM" />
+
+          <Field label="Brand / Manufacturer" required error={errors.brand}>
+            <input
+              name="brand"
+              value={bike.brand}
+              onChange={handleChange}
+              className={inputClass("brand")}
+              placeholder="e.g. Royal Enfield"
+            />
           </Field>
-          <Field label="Model" required error={errors.model}>
-            <input name="model" value={bike.model} onChange={handleChange} className={inputClass("model")} placeholder="e.g. Duke 390" />
+
+          <Field label="Vehicle Model" required error={errors.model}>
+            <input
+              name="model"
+              value={bike.model}
+              onChange={handleChange}
+              className={inputClass("model")}
+              placeholder="e.g. Classic 350"
+            />
           </Field>
-          <Field label="Fuel type" required error={errors.fuelType}>
-            <select name="fuelType" value={bike.fuelType} onChange={handleChange} className={inputClass("fuelType")}>
-              <option value="">Select Fuel Type</option>
+
+          <Field label="Fuel Category" required error={errors.fuelType}>
+            <select
+              name="fuelType"
+              value={bike.fuelType}
+              onChange={handleChange}
+              className={inputClass("fuelType")}
+            >
+              <option value="">Select Fuel Category</option>
               <option value="Petrol">Petrol</option>
               <option value="Electric">Electric</option>
               <option value="Diesel">Diesel</option>
@@ -221,21 +277,63 @@ const BikeForm = ({
         </div>
       </Section>
 
-      <Section title="Identity" subtitle="Verified registration details stay locked after RC check.">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Registration number" required error={errors.registrationNumber}>
-            <input name="registrationNumber" value={bike.registrationNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("registrationNumber")} placeholder="e.g. TS09AB1234" />
-          </Field>
-          <Field label="RC number" required error={errors.rcNumber}>
-            <input name="rcNumber" value={bike.rcNumber} onChange={handleChange} readOnly={lockIdentityFields} className={inputClass("rcNumber")} placeholder="e.g. TS09AB1234" />
+      {/* SECTION 2: Identity & Registration */}
+      <Section
+        icon={<ShieldCheck className="h-4 w-4 text-emerald-500" />}
+        badge="RC OCR Match"
+        title="Vehicle Registration Identity"
+        subtitle="Enter valid Registration Number. It will be verified against your uploaded RC document."
+      >
+        <div className="grid grid-cols-1 gap-5">
+          <Field label="Registration Number" required error={errors.registrationNumber}>
+            <input
+              name="registrationNumber"
+              value={bike.registrationNumber}
+              onChange={handleChange}
+              readOnly={lockIdentityFields}
+              className={inputClass("registrationNumber")}
+              placeholder="e.g. TS09AB1234"
+            />
           </Field>
         </div>
       </Section>
 
-      <Section title="Pricing & availability" subtitle="Set your hourly rate, operational hours, and availability status.">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Rental price (₹ / hour)" required error={errors.hourlyRate}>
-            <input type="number" name="hourlyRate" min={1} value={bike.hourlyRate || ""} onChange={handleChange} className={inputClass("hourlyRate")} placeholder="e.g. 80" />
+      {/* SECTION 3: Pricing, Hours & Location */}
+      <Section
+        icon={<Clock className="h-4 w-4 text-primary" />}
+        badge="Live Shift Settings"
+        title="Rental Rate, Operational Shift & City Location"
+        subtitle="Set hourly pricing rate, operating shift hours, and pickup city location."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field label="Hourly Rental Rate (₹ / hr)" required error={errors.hourlyRate}>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+              <input
+                type="number"
+                name="hourlyRate"
+                min={1}
+                value={bike.hourlyRate || ""}
+                onChange={handleChange}
+                className={`${inputClass("hourlyRate")} pl-8`}
+                placeholder="80"
+              />
+            </div>
+          </Field>
+
+          <Field label="Listing Availability Status">
+            <select
+              name="bikeStatus"
+              value={bike.bikeStatus || "AVAILABLE"}
+              onChange={handleChange}
+              className={inputClass("bikeStatus")}
+            >
+              {BIKE_STATUSES.map((s: BikeStatus) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <Field label="Operational Start Time (12-Hour AM/PM)">
@@ -271,6 +369,7 @@ const BikeForm = ({
               ))}
             </select>
           </Field>
+
           <Field label="Operational End Time (12-Hour AM/PM)">
             <select
               name="availableEndTime"
@@ -305,9 +404,9 @@ const BikeForm = ({
             </select>
           </Field>
 
-          <Field label="Location" required error={errors.location}>
-            <div className="space-y-2">
-              <div className="flex gap-2">
+          <div className="sm:col-span-2 space-y-2">
+            <Field label="City Pickup Location" required error={errors.location}>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   name="location"
                   value={bike.location}
@@ -320,9 +419,9 @@ const BikeForm = ({
                   disabled={detectingGps}
                   onClick={handleDetectGps}
                   title="Detect Live GPS Coordinates"
-                  className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs font-bold text-foreground transition hover:bg-muted hover:border-primary/40 shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted shrink-0"
                 >
-                  <Navigation className={`h-3.5 w-3.5 text-primary ${detectingGps ? "animate-spin" : ""}`} />
+                  <Navigation className={`h-4 w-4 text-primary ${detectingGps ? "animate-spin" : ""}`} />
                   <span>{detectingGps ? "Detecting..." : "Detect GPS"}</span>
                 </button>
                 {onOpenMapPicker && (
@@ -330,154 +429,170 @@ const BikeForm = ({
                     type="button"
                     onClick={onOpenMapPicker}
                     title="Open Google Maps Picker"
-                    className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs font-bold text-foreground transition hover:bg-muted hover:border-primary/40 shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted shrink-0"
                   >
-                    <Map className="h-3.5 w-3.5 text-primary" />
+                    <Map className="h-4 w-4 text-primary" />
                     <span>Pick on Map</span>
                   </button>
                 )}
               </div>
+            </Field>
 
-              {bike.latitude && bike.longitude ? (
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span>Live GPS Pin Attached (Lat: {bike.latitude}, Lng: {bike.longitude})</span>
-                </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Map className="h-3 w-3 text-muted-foreground/70" />
-                  Click "Detect GPS" to pin your exact location on Google Maps for customers.
-                </p>
-              )}
-            </div>
-          </Field>
-          <Field label="Availability">
-            <select name="bikeStatus" value={bike.bikeStatus} onChange={handleChange} className={inputClass("bikeStatus")}>
-              {BIKE_STATUSES.map((s: BikeStatus) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </Field>
+            {bike.latitude && bike.longitude ? (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span>Live GPS Pin Attached: ({bike.latitude}, {bike.longitude})</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       </Section>
 
-      <Section title="Specifications" subtitle="Optional details that help customers decide.">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Engine capacity">
-            <input name="engineCapacity" value={bike.engineCapacity || ""} onChange={handleChange} className={inputClass("engineCapacity")} placeholder="110cc" />
+      {/* SECTION 4: Technical Specs */}
+      <Section
+        icon={<SlidersHorizontal className="h-4 w-4 text-primary" />}
+        badge="Optional Specs"
+        title="Engine Capacity, Mileage & Seating"
+        subtitle="Provide technical specs to help customers choose your vehicle."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
+          <Field label="Engine CC">
+            <input
+              name="engineCapacity"
+              value={bike.engineCapacity || ""}
+              onChange={handleChange}
+              className={inputClass("engineCapacity")}
+              placeholder="e.g. 350cc"
+            />
           </Field>
           <Field label="Mileage">
-            <input name="mileage" value={bike.mileage || ""} onChange={handleChange} className={inputClass("mileage")} placeholder="45 km/l" />
+            <input
+              name="mileage"
+              value={bike.mileage || ""}
+              onChange={handleChange}
+              className={inputClass("mileage")}
+              placeholder="e.g. 45 km/l"
+            />
           </Field>
           <Field label="Transmission">
-            <select name="transmission" value={bike.transmission || ""} onChange={handleChange} className={inputClass("transmission")}>
+            <select
+              name="transmission"
+              value={bike.transmission || ""}
+              onChange={handleChange}
+              className={inputClass("transmission")}
+            >
               <option value="">Select</option>
               <option value="Automatic">Automatic</option>
               <option value="Manual">Manual</option>
             </select>
           </Field>
-          <Field label="Seating">
-            <input type="number" name="seatingCapacity" min={1} value={bike.seatingCapacity ?? 2} onChange={handleChange} className={inputClass("seatingCapacity")} />
+          <Field label="Seating Capacity">
+            <input
+              type="number"
+              name="seatingCapacity"
+              min={1}
+              value={bike.seatingCapacity ?? 2}
+              onChange={handleChange}
+              className={inputClass("seatingCapacity")}
+            />
           </Field>
         </div>
-        <Field label="Description">
-          <textarea name="description" rows={3} value={bike.description || ""} onChange={handleChange} className={inputClass("description")} placeholder="Clean, well-maintained, ideal for city rides..." />
+
+        <Field label="Vehicle Description">
+          <textarea
+            name="description"
+            rows={3}
+            value={bike.description || ""}
+            onChange={handleChange}
+            className={inputClass("description")}
+            placeholder="Describe vehicle condition, key features, or special instructions..."
+          />
         </Field>
       </Section>
 
-      <Section title="Photo" subtitle="A clear side or front photo works best.">
-        <Field label="Bike Images (Upload multiple photos of your bike)" error={errors.imageUrl}>
+      {/* SECTION 5: Bike Gallery Photos */}
+      <Section
+        icon={<ImagePlus className="h-4 w-4 text-primary" />}
+        badge="Mandatory Photo"
+        title="Vehicle Photo Gallery"
+        subtitle="Upload at least 1 clear photo or paste an image URL to list your vehicle."
+      >
+        <Field label="Upload Vehicle Photo" required error={errors.imageUrl}>
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newUrlInput}
-                  onChange={(e) => setNewUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddUrl();
-                    }
-                  }}
-                  className={inputClass("imageUrl")}
-                  placeholder="Paste photo URL and click Add"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddUrl}
-                  className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 shrink-0"
-                >
-                  <Plus className="h-4 w-4" /> Add Photo
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-2.5 text-xs font-bold text-foreground transition hover:border-primary/40 hover:bg-primary/5 shrink-0"
-              >
-                <ImagePlus className="h-4 w-4 text-primary" />
-                Upload File
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImageFile} className="hidden" />
-            </div>
-
-            {/* Thumbnail Grid */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 pt-2">
-              {(bike.imageUrls && bike.imageUrls.length > 0 ? bike.imageUrls : [bike.imageUrl]).filter(Boolean).map((url, idx) => (
-                <div
-                  key={idx}
-                  className="group relative h-28 overflow-hidden rounded-xl border border-border bg-card shadow-xs transition hover:border-primary/50"
-                >
-                  <img
-                    src={url}
-                    alt={`Bike image ${idx + 1}`}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-
-                  {/* Primary Badge */}
-                  {url === bike.imageUrl && (
-                    <div className="absolute top-1.5 left-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-black uppercase text-primary-foreground shadow-xs">
-                      Primary
-                    </div>
-                  )}
-
-                  {/* Hover Controls */}
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 backdrop-blur-xs transition duration-200 group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => setZoomedUrl(url)}
-                      title="Zoom Image"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-md transition hover:bg-white/40"
-                    >
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
-                    {url !== bike.imageUrl && (
-                      <button
-                        type="button"
-                        onClick={() => handleSetPrimaryImage(url)}
-                        title="Make Primary"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/80 text-white backdrop-blur-md transition hover:bg-emerald-600"
-                      >
-                        <Star className="h-4 w-4" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(idx)}
-                      title="Delete Image"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/80 text-white backdrop-blur-md transition hover:bg-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <input
+              type="text"
+              value={newUrlInput}
+              onChange={(e) => setNewUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddUrl();
+                }
+              }}
+              className={inputClass("imageUrl")}
+              placeholder="Paste image URL (Unsplash, Imgur) and click Add Photo"
+            />
+            <button
+              type="button"
+              onClick={handleAddUrl}
+              className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-muted px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted/80 shrink-0"
+            >
+              <Plus className="h-4 w-4 text-primary" /> Add Photo URL
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-xs font-bold text-primary transition hover:bg-primary/10 shrink-0"
+            >
+              <ImagePlus className="h-4 w-4" /> Upload Files
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImageFile} className="hidden" />
           </div>
+
+          {/* Photo Gallery Grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 pt-2">
+            {(bike.imageUrls && bike.imageUrls.length > 0 ? bike.imageUrls : [bike.imageUrl]).filter(Boolean).map((url, idx) => (
+              <div
+                key={idx}
+                className="group relative h-32 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs transition hover:border-primary/50"
+              >
+                <img
+                  src={url}
+                  alt={`Vehicle photo ${idx + 1}`}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+
+                {url === bike.imageUrl && (
+                  <div className="absolute top-2 left-2 rounded-lg bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground shadow-xs">
+                    Primary
+                  </div>
+                )}
+
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 backdrop-blur-xs transition duration-200 group-hover:opacity-100">
+                  {url !== bike.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleSetPrimaryImage(url)}
+                      title="Set as Primary Image"
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-xs transition hover:scale-105"
+                    >
+                      <Star className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    title="Remove Photo"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive text-white shadow-xs transition hover:scale-105"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         </Field>
       </Section>
 
@@ -487,8 +602,8 @@ const BikeForm = ({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onClick={() => setZoomedUrl(null)}
         >
-          <div className="relative max-w-4xl overflow-hidden rounded-2xl bg-card p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <img src={zoomedUrl} alt="Zoomed preview" className="max-h-[80vh] w-auto rounded-xl object-contain" />
+          <div className="relative max-w-4xl overflow-hidden rounded-3xl bg-card p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <img src={zoomedUrl} alt="Zoomed preview" className="max-h-[80vh] w-auto rounded-2xl object-contain" />
             <button
               type="button"
               onClick={() => setZoomedUrl(null)}
@@ -500,12 +615,13 @@ const BikeForm = ({
         </div>
       )}
 
-      <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
+      {/* Submit Action Bar */}
+      <div className="flex flex-col-reverse gap-3 rounded-3xl border border-border/80 bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+            className="rounded-2xl border border-border px-6 py-3 text-xs font-bold text-foreground transition hover:bg-muted"
           >
             Cancel
           </button>
@@ -514,9 +630,10 @@ const BikeForm = ({
           type="button"
           onClick={handleSubmit}
           disabled={loading}
-          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-xs font-extrabold uppercase tracking-wider text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60 cursor-pointer sm:w-auto ml-auto"
         >
-          {loading ? "Saving..." : submitLabel}
+          <span>{loading ? "Saving Specs..." : submitLabel}</span>
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </form>
@@ -524,18 +641,32 @@ const BikeForm = ({
 };
 
 const Section = ({
+  icon,
+  badge,
   title,
   subtitle,
   children,
 }: {
+  icon: React.ReactNode;
+  badge: string;
   title: string;
   subtitle: string;
   children: React.ReactNode;
 }) => (
-  <section className="space-y-4">
-    <div>
-      <h3 className="text-sm font-bold text-foreground">{title}</h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+  <section className="rounded-3xl border border-border/80 bg-card p-6 md:p-8 shadow-xs space-y-6 transition duration-300 hover:border-primary/30">
+    <div className="flex items-start justify-between border-b border-border/60 pb-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-foreground">{title}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+      <span className="hidden sm:inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-primary border border-primary/20">
+        {badge}
+      </span>
     </div>
     {children}
   </section>
@@ -553,12 +684,12 @@ const Field = ({
   children: React.ReactNode;
 }) => (
   <label className="block space-y-1.5">
-    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+    <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
       <span>{label}</span>
-      {required && <span className="text-destructive font-black text-sm">*</span>}
+      {required && <span className="text-destructive font-black text-xs">*</span>}
     </span>
     {children}
-    {error && <span className="block text-xs font-semibold text-destructive">{error}</span>}
+    {error && <span className="block text-xs font-bold text-destructive animate-shake">{error}</span>}
   </label>
 );
 

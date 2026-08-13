@@ -22,13 +22,25 @@ export interface NearbyBike {
   bikeName: string;
   brand: string;
   model?: string;
+  registrationNumber?: string;
+  fuelType?: string;
+  location?: string;
+  description?: string;
+  engineCapacity?: string;
+  mileage?: string;
+  transmission?: string;
+  seatingCapacity?: number;
+  hourlyRate?: number;
   rentalPrice: number;
   latitude: number;
   longitude: number;
-  distance: number;
+  distance?: number;
   imageUrl: string;
   available: boolean;
+  availableStartTime?: string;
+  availableEndTime?: string;
   rating?: number;
+  ownerName?: string;
   owner?: {
     ownerId: number;
     ownerName: string;

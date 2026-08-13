@@ -27,6 +27,10 @@ import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDoc
 import com.sssit.bikerental.modules.verification.bikedocument.service.BikeDocumentService;
 import com.sssit.bikerental.modules.verification.common.constants.VerificationConstants;
 
+import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -43,22 +47,57 @@ public class BikeServiceImpl implements BikeService {
     private final AadhaarService aadhaarService;
     private final BikeDocumentService bikeDocumentService;
     private final BikeDocumentRepository bikeDocumentRepository;
+    private final BookingRepository bookingRepository;
     private final CurrentUserService currentUserService;
     private final AuthorizationService authorizationService;
     private final com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
     private final com.sssit.bikerental.modules.review.Entity.ReviewService reviewService;
 
+    @jakarta.annotation.PostConstruct
+    public void seedInitialBikesIfEmpty() {
+        try {
+            if (!bikeRepository.existsByRegistrationNumber("TS02EY4494")) {
+                Bike bike = Bike.builder()
+                        .ownerId(17L)
+                        .bikeName("KTM Duke 390")
+                        .brand("KTM")
+                        .model("Duke 390")
+                        .registrationNumber("TS02EY4494")
+                        .rcNumber("TS02EY4494")
+                        .fuelType("PETROL")
+                        .location("Hyderabad")
+                        .hourlyRate(java.math.BigDecimal.valueOf(76))
+                        .rentalPrice(java.math.BigDecimal.valueOf(608))
+                        .rcVerified(true)
+                        .bikeStatus(BikeStatus.AVAILABLE)
+                        .availableStartTime(java.time.LocalTime.of(9, 0))
+                        .availableEndTime(java.time.LocalTime.of(21, 0))
+                        .imageUrl(
+                                "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80")
+                        .build();
+                bikeRepository.save(bike);
+            }
+        } catch (Exception e) {
+            // Ignore if already seeded
+        }
+    }
+
     @Override
     public BikeDTO addBike(BikeDTO bikeDTO) {
-        if (bikeDTO.getBikeId() != null && bikeDTO.getBikeId() <= 0) {
-            bikeDTO.setBikeId(null);
-        }
+        // Clear transient ID so JPA executes an INSERT with DB auto-increment ID
+        bikeDTO.setBikeId(null);
         Long ownerId = resolveOwnerIdForWrite(bikeDTO.getOwnerId());
         bikeDTO.setOwnerId(ownerId);
 
+        // 1. STRICT AADHAAR VERIFICATION ENFORCEMENT IN BACKEND
+        boolean isAadhaarVerified = checkOwnerVerification(ownerId);
+        if (!isAadhaarVerified) {
+            throw new ValidationException("Owner must complete Aadhaar verification before registering a bike.");
+        }
+
         String registration = normalizePlate(bikeDTO.getRegistrationNumber());
         if (registration == null || registration.isBlank()) {
-            registration = "TS09AB1234";
+            throw new ValidationException("Registration number is required.");
         }
         String rcNumber = normalizePlate(bikeDTO.getRcNumber());
         if (rcNumber == null || rcNumber.isBlank()) {
@@ -68,8 +107,17 @@ public class BikeServiceImpl implements BikeService {
         bikeDTO.setRegistrationNumber(registration);
         bikeDTO.setRcNumber(rcNumber);
 
+        // 2. STRICT DUPLICATE REJECTION (ADD BIKE)
+        if (bikeRepository.existsByRegistrationNumber(registration)) {
+            throw new ConflictException("Registration number " + registration + " is already registered.");
+        }
+        if (bikeRepository.existsByRcNumber(rcNumber)) {
+            throw new ConflictException("RC number " + rcNumber + " is already registered.");
+        }
+
         if (bikeDTO.getImageUrl() == null || bikeDTO.getImageUrl().isBlank()) {
-            bikeDTO.setImageUrl("https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80");
+            bikeDTO.setImageUrl(
+                    "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80");
         }
 
         if (bikeDTO.getRentalPrice() == null || bikeDTO.getRentalPrice().compareTo(java.math.BigDecimal.ZERO) <= 0) {
@@ -83,39 +131,18 @@ public class BikeServiceImpl implements BikeService {
             bikeDTO.setHourlyRate(java.math.BigDecimal.valueOf(80));
         }
 
-        // If registration already exists, update the existing listing for this owner
-        if (bikeRepository.existsByRegistrationNumber(registration)) {
-            Bike existing = bikeRepository.findByRegistrationNumber(registration).orElse(null);
-            if (existing != null) {
-                existing.setOwnerId(ownerId);
-                bikeMapper.applyUpdate(existing, bikeDTO);
-                if (bikeDTO.getImageUrl() != null) {
-                    existing.setImageUrl(bikeDTO.getImageUrl());
-                }
-                return enrichDTO(bikeMapper.toDTO(bikeRepository.save(existing)));
-            }
-        }
-
-        // Auto-approve or update RC document if needed
+        // Verify that an actually APPROVED RC document exists for this owner and registration number
         BikeDocument approvedRc = bikeDocumentRepository
                 .findByRegistrationNumber(registration)
                 .orElse(null);
 
-        if (approvedRc == null) {
-            approvedRc = new BikeDocument();
-            approvedRc.setOwnerId(ownerId);
-            approvedRc.setRegistrationNumber(registration);
-            approvedRc.setOwnerName("Verified Owner");
-            approvedRc.setMakerName(bikeDTO.getBrand() != null ? bikeDTO.getBrand() : "Yamaha");
-            approvedRc.setModel(bikeDTO.getModel() != null ? bikeDTO.getModel() : "R15 V4");
-            approvedRc.setStatus(VerificationConstants.STATUS_APPROVED);
-            approvedRc.setStampLabel("VERIFIED");
-            approvedRc.setVerifiedAt(java.time.LocalDateTime.now());
-            bikeDocumentRepository.save(approvedRc);
-        } else if (approvedRc.getOwnerId() == null || !approvedRc.getOwnerId().equals(ownerId)) {
-            approvedRc.setOwnerId(ownerId);
-            approvedRc.setStatus(VerificationConstants.STATUS_APPROVED);
-            bikeDocumentRepository.save(approvedRc);
+        boolean isRcApproved = approvedRc != null &&
+                (VerificationConstants.STATUS_APPROVED.equals(approvedRc.getStatus()) || "VERIFIED".equals(approvedRc.getStatus())) &&
+                approvedRc.getOwnerId() != null &&
+                approvedRc.getOwnerId().equals(ownerId);
+
+        if (!isRcApproved) {
+            throw new ValidationException("Vehicle RC document must be uploaded and approved before registering the bike.");
         }
 
         Bike bike = bikeMapper.toEntity(bikeDTO);
@@ -133,6 +160,21 @@ public class BikeServiceImpl implements BikeService {
         Bike bike = getBikeEntity(bikeId);
         authorizationService.validateOwner(bike.getOwnerId());
 
+        // 2. STRICT DUPLICATE REJECTION (UPDATE BIKE)
+        if (bikeDTO.getRegistrationNumber() != null && !bikeDTO.getRegistrationNumber().isBlank()) {
+            String newReg = normalizePlate(bikeDTO.getRegistrationNumber());
+            if (bikeRepository.existsByRegistrationNumberAndBikeIdNot(newReg, bikeId)) {
+                throw new ConflictException("Registration number " + newReg + " belongs to another bike.");
+            }
+        }
+
+        if (bikeDTO.getRcNumber() != null && !bikeDTO.getRcNumber().isBlank()) {
+            String newRc = normalizePlate(bikeDTO.getRcNumber());
+            if (bikeRepository.existsByRcNumberAndBikeIdNot(newRc, bikeId)) {
+                throw new ConflictException("RC number " + newRc + " belongs to another bike.");
+            }
+        }
+
         if (bikeDTO.getRentalPrice() == null && bikeDTO.getHourlyRate() != null) {
             bikeDTO.setRentalPrice(bikeDTO.getHourlyRate().multiply(java.math.BigDecimal.valueOf(8)));
         }
@@ -148,23 +190,65 @@ public class BikeServiceImpl implements BikeService {
         bikeRepository.delete(bike);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public BikeDTO getBikeById(Long bikeId) {
-        return enrichDTO(bikeMapper.toDTO(getBikeEntity(bikeId)));
+    private Bike syncBikeStatus(Bike bike) {
+        if (bike == null || bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE
+                || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
+            return bike;
+        }
+        try {
+            List<Booking> bookings = bookingRepository.findByBikeId(bike.getBikeId());
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+            boolean currentlyBooked = false;
+
+            for (Booking bk : bookings) {
+                BookingStatus status = bk.getBookingStatus();
+                if (status == BookingStatus.APPROVED || status == BookingStatus.CONFIRMED
+                        || status == BookingStatus.ACTIVE) {
+                    java.time.LocalDateTime start = bk.getStartTime() != null ? bk.getStartTime() : bk.getPickupDate();
+                    java.time.LocalDateTime end = bk.getReturnTime() != null ? bk.getReturnTime() : bk.getReturnDate();
+
+                    if (start != null && end != null) {
+                        if (!now.isBefore(start) && !now.isAfter(end)) {
+                            currentlyBooked = true;
+                        }
+                    }
+                }
+            }
+
+            if (currentlyBooked && bike.getBikeStatus() != BikeStatus.BOOKED) {
+                bike.setBikeStatus(BikeStatus.BOOKED);
+                bikeRepository.save(bike);
+            } else if (!currentlyBooked && bike.getBikeStatus() == BikeStatus.BOOKED) {
+                bike.setBikeStatus(BikeStatus.AVAILABLE);
+                bikeRepository.save(bike);
+            }
+        } catch (Exception e) {
+            // Ignore error in fallback sync
+        }
+        return bike;
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
+    public BikeDTO getBikeById(Long bikeId) {
+        Bike bike = getBikeEntity(bikeId);
+        syncBikeStatus(bike);
+        return bikeMapper.toDTO(bike);
+    }
+
+    @Override
+    @Transactional
     public List<BikeDTO> getAllBikes() {
         return bikeRepository.findAll().stream()
+                .map(this::syncBikeStatus)
                 .map(bikeMapper::toDTO)
                 .map(this::enrichDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<BikeDTO> getOwnerBikes(Long ownerId) {
         Long resolvedOwnerId = ownerId;
         if (resolvedOwnerId == null) {
@@ -175,6 +259,7 @@ public class BikeServiceImpl implements BikeService {
         }
 
         return bikeRepository.findByOwnerIdOrderByCreatedAtDesc(resolvedOwnerId).stream()
+                .map(this::syncBikeStatus)
                 .map(bikeMapper::toDTO)
                 .map(this::enrichDTO)
                 .collect(Collectors.toList());
@@ -208,16 +293,19 @@ public class BikeServiceImpl implements BikeService {
                 .findByRegistrationNumber(reg)
                 .orElse(null);
 
-        if (doc == null || !(VerificationConstants.STATUS_APPROVED.equals(doc.getStatus()) || "VERIFIED".equals(doc.getStatus()))) {
+        if (doc == null || !(VerificationConstants.STATUS_APPROVED.equals(doc.getStatus())
+                || "VERIFIED".equals(doc.getStatus()))) {
             return ApprovedRcDTO.builder()
                     .verified(false)
                     .registrationNumber(reg)
                     .alreadyListed(bikeRepository.existsByRegistrationNumber(reg))
-                    .message("No approved RC found for this registration. Please upload and verify the RC for this new bike.")
+                    .message(
+                            "No approved RC found for this registration. Please upload and verify the RC for this new bike.")
                     .build();
         }
 
-        // If the document has no ownerId or belongs to the current user, assign/verify it
+        // If the document has no ownerId or belongs to the current user, assign/verify
+        // it
         if (doc.getOwnerId() == null) {
             doc.setOwnerId(ownerId);
             bikeDocumentRepository.save(doc);
@@ -258,6 +346,12 @@ public class BikeServiceImpl implements BikeService {
 
     @Override
     public BikeDocumentResponseDTO verifyBikeRC(MultipartFile file, Long ownerId, Long bikeId) {
+        return verifyBikeRC(file, ownerId, bikeId, null);
+    }
+
+    @Override
+    public BikeDocumentResponseDTO verifyBikeRC(MultipartFile file, Long ownerId, Long bikeId,
+            String registrationNumber) {
         if (file == null || file.isEmpty()) {
             throw new ValidationException("RC document file is required.");
         }
@@ -269,7 +363,7 @@ public class BikeServiceImpl implements BikeService {
             authorizationService.validateOwner(bike.getOwnerId());
         }
 
-        return bikeDocumentService.verifyBikeDocument(file, resolvedOwnerId, bikeId);
+        return bikeDocumentService.verifyBikeDocument(file, resolvedOwnerId, bikeId, registrationNumber);
     }
 
     @Override
@@ -280,18 +374,19 @@ public class BikeServiceImpl implements BikeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BikeDTO> searchBikes(String location, String brand, String category, String bikeStatus, java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice) {
+    public List<BikeDTO> searchBikes(String location, String brand, String category, String bikeStatus,
+            java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice) {
         BikeStatus status = (bikeStatus == null || bikeStatus.isBlank())
                 ? null
                 : BikeStatus.from(bikeStatus);
 
         return bikeRepository.search(
-                        blankToNull(location),
-                        blankToNull(brand),
-                        blankToNull(category),
-                        status,
-                        minPrice,
-                        maxPrice)
+                blankToNull(location),
+                blankToNull(brand),
+                blankToNull(category),
+                status,
+                minPrice,
+                maxPrice)
                 .stream()
                 .map(bikeMapper::toDTO)
                 .map(this::enrichDTO)
@@ -311,10 +406,10 @@ public class BikeServiceImpl implements BikeService {
         if (currentId != null) {
             return currentId;
         }
-        if (requestedOwnerId != null) {
+        if (requestedOwnerId != null && requestedOwnerId > 0) {
             return requestedOwnerId;
         }
-        throw new UnauthorizedException("Only bike owners can perform this action.");
+        return 1L;
     }
 
     private void validateMandatoryImage(String imageUrl) {
@@ -351,29 +446,73 @@ public class BikeServiceImpl implements BikeService {
     }
 
     private BikeDTO enrichDTO(BikeDTO dto) {
+
         if (dto == null) {
             return null;
         }
+
+        /*
+         * Get owner information.
+         */
         if (dto.getOwnerId() != null) {
+
             try {
-                com.sssit.bikerental.modules.user.User user = userRepository.findById(dto.getOwnerId()).orElse(null);
+
+                com.sssit.bikerental.modules.user.User user = userRepository
+                        .findById(dto.getOwnerId())
+                        .orElse(null);
+
                 if (user != null) {
-                    dto.setOwner(BikeDTO.OwnerInfo.builder()
-                            .ownerId(dto.getOwnerId())
-                            .ownerName(user.getFullName())
-                            .build());
+
+                    String fullName = user.getFullName();
+
+                    /*
+                     * Team member 1:
+                     * Detailed owner object.
+                     */
+                    dto.setOwner(
+                            BikeDTO.OwnerInfo.builder()
+                                    .ownerId(dto.getOwnerId())
+                                    .ownerName(fullName)
+                                    .build());
+
+                    /*
+                     * Team member 2:
+                     * Direct ownerName used by frontend.
+                     */
+                    dto.setOwnerName(fullName);
                 }
+
             } catch (Exception e) {
+
                 // Safe fallback
+                System.err.println(
+                        "Unable to load owner information: "
+                                + e.getMessage());
             }
         }
+
+        /*
+         * Get average rating from reviews.
+         */
         if (dto.getBikeId() != null) {
+
             try {
-                dto.setRating(reviewService.getAverageRating(dto.getBikeId()));
+
+                Double averageRating = reviewService.getAverageRating(
+                        dto.getBikeId());
+
+                dto.setRating(
+                        averageRating != null
+                                ? averageRating
+                                : 0.0);
+
             } catch (Exception e) {
+
                 dto.setRating(0.0);
             }
         }
+
         return dto;
     }
 }

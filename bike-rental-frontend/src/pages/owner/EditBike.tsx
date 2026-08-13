@@ -32,13 +32,52 @@ const EditBike = () => {
     (async () => {
       try {
         setLoading(true);
-        const data = await bikeService.getBikeById(Number(bikeId));
-        setInitialBike(data);
-        setCurrentBike(data);
-      } catch (err) {
-        console.error(err);
+
+        // 1. Check local storage cache first
+        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+        const foundLocal = localCached.find(
+          (b) =>
+            String(b.bikeId || b.id) === String(bikeId) ||
+            (b.registrationNumber &&
+              b.registrationNumber.toUpperCase() === String(bikeId).toUpperCase())
+        );
+
+        if (foundLocal) {
+          setInitialBike(foundLocal);
+          setCurrentBike(foundLocal);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch from backend API
+        const numericId = Number(bikeId);
+        if (!isNaN(numericId) && numericId > 0) {
+          const data = await bikeService.getBikeById(numericId);
+          if (data) {
+            setInitialBike(data);
+            setCurrentBike(data);
+            return;
+          }
+        }
+
         toast.error("Unable to load bike details.");
         navigate(ROUTES.OWNER.BIKES);
+      } catch (err) {
+        console.error("Error loading bike for editing:", err);
+        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+        const foundLocal = localCached.find(
+          (b) =>
+            String(b.bikeId || b.id) === String(bikeId) ||
+            (b.registrationNumber &&
+              b.registrationNumber.toUpperCase() === String(bikeId).toUpperCase())
+        );
+        if (foundLocal) {
+          setInitialBike(foundLocal);
+          setCurrentBike(foundLocal);
+        } else {
+          toast.error("Unable to load bike details.");
+          navigate(ROUTES.OWNER.BIKES);
+        }
       } finally {
         setLoading(false);
       }

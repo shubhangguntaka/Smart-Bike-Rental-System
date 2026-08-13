@@ -83,18 +83,26 @@ public class BookingServiceImpl implements BookingService {
                 continue;
             }
 
-            if (existing.getBookingStatus() == BookingStatus.PENDING ||
-                existing.getBookingStatus() == BookingStatus.VERIFICATION_REQUIRED ||
-                existing.getBookingStatus() == BookingStatus.CONFIRMED ||
-                existing.getBookingStatus() == BookingStatus.ACTIVE) {
+            // Approved, Confirmed, Active, or Pending bookings block overlapping customer requests
+            BookingStatus status = existing.getBookingStatus();
+            if (status == BookingStatus.APPROVED ||
+                status == BookingStatus.CONFIRMED ||
+                status == BookingStatus.ACTIVE ||
+                status == BookingStatus.PENDING) {
                 
-                java.time.LocalDateTime extStart = existing.getStartTime();
-                java.time.LocalDateTime extEnd = existing.getReturnTime();
+                java.time.LocalDateTime extStart = existing.getStartTime() != null ? existing.getStartTime() : existing.getPickupDate();
+                java.time.LocalDateTime extEnd = existing.getReturnTime() != null ? existing.getReturnTime() : existing.getReturnDate();
                 
-                // Overlap condition: (Start1 < End2) AND (Start2 < End1)
-                if (startTime.isBefore(extEnd) && extStart.isBefore(endTime)) {
-                    log.warn("Overlap detected with existing booking ID: {}", existing.getId());
-                    throw new BookingNotAvailableException("Bike is already booked for the selected time.");
+                if (extStart != null && extEnd != null) {
+                    // Overlap condition: (Start1 < End2) AND (Start2 < End1)
+                    if (startTime.isBefore(extEnd) && extStart.isBefore(endTime)) {
+                        log.warn("Overlap detected with existing booking ID: {} (Status: {})", existing.getId(), status);
+                        if (status == BookingStatus.PENDING) {
+                            throw new BookingNotAvailableException("Acceptance pending by owner for this time slot. A reservation request is awaiting approval by the owner.");
+                        } else {
+                            throw new BookingNotAvailableException("This slot is booked at that time. Bike is already accepted and booked by the owner for another customer during this time slot.");
+                        }
+                    }
                 }
             }
         }
@@ -135,18 +143,15 @@ public class BookingServiceImpl implements BookingService {
                 .bikeId(bike.getBikeId())
                 .startTime(request.getStartTime())
                 .returnTime(request.getReturnTime())
+                .pickupDate(request.getStartTime())
+                .returnDate(request.getReturnTime())
                 .rentalAmount(rentalAmount)
                 .bookingStatus(initialStatus)
                 .paymentStatus(PaymentStatus.PENDING)
                 .build();
 
         booking = bookingRepository.save(booking);
-        log.info("Booking record created with ID: {} and Status: {}", booking.getId(), initialStatus);
-
-        // 5. Update bike status to BOOKED
-        bike.setBikeStatus(BikeStatus.BOOKED);
-        bikeRepository.save(bike);
-        log.info("Bike status set to BOOKED for bikeId: {}", bike.getBikeId());
+        log.info("Booking record created with ID: {} and Status: {}. Waiting for owner confirmation.", booking.getId(), initialStatus);
 
         return convertToResponse(booking);
     }
@@ -242,6 +247,9 @@ public class BookingServiceImpl implements BookingService {
     public boolean checkVerificationStatus(Long customerId) {
         log.info("Checking verification credentials for customerId: {}", customerId);
         var aadhaar = aadhaarService.getApprovedAadhaar(customerId, "USER");
+        if (aadhaar == null) {
+            aadhaar = aadhaarService.getApprovedAadhaar(customerId, null);
+        }
         var dl = drivingLicenseService.getApprovedLicense(customerId);
         boolean isVerified = aadhaar != null && dl != null;
         log.info("Verification check returned: {} for customerId: {}", isVerified, customerId);
@@ -573,14 +581,9 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public boolean isBikeAvailable(Long bikeId, java.time.LocalDateTime startTime, java.time.LocalDateTime returnTime) {
         log.info("Checking availability for bikeId: {} from {} to {}", bikeId, startTime, returnTime);
-        try {
-            Bike bike = bikeRepository.findById(bikeId)
-                    .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
-            checkBikeAvailability(bike, startTime, returnTime, null);
-            return true;
-        } catch (Exception e) {
-            log.info("Bike {} is not available from {} to {}: {}", bikeId, startTime, returnTime, e.getMessage());
-            return false;
-        }
+        Bike bike = bikeRepository.findById(bikeId)
+                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+        checkBikeAvailability(bike, startTime, returnTime, null);
+        return true;
     }
 }

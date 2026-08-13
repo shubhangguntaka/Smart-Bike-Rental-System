@@ -38,7 +38,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         if (status == null) {
             return List.of();
         }
-        return findByBookingStatus(BookingStatus.valueOf(status.toUpperCase()));
+        try {
+            return findByBookingStatus(BookingStatus.valueOf(status.toUpperCase()));
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     // Backward-compatible count helper for owner dashboard passing string status values
@@ -46,6 +50,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         if (status == null) {
             return 0;
         }
-        return countBookingsByOwnerIdAndStatusEnum(ownerId, BookingStatus.valueOf(status.toUpperCase()));
+        try {
+            return countBookingsByOwnerIdAndStatusEnum(ownerId, BookingStatus.valueOf(status.toUpperCase()));
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

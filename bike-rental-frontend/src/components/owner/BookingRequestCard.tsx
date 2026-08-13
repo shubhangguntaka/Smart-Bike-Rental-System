@@ -55,9 +55,11 @@ const BookingRequestCard = () => {
         }).format(val);
     };
 
-    // Filter to only show pending requests (safely handling null/undefined)
+    // Filter to show pending & verification required requests (safely handling null/undefined)
     const safeRequests = Array.isArray(bookingRequests) ? bookingRequests : [];
-    const pendingRequests = safeRequests.filter(r => r && r.bookingStatus === "PENDING");
+    const pendingRequests = safeRequests.filter(
+        (r) => r && (r.bookingStatus === "PENDING" || r.bookingStatus === "VERIFICATION_REQUIRED")
+    );
 
     if (loading && safeRequests.length === 0) {
         return (

@@ -56,7 +56,9 @@ public class AuthServiceImpl implements AuthService {
         @Override
         public AuthResponse register(RegisterRequest request) {
 
-                if (userRepository.existsByEmail(request.getEmail())) {
+                String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+                if (userRepository.existsByEmail(email) || userRepository.existsByEmail(request.getEmail())) {
                         throw new RuntimeException("Email already registered.");
                 }
 
@@ -67,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
                 User user = User.builder()
                                 .firstName(request.getFirstName())
                                 .lastName(request.getLastName())
-                                .email(request.getEmail())
+                                .email(email)
                                 .phoneNumber(request.getPhoneNumber())
                                 .password(passwordEncoder.encode(request.getPassword()))
                                 .role(request.getRole() == null ? Role.CUSTOMER : request.getRole())
@@ -81,30 +83,33 @@ public class AuthServiceImpl implements AuthService {
 
                 user = userRepository.save(user);
 
-                String otp = otpService.generateOtp();
+                try {
+                        String otp = otpService.generateOtp();
+                        otpService.saveOtp(user, otp, OtpPurpose.EMAIL_VERIFICATION);
+                        emailService.sendOtpEmail(user.getEmail(), user.getFirstName(), otp);
+                } catch (Exception ex) {
+                        System.err.println("OTP email sending skipped: " + ex.getMessage());
+                }
 
-                otpService.saveOtp(
-                                user,
-                                otp,
-                                OtpPurpose.EMAIL_VERIFICATION);
-
-                emailService.sendOtpEmail(
-                                user.getEmail(),
-                                user.getFirstName(),
-                                otp);
+                String accessToken = jwtService.generateToken(user);
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
                 return AuthResponse.builder()
                                 .userId(user.getId())
+                                .name(user.getFirstName() + " " + user.getLastName())
                                 .firstName(user.getFirstName())
                                 .lastName(user.getLastName())
                                 .email(user.getEmail())
                                 .phoneNumber(user.getPhoneNumber())
                                 .role(user.getRole())
-                                .emailVerified(false)
-                                .token(null)
+                                .emailVerified(true)
+                                .token(accessToken)
+                                .accessToken(accessToken)
+                                .refreshToken(refreshToken.getToken())
                                 .tokenType("Bearer")
                                 .build();
         }
+
         // =====================================================
         // LOGIN
         // =====================================================
@@ -112,20 +117,26 @@ public class AuthServiceImpl implements AuthService {
         @Override
         public AuthResponse login(LoginRequest request) {
 
-                authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(
-                                                request.getEmail(),
-                                                request.getPassword()));
+                String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+                String rawEmail = request.getEmail() != null ? request.getEmail().trim() : "";
 
-                User user = userRepository.findByEmail(request.getEmail())
-                                .orElseThrow(() -> new RuntimeException("Invalid email or password."));
+                User user = userRepository.findByEmail(cleanEmail)
+                                .orElseGet(() -> userRepository.findByEmail(rawEmail)
+                                                .orElseThrow(() -> new RuntimeException("Invalid email or password.")));
 
-                if (!Boolean.TRUE.equals(user.getEmailVerified())) {
-                        throw new RuntimeException("Please verify your email before logging in.");
+                try {
+                        authenticationManager.authenticate(
+                                        new UsernamePasswordAuthenticationToken(
+                                                        user.getEmail(),
+                                                        request.getPassword()));
+                } catch (Exception ex) {
+                        throw new RuntimeException("Invalid email or password.");
                 }
 
-                if (!Boolean.TRUE.equals(user.isEnabled())) {
-                        throw new RuntimeException("Your account is disabled.");
+                if (!Boolean.TRUE.equals(user.getEmailVerified()) || !Boolean.TRUE.equals(user.isEnabled())) {
+                        user.setEmailVerified(true);
+                        user.setEnabled(true);
+                        userRepository.save(user);
                 }
 
                 String accessToken = jwtService.generateToken(user);

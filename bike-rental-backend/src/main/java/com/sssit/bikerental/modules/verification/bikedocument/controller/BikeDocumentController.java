@@ -35,12 +35,13 @@ public class BikeDocumentController {
     public BikeDocumentResponseDTO verify(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "ownerId", required = false) Long ownerId,
-            @RequestParam(value = "bikeId", required = false) Long bikeId) {
+            @RequestParam(value = "bikeId", required = false) Long bikeId,
+            @RequestParam(value = "registrationNumber", required = false) String registrationNumber) {
         Long resolvedOwnerId = SecurityUtils.getCurrentUserId();
         if (resolvedOwnerId == null) {
             resolvedOwnerId = ownerId;
         }
-        return service.verifyBikeDocument(file, resolvedOwnerId, bikeId);
+        return service.verifyBikeDocument(file, resolvedOwnerId, bikeId, registrationNumber);
     }
 
     //-----------------------------------

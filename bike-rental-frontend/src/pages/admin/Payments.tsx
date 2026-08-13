@@ -1,21 +1,43 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { CreditCard, TrendingUp, DollarSign, Wallet } from "lucide-react";
-
-const MOCK_REVENUE_LOGS = [
-  { id: "TX-4011", date: "2026-08-02", user: "Rahul Sharma", bike: "SummitCrusher Trail XT", amount: 360, method: "UPI", status: "Successful" },
-  { id: "TX-4010", date: "2026-08-01", user: "Amit Kumar", bike: "VoltPulse Electric S1", amount: 600, method: "Razorpay Secure", status: "Successful" },
-  { id: "TX-4009", date: "2026-07-28", user: "Rahul Sharma", bike: "AeroRoad Elite Carbon", amount: 450, method: "UPI", status: "Successful" },
-];
+import api from "@/api/axios";
 
 export default function AdminPayments() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const filtered = MOCK_REVENUE_LOGS.filter((r) =>
-    r.id.toLowerCase().includes(search.toLowerCase()) ||
-    r.user.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/bookings");
+        const list = Array.isArray(res.data) ? res.data : [];
+        setPayments(list.map((b: any, idx: number) => ({
+          id: `TX-${b.bookingId || b.id || (4000 + idx)}`,
+          date: b.createdAt ? b.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          user: b.customerName || b.user?.fullName || "Customer",
+          bike: b.bikeName || "Bike Rental",
+          amount: b.totalPrice || b.amount || 350,
+          method: b.paymentMethod || "Razorpay / UPI",
+          status: b.bookingStatus === "CANCELLED" ? "Failed" : "Successful",
+        })));
+      } catch (err) {
+        console.error("Could not fetch payments:", err);
+        setPayments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPayments();
+  }, []);
+
+  const filtered = payments.filter((r) =>
+    (r.id || "").toLowerCase().includes(search.toLowerCase()) ||
+    (r.user || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const paginated = filtered.slice((page - 1) * 5, page * 5);

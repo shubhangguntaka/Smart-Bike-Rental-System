@@ -54,7 +54,7 @@ const extractDobAndGender = (text?: string) => {
   let gender = "Male";
   if (!text) return { dob, gender };
 
-  const dobMatch = text.match(/(?:DOB|Date of Birth|DOB:)\s*[:\s]*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i) || text.match(/(\d{2}[\/\-]\d{2}[\/\-]\d{4})/);
+  const dobMatch = text.match(/(?:DOB|Date of Birth|DOB:)\s*[:\s]*(\d{2}[/-]\d{2}[/-]\d{4})/i) || text.match(/(\d{2}[/-]\d{2}[/-]\d{4})/);
   if (dobMatch) dob = dobMatch[1];
 
   if (/\b(Female|FEMALE|WOMAN)\b/i.test(text)) gender = "Female";

@@ -2,8 +2,10 @@ package com.sssit.bikerental.common.enums;
 
 public enum BookingStatus {
     PENDING,
+    APPROVED,
     CONFIRMED,
     ACTIVE,
-    COMPLETED,
+    REJECTED,
     CANCELLED,
+    COMPLETED
 }

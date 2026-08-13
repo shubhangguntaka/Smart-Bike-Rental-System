@@ -43,13 +43,14 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (
         originalRequest.url === "/auth/refresh-token" ||
-        originalRequest.url === "/auth/login"
+        originalRequest.url?.includes("/auth/refresh-token") ||
+        originalRequest.url === "/auth/login" ||
+        originalRequest.url?.includes("/auth/login")
       ) {
         storage.removeToken();
         storage.removeUser();
         storage.removeRole();
         storage.removeRefreshToken();
-        window.location.href = "/login";
         return Promise.reject(error);
       }
 

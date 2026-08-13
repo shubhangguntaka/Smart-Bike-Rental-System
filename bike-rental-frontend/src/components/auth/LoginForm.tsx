@@ -41,15 +41,24 @@ const LoginForm = () => {
 
         try {
             setLoading(true);
-            const response = await login(formData);
-            const authData = response.data.data;
+            const response = await login({
+                email: formData.email.trim(),
+                password: formData.password.trim()
+            });
+            const authData = response.data?.data || response.data;
+
+            if (!authData || (!authData.accessToken && !authData.token)) {
+                throw new Error("Invalid server response on login.");
+            }
+
+            const token = authData.accessToken || authData.token;
 
             await saveLogin({
-                token: authData.accessToken,
+                token: token,
                 refreshToken: authData.refreshToken,
                 user: {
                     id: authData.userId,
-                    fullName: authData.name,
+                    fullName: authData.name || `${authData.firstName || ''} ${authData.lastName || ''}`.trim(),
                     email: authData.email,
                     role: authData.role,
                     phoneNumber: authData.phoneNumber,
@@ -58,7 +67,7 @@ const LoginForm = () => {
 
             toast.success("Login Successful");
 
-            const userRole = (authData.role || "CUSTOMER").toUpperCase();
+            const userRole = String(authData.role || "CUSTOMER").toUpperCase();
             switch (userRole) {
                 case "ADMIN":
                     navigate(ROUTES.ADMIN.DASHBOARD);
@@ -70,12 +79,15 @@ const LoginForm = () => {
                     navigate(ROUTES.CUSTOMER.DASHBOARD);
             }
         } catch (error: any) {
+            console.error("Login attempt failed:", error);
             const response = error.response?.data;
-            if (response?.data) {
+            if (response?.message) {
+                toast.error(response.message);
+            } else if (response?.data && typeof response.data === "object") {
                 const errors = Object.values(response.data);
                 toast.error(errors.join(", "));
             } else {
-                toast.error(response?.message || "Login Failed");
+                toast.error(error.message || "Invalid email or password.");
             }
         } finally {
             setLoading(false);

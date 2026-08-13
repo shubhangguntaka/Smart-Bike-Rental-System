@@ -23,6 +23,8 @@ import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
+import com.sssit.bikerental.modules.bike.enums.BikeStatus;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -335,7 +337,34 @@ public class OwnerServiceImpl implements OwnerService {
             if (bookings == null) {
                 return List.of();
             }
+            LocalDateTime threshold24HoursAgo = LocalDateTime.now().minusHours(24);
+
             return bookings.stream()
+                    .filter(bk -> {
+                        if (bk == null) return false;
+
+                        // 1. Check update/decision time or creation time
+                        LocalDateTime refTime = bk.getUpdatedAt();
+                        if (refTime == null) {
+                            refTime = bk.getCreatedAt();
+                        }
+                        if (refTime == null) {
+                            refTime = bk.getStartTime() != null ? bk.getStartTime() : bk.getPickupDate();
+                        }
+                        
+                        // Auto-delete / expire any booking request older than 24 hours
+                        if (refTime != null && refTime.isBefore(threshold24HoursAgo)) {
+                            return false;
+                        }
+
+                        // 2. Check if pickup time passed > 24 hours ago
+                        LocalDateTime pickupTime = bk.getStartTime() != null ? bk.getStartTime() : bk.getPickupDate();
+                        if (pickupTime != null && pickupTime.isBefore(threshold24HoursAgo)) {
+                            return false;
+                        }
+
+                        return true;
+                    })
                     .map(bk -> {
                         String customerName = "Unknown Customer";
                         String customerEmail = "";
@@ -356,6 +385,9 @@ public class OwnerServiceImpl implements OwnerService {
                                     .orElse("Unknown Bike");
                         } catch (Exception e) {}
 
+                        LocalDateTime updateDt = bk.getUpdatedAt() != null ? bk.getUpdatedAt() : bk.getCreatedAt();
+                        LocalDateTime createDt = bk.getCreatedAt() != null ? bk.getCreatedAt() : bk.getStartTime();
+
                         return BookingRequestDTO.builder()
                                 .bookingId(bk.getId())
                                 .customerName(customerName)
@@ -366,6 +398,8 @@ public class OwnerServiceImpl implements OwnerService {
                                 .returnDate(bk.getReturnTime() != null ? bk.getReturnTime().toString() : "")
                                 .rentalAmount(bk.getRentalAmount())
                                 .bookingStatus(bk.getStatus())
+                                .updatedAt(updateDt != null ? updateDt.toString() : "")
+                                .createdAt(createDt != null ? createDt.toString() : "")
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -380,7 +414,16 @@ public class OwnerServiceImpl implements OwnerService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
         booking.setStatus("APPROVED");
+        booking.setBookingStatus(BookingStatus.APPROVED);
+        booking.setUpdatedAt(LocalDateTime.now());
         bookingRepository.save(booking);
+
+        if (booking.getBikeId() != null) {
+            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
+                bike.setBikeStatus(BikeStatus.BOOKED);
+                bikeRepository.save(bike);
+            });
+        }
     }
 
     @Transactional
@@ -389,7 +432,16 @@ public class OwnerServiceImpl implements OwnerService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
         booking.setStatus("REJECTED");
+        booking.setBookingStatus(BookingStatus.REJECTED);
+        booking.setUpdatedAt(LocalDateTime.now());
         bookingRepository.save(booking);
+
+        if (booking.getBikeId() != null) {
+            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
+                bike.setBikeStatus(BikeStatus.AVAILABLE);
+                bikeRepository.save(bike);
+            });
+        }
     }
 
     private boolean checkAadhaarVerified(Long ownerId) {

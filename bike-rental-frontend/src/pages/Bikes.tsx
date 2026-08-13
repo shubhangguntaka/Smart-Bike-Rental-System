@@ -5,7 +5,7 @@ import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Star, Shield, Battery, Navigation, BadgeAlert, Award, Loader2, FileText, CheckCircle2, ShieldCheck, Upload, Sparkles, ArrowRight, Clock } from "lucide-react";
+import { Star, Shield, Battery, Navigation, BadgeAlert, Award, Loader2, FileText, CheckCircle2, ShieldCheck, Upload, Sparkles, ArrowRight, Clock, Eye, MapPin } from "lucide-react";
 import toast from "react-hot-toast";
 import bikeService from "@/services/bikeService";
 import { verifyAadhaar, verifyDrivingLicense } from "@/services/verificationService";
@@ -13,16 +13,14 @@ import { BookingService } from "@/services/bookingService";
 import api from "@/api/axios";
 import useAuth from "@/hooks/useAuth";
 import type { Bike } from "@/types/bike";
-import { format12Hour, isBikeAvailableNow } from "@/utils/timeUtils";
+import { format12Hour, isBikeAvailableNow, getShiftState } from "@/utils/timeUtils";
 import { ROUTES } from "@/constants/routes";
 import DocumentScanner from "@/components/verification/DocumentScanner";
+import BikeAvailability from "@/components/bike/BikeAvailability";
+import BikeDetailsModal from "@/components/bike/BikeDetailsModal";
+import { normalizeBike } from "@/utils/bikeUtils";
 
-// Fallback mock bikes if database has zero bikes
-const INITIAL_MOCK_BIKES = [
-  { id: 101, name: "VoltPulse Electric S1", type: "electric", price: 200, rating: 4.8, range: "60 km", battery: "95%", location: "Indiranagar", image: "https://images.unsplash.com/photo-1571068316344-75bc76f77891?auto=format&fit=crop&q=80&w=400" },
-  { id: 102, name: "AeroRoad Elite Carbon", type: "road", price: 150, rating: 4.6, range: "N/A", battery: "N/A", location: "Koramangala", image: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=400" },
-  { id: 103, name: "SummitCrusher Trail XT", type: "mountain", price: 180, rating: 4.7, range: "N/A", battery: "N/A", location: "Whitefield", image: "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&q=80&w=400" },
-];
+// Real database bike catalog
 
 const FILTER_CONFIGS: FilterField[] = [
   {
@@ -70,9 +68,11 @@ export default function Bikes() {
 
   // Booking & Verification Modals
   const [bookingBike, setBookingBike] = useState<any | null>(null);
+  const [selectedViewBike, setSelectedViewBike] = useState<any | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [isUnavailableModalOpen, setIsUnavailableModalOpen] = useState(false);
+  const [unavailableMessage, setUnavailableMessage] = useState<string>("");
 
   const getTodayDateTimeString = () => {
     const now = new Date();
@@ -112,6 +112,23 @@ export default function Bikes() {
     return parts[1] ? parts[1].slice(0, 5) : "";
   };
 
+  const getFilteredTimeSlots = (dateTimeStr: string) => {
+    if (!dateTimeStr) return timeSlots;
+    const selectedDateStr = dateTimeStr.split(/[T ]/)[0];
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (selectedDateStr !== todayStr) {
+      return timeSlots;
+    }
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return timeSlots.filter((slot) => {
+      const [h, m] = slot.value.split(":").map(Number);
+      const slotMinutes = h * 60 + m;
+      return slotMinutes >= currentMinutes;
+    });
+  };
+
   const updateTimeInDateTimeString = (dateTimeStr: string, timeStr: string) => {
     if (!dateTimeStr) return "";
     const parts = dateTimeStr.split(/[T ]/);
@@ -126,53 +143,103 @@ export default function Bikes() {
   const [docPreview, setDocPreview] = useState<string | null>(null);
   const [scanningDoc, setScanningDoc] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
+  const loadCustomerBikes = async () => {
+    try {
+      setLoading(true);
+      const apiBikes = await bikeService.getAllBikes();
+      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+
+      const combinedMap = new Map<string, Bike>();
+
+      // 1. Put local owner bikes FIRST
+      (localOwnerBikes || []).forEach((lb, idx) => {
+        const key = (lb.registrationNumber || lb.bikeId || lb.id || lb.bikeName || (lb as any).name || Math.random()).toString().toUpperCase();
+        const normalized = {
+          ...lb,
+          bikeId: lb.bikeId || lb.id || 9000 + idx,
+          id: lb.id || lb.bikeId || 9000 + idx,
+          bikeName: lb.bikeName || (lb as any).name || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
+          name: (lb as any).name || lb.bikeName || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
+        };
+        combinedMap.set(key, normalized);
+      });
+
+      // 2. Put server apiBikes SECOND (keyed strictly by registration or ID)
+      (apiBikes || []).forEach((b, idx) => {
+        const key = (b.registrationNumber || b.bikeId || b.id || `SERVER_${idx}`).toString().toUpperCase();
+        if (!combinedMap.has(key)) {
+          combinedMap.set(key, b);
+        } else {
+          const existing = combinedMap.get(key)!;
+          combinedMap.set(key, { ...existing, ...b });
+        }
+      });
+
+      const combinedRaw = Array.from(combinedMap.values());
+      combinedRaw.sort((a, b) => {
+        const aIsLocal = (localOwnerBikes || []).some(lb => (lb.registrationNumber || "").toUpperCase() === (a.registrationNumber || "").toUpperCase());
+        const bIsLocal = (localOwnerBikes || []).some(lb => (lb.registrationNumber || "").toUpperCase() === (b.registrationNumber || "").toUpperCase());
+        if (aIsLocal && !bIsLocal) return -1;
+        if (!aIsLocal && bIsLocal) return 1;
+        return (Number(b.bikeId || b.id || 0)) - (Number(a.bikeId || a.id || 0));
+      });
+
+      const approvedBookings: any[] = [];
       try {
-        setLoading(true);
-        const apiBikes = await bikeService.getAllBikes();
-        if (!active) return;
-
-        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
-        const combinedRaw = [...(apiBikes || [])];
-
-        localCached.forEach((b) => {
-          if (!combinedRaw.some((cb) => cb.registrationNumber === b.registrationNumber)) {
-            combinedRaw.unshift(b);
-          }
+        ["custom_user_bookings", "user_bookings", "customer_bookings"].forEach((key) => {
+          const list = JSON.parse(localStorage.getItem(key) || "[]");
+          (list || []).forEach((b: any) => {
+            const s = (b.bookingStatus || b.status || "").toUpperCase();
+            if (s === "APPROVED" || s === "CONFIRMED" || s === "ACTIVE") {
+              approvedBookings.push(b);
+            }
+          });
         });
+      } catch (e) {}
 
-        const mappedRealBikes = combinedRaw.map((b: Bike, index: number) => ({
-          id: b.bikeId || b.id || index + 1,
-          name: b.bikeName || `${b.brand} ${b.model}`.trim() || "Rental Bike",
-          type: (b.fuelType || "petrol").toLowerCase(),
-          price: b.hourlyRate || Math.round((b.rentalPrice || 500) / 8),
-          rentalPrice: b.rentalPrice || 500,
-          rating: 4.9,
-          range: b.mileage || "45 km/l",
-          battery: b.fuelType?.toUpperCase() === "ELECTRIC" ? "98%" : "N/A",
-          location: b.location || "Hyderabad",
-          image: b.imageUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=400",
-          brand: b.brand,
-          model: b.model,
-          registrationNumber: b.registrationNumber,
-          availableStartTime: b.availableStartTime,
-          availableEndTime: b.availableEndTime,
-        }));
+      const mappedRealBikes = combinedRaw.map((b: Bike, index: number) => {
+        let bStatus = b.bikeStatus || "AVAILABLE";
+        const isApprovedBooked = approvedBookings.some((ab: any) => {
+          const nameMatch = ab.bikeName && b.bikeName && ab.bikeName.trim().toLowerCase() === b.bikeName.trim().toLowerCase();
+          const idMatch = (ab.bikeId || ab.id) && (Number(ab.bikeId || ab.id) === Number(b.bikeId || b.id));
+          return nameMatch || idMatch;
+        });
+        const localMatch = localOwnerBikes.find((lb: any) => {
+          const nameMatch = lb.bikeName && b.bikeName && lb.bikeName.trim().toLowerCase() === b.bikeName.trim().toLowerCase();
+          const idMatch = (lb.id || lb.bikeId) && (Number(lb.id || lb.bikeId) === Number(b.bikeId || b.id));
+          return nameMatch || idMatch;
+        });
+        if (isApprovedBooked || (localMatch && localMatch.bikeStatus === "BOOKED")) {
+          bStatus = "BOOKED";
+        }
 
-        // Display real DB bikes prominently, fallback to mock bikes if DB is empty
-        const combined = mappedRealBikes.length > 0 ? mappedRealBikes : INITIAL_MOCK_BIKES;
-        setAllBikes(combined);
-      } catch (err) {
-        console.error("Could not fetch bikes:", err);
-        setAllBikes(INITIAL_MOCK_BIKES);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
+        const normalized = normalizeBike(b, index);
+        return {
+          ...normalized,
+          bikeStatus: bStatus,
+        };
+      });
+
+      // Real DB bikes only
+      setAllBikes(mappedRealBikes);
+    } catch (err) {
+      console.error("Could not fetch bikes from server:", err);
+      setAllBikes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomerBikes();
+    const handleUpdate = () => loadCustomerBikes();
+    window.addEventListener("custom_bikes_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
     return () => {
-      active = false;
+      window.removeEventListener("custom_bikes_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
     };
   }, []);
 
@@ -221,14 +288,32 @@ export default function Bikes() {
 
   // Filter client-side
   const filteredBikes = allBikes.filter((bike) => {
+    // Exclude bikes when operational shift is completed for today
+    const shiftState = getShiftState(bike.availableStartTime, bike.availableEndTime, bike.bikeStatus);
+    if (shiftState === "SHIFT_CLOSED") {
+      return false; // Not visible on customer dashboard when shift is completed
+    }
 
     // Search filter
-    if (search && !bike.name.toLowerCase().includes(search.toLowerCase())) {
-      return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const matchName = bike.name?.toLowerCase().includes(q);
+      const matchBrand = bike.brand?.toLowerCase().includes(q);
+      const matchModel = bike.model?.toLowerCase().includes(q);
+      const matchReg = bike.registrationNumber?.toLowerCase().includes(q);
+      const matchLoc = bike.location?.toLowerCase().includes(q);
+      if (!matchName && !matchBrand && !matchModel && !matchReg && !matchLoc) {
+        return false;
+      }
     }
     // Type filter
-    if (filters.type && bike.type !== filters.type) {
-      return false;
+    if (filters.type) {
+      const fType = String(filters.type).toLowerCase();
+      const bType = String(bike.type || "").toLowerCase();
+      const bFuel = String(bike.fuelType || "").toLowerCase();
+      if (bType !== fType && bFuel !== fType && fType !== "petrol") {
+        return false;
+      }
     }
     // Location checkboxes
     if (filters.location && filters.location.length > 0) {
@@ -272,12 +357,24 @@ export default function Bikes() {
       setPickupDate(freshPickup);
       setReturnDate(freshReturn);
 
-      // 0. Check bike availability for selected time
-      const isAvailable = await BookingService.checkAvailability(
-        bike.id,
-        freshPickup,
-        freshReturn
-      );
+      // 0. Check bike availability for selected time safely
+      let isAvailable = true;
+      try {
+        isAvailable = await BookingService.checkAvailability(
+          bike.id,
+          freshPickup,
+          freshReturn
+        );
+      } catch (err) {
+        // Fallback for mock/local bikes or network API notice
+        isAvailable = true;
+      }
+
+      if (bike.bikeStatus === "BOOKED") {
+        toast.error("This slot is booked at that time. This bike has already been reserved.");
+        setIsUnavailableModalOpen(true);
+        return;
+      }
 
       if (!isAvailable) {
         setIsUnavailableModalOpen(true);
@@ -375,12 +472,68 @@ export default function Bikes() {
     try {
       setConfirmLoading(true);
 
-      // Check bike availability for selected time
-      const isAvailable = await BookingService.checkAvailability(
-        Number(bookingBike.id),
-        pickupDate,
-        returnDate
-      );
+      // Ensure pickup and return times are not in the past
+      let finalPickup = pickupDate;
+      let finalReturn = returnDate;
+      const nowTime = new Date();
+      const pickupParsed = new Date(finalPickup);
+      if (isNaN(pickupParsed.getTime()) || pickupParsed < nowTime) {
+        finalPickup = getTodayDateTimeString();
+        const retParsed = new Date(finalReturn);
+        if (isNaN(retParsed.getTime()) || retParsed <= new Date(finalPickup)) {
+          finalReturn = getReturnDateTimeString();
+        }
+      }
+
+      // Check bike availability for selected time safely
+      let isAvailable = true;
+      try {
+        isAvailable = await BookingService.checkAvailability(
+          Number(bookingBike.id),
+          finalPickup,
+          finalReturn
+        );
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.message;
+        if (msg) {
+          setUnavailableMessage(msg);
+          setIsBookingOpen(false);
+          setIsUnavailableModalOpen(true);
+          setConfirmLoading(false);
+          return;
+        }
+        isAvailable = true;
+      }
+
+      let isPendingBooking = false;
+      try {
+        const localBookings = [
+          ...(JSON.parse(localStorage.getItem("customer_bookings") || "[]")),
+          ...(JSON.parse(localStorage.getItem("user_bookings") || "[]")),
+          ...(JSON.parse(localStorage.getItem("custom_user_bookings") || "[]")),
+        ];
+        isPendingBooking = (localBookings || []).some((b: any) => {
+          const isBike = (b.bikeId || b.id) && Number(b.bikeId || b.id) === Number(bookingBike.id);
+          const isPending = (b.bookingStatus || b.status || "").toUpperCase() === "PENDING";
+          return isBike && isPending;
+        });
+      } catch (e) {}
+
+      if (isPendingBooking) {
+        setUnavailableMessage("Acceptance pending by owner for this time slot. A reservation request is awaiting approval by the owner.");
+        setIsBookingOpen(false);
+        setIsUnavailableModalOpen(true);
+        setConfirmLoading(false);
+        return;
+      }
+
+      if (bookingBike.bikeStatus === "BOOKED") {
+        setUnavailableMessage("This slot is booked at that time. Bike is already accepted and reserved by the owner for another customer.");
+        setIsBookingOpen(false);
+        setIsUnavailableModalOpen(true);
+        setConfirmLoading(false);
+        return;
+      }
 
       if (!isAvailable) {
         setIsBookingOpen(false);
@@ -391,12 +544,12 @@ export default function Bikes() {
 
       const bookingRequest = {
         bikeId: Number(bookingBike.id),
-        startTime: pickupDate,
-        returnTime: returnDate,
+        startTime: finalPickup,
+        returnTime: finalReturn,
       };
 
       await BookingService.createBooking(Number(user.id), bookingRequest);
-      toast.success(`Successfully booked ${bookingBike.name}! Redirecting to Bookings...`);
+      toast.success(`Booking request for ${bookingBike.name} submitted! Waiting for owner approval.`);
       setIsBookingOpen(false);
       setBookingBike(null);
       navigate("/customer/bookings");
@@ -443,7 +596,8 @@ export default function Bikes() {
       {paginatedBikes.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {paginatedBikes.map((bike) => {
-            const isShiftActive = isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime);
+            const shiftState = getShiftState(bike.availableStartTime, bike.availableEndTime, bike.bikeStatus);
+            const isShiftActive = shiftState === "AVAILABLE";
 
             return (
               <div
@@ -458,16 +612,12 @@ export default function Bikes() {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute top-3 left-3">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-md backdrop-blur-md ${
-                        isShiftActive
-                          ? "bg-emerald-500/90 text-white"
-                          : "bg-amber-500/90 text-white"
-                      }`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                      {isShiftActive ? "Available Now" : "Shift Closed"}
-                    </span>
+                    <BikeAvailability
+                      status={bike.bikeStatus}
+                      availableStartTime={bike.availableStartTime}
+                      availableEndTime={bike.availableEndTime}
+                      compact
+                    />
                   </div>
                   <div className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm">
                     {bike.location}
@@ -519,22 +669,20 @@ export default function Bikes() {
                       <span className="text-xs text-muted-foreground">/ hr</span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          const routePrefix = user?.role === "CUSTOMER" ? "/customer" : "";
-                          navigate(`${routePrefix}/bikes/${bike.id}`);
-                        }}
-                        className="px-3.5 py-2 text-xs font-bold rounded-xl border border-primary text-primary hover:bg-primary/10 transition-all duration-200 cursor-pointer"
+                        onClick={() => setSelectedViewBike(bike)}
+                        className="px-3 py-2 text-xs font-bold rounded-xl border border-border bg-card text-foreground hover:bg-muted transition-all cursor-pointer flex items-center gap-1 shadow-xs"
                       >
-                        View Details
+                        <Eye className="h-3.5 w-3.5 text-primary" />
+                        View
                       </button>
                       {isShiftActive ? (
                         <button
                           type="button"
                           onClick={() => handleBookClick(bike)}
-                          className="px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-sm hover:shadow active:scale-95 flex items-center gap-1"
+                          className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-xs hover:shadow active:scale-95 flex items-center gap-1"
                         >
                           <Sparkles className="h-3.5 w-3.5" />
                           Rent Now
@@ -544,9 +692,9 @@ export default function Bikes() {
                           type="button"
                           disabled
                           title="Outside operating hours"
-                          className="px-3.5 py-2 text-xs font-bold rounded-xl bg-muted text-muted-foreground border border-border cursor-not-allowed flex items-center gap-1"
+                          className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-muted text-muted-foreground border border-border cursor-not-allowed flex items-center gap-1"
                         >
-                          Shift Closed
+                          {shiftState === "BOOKED" ? "Booked for this Slot" : shiftState === "YET_TO_START" ? "Shift Yet to Start" : "Shift Closed"}
                         </button>
                       )}
                     </div>
@@ -701,7 +849,7 @@ export default function Bikes() {
                       onChange={(e) => setPickupDate(pickupDate.split(/[T ]/)[0] + "T" + e.target.value)}
                       className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
                     >
-                      {timeSlots.map((slot) => (
+                      {getFilteredTimeSlots(pickupDate).map((slot) => (
                         <option key={slot.value} value={slot.value}>
                           {slot.label}
                         </option>
@@ -727,7 +875,7 @@ export default function Bikes() {
                       onChange={(e) => setReturnDate(returnDate.split(/[T ]/)[0] + "T" + e.target.value)}
                       className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
                     >
-                      {timeSlots.map((slot) => (
+                      {getFilteredTimeSlots(returnDate).map((slot) => (
                         <option key={slot.value} value={slot.value}>
                           {slot.label}
                         </option>
@@ -808,11 +956,20 @@ export default function Bikes() {
         size="sm"
       >
         <ModalHeader onClose={() => setIsUnavailableModalOpen(false)}>
-          Bike Unavailable
+          {unavailableMessage && unavailableMessage.toLowerCase().includes("pending")
+            ? "Acceptance Pending by Owner"
+            : "Slot Already Booked"}
         </ModalHeader>
         <ModalBody>
-          <div className="p-5 text-center">
-            <p className="text-sm font-semibold text-foreground">Bike is already booked.</p>
+          <div className="p-5 text-center space-y-2">
+            <h4 className="font-bold text-base text-foreground">
+              {unavailableMessage && unavailableMessage.toLowerCase().includes("pending")
+                ? "Acceptance Pending by Owner"
+                : "This slot is booked at that time"}
+            </h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {unavailableMessage || "This bike has already been accepted and booked by the owner for another customer during this time slot. Please choose another time slot or select a different bike."}
+            </p>
           </div>
         </ModalBody>
         <ModalFooter>
@@ -825,6 +982,13 @@ export default function Bikes() {
           </button>
         </ModalFooter>
       </Modal>
+      {/* VIEW BIKE DETAILS MODAL */}
+      <BikeDetailsModal
+        isOpen={Boolean(selectedViewBike)}
+        onClose={() => setSelectedViewBike(null)}
+        bike={selectedViewBike}
+        onRentNow={(b) => handleBookClick(b)}
+      />
     </div>
   );
 }

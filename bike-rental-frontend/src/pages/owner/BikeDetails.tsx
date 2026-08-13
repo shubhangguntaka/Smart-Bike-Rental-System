@@ -35,12 +35,47 @@ const BikeDetails = () => {
     (async () => {
       try {
         setLoading(true);
-        const data = await bikeService.getBikeById(Number(bikeId));
-        setBike(data);
-      } catch (err) {
-        console.error(err);
+
+        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+        const foundLocal = localCached.find(
+          (b) =>
+            String(b.bikeId || b.id) === String(bikeId) ||
+            (b.registrationNumber &&
+              b.registrationNumber.toUpperCase() === String(bikeId).toUpperCase())
+        );
+
+        if (foundLocal) {
+          setBike(foundLocal);
+          setLoading(false);
+          return;
+        }
+
+        const numericId = Number(bikeId);
+        if (!isNaN(numericId) && numericId > 0) {
+          const data = await bikeService.getBikeById(numericId);
+          if (data) {
+            setBike(data);
+            return;
+          }
+        }
+
         toast.error("Unable to load bike details.");
         navigate(ROUTES.OWNER.BIKES);
+      } catch (err) {
+        console.error("Error loading bike details:", err);
+        const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+        const foundLocal = localCached.find(
+          (b) =>
+            String(b.bikeId || b.id) === String(bikeId) ||
+            (b.registrationNumber &&
+              b.registrationNumber.toUpperCase() === String(bikeId).toUpperCase())
+        );
+        if (foundLocal) {
+          setBike(foundLocal);
+        } else {
+          toast.error("Unable to load bike details.");
+          navigate(ROUTES.OWNER.BIKES);
+        }
       } finally {
         setLoading(false);
       }

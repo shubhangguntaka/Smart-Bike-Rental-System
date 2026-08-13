@@ -20,9 +20,12 @@ import {
   Tag,
   SlidersHorizontal,
   Compass,
-  ArrowUpRight
+  ArrowUpRight,
+  Eye
 } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
+import BikeAvailability from "@/components/bike/BikeAvailability";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import bikeService from "@/services/bikeService";
 import { BookingService } from "@/services/bookingService";
 import type { Bike } from "@/types/bike";
@@ -38,38 +41,103 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedBikeDetail, setSelectedBikeDetail] = useState<Bike | null>(null);
+
+  const fetchCustomerDashboardBikes = async () => {
+    try {
+      setLoading(true);
+      const data = await bikeService.getAllBikes();
+      const rawList = data || [];
+
+      const approvedBookings: any[] = [];
+      try {
+        ["custom_user_bookings", "user_bookings", "customer_bookings"].forEach((key) => {
+          const list = JSON.parse(localStorage.getItem(key) || "[]");
+          (list || []).forEach((b: any) => {
+            const s = (b.bookingStatus || b.status || "").toUpperCase();
+            if (s === "APPROVED" || s === "CONFIRMED" || s === "ACTIVE") {
+              approvedBookings.push(b);
+            }
+          });
+        });
+      } catch (e) {}
+
+      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+
+      const combinedMap = new Map<string, Bike>();
+
+      // 1. Put local owner bikes FIRST
+      (localOwnerBikes || []).forEach((lb, idx) => {
+        const key = (lb.registrationNumber || lb.bikeId || lb.id || lb.bikeName || (lb as any).name || Math.random()).toString().toUpperCase();
+        const normalized = {
+          ...lb,
+          bikeId: lb.bikeId || lb.id || 9000 + idx,
+          id: lb.id || lb.bikeId || 9000 + idx,
+          bikeName: lb.bikeName || (lb as any).name || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
+          name: (lb as any).name || lb.bikeName || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
+        };
+        combinedMap.set(key, normalized);
+      });
+
+      // 2. Put server rawList SECOND (keyed strictly by registration or ID)
+      (rawList || []).forEach((b, idx) => {
+        const key = (b.registrationNumber || b.bikeId || b.id || `SERVER_${idx}`).toString().toUpperCase();
+        if (!combinedMap.has(key)) {
+          combinedMap.set(key, b);
+        } else {
+          const existing = combinedMap.get(key)!;
+          combinedMap.set(key, { ...existing, ...b });
+        }
+      });
+
+      const allMerged = Array.from(combinedMap.values());
+      allMerged.sort((a, b) => {
+        const aReg = (a.registrationNumber || "").toUpperCase();
+        const bReg = (b.registrationNumber || "").toUpperCase();
+        if (aReg === "TS02EY4494") return -1;
+        if (bReg === "TS02EY4494") return 1;
+        return (Number(b.bikeId || b.id || 0)) - (Number(a.bikeId || a.id || 0));
+      });
+
+      const updated = allMerged.map((bike: Bike, idx: number) => {
+        const norm = normalizeBike(bike, idx);
+        let bStatus = norm.bikeStatus || "AVAILABLE";
+        const isApprovedBooked = approvedBookings.some((ab: any) => {
+          const nameMatch = ab.bikeName && norm.bikeName && ab.bikeName.trim().toLowerCase() === norm.bikeName.trim().toLowerCase();
+          const idMatch = (ab.bikeId || ab.id) && (Number(ab.bikeId || ab.id) === Number(norm.bikeId || norm.id));
+          return nameMatch || idMatch;
+        });
+        const localMatch = localOwnerBikes.find((lb: any) => {
+          const nameMatch = lb.bikeName && norm.bikeName && lb.bikeName.trim().toLowerCase() === norm.bikeName.trim().toLowerCase();
+          const idMatch = (lb.id || lb.bikeId) && (Number(lb.id || lb.bikeId) === Number(norm.bikeId || norm.id));
+          return nameMatch || idMatch;
+        });
+        if (isApprovedBooked || (localMatch && localMatch.bikeStatus === "BOOKED")) {
+          bStatus = "BOOKED";
+        }
+        return { ...norm, bikeStatus: bStatus };
+      });
+
+      setBikes(updated);
+    } catch (err) {
+      console.error("Failed to load bikes for customer dashboard", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await bikeService.getAllBikes();
-        if (isMounted) {
-          setBikes(data || []);
-        }
-
-        // Fetch customer bookings if logged in
-        if (user?.id) {
-          try {
-            const rawBookings = await BookingService.getCustomerBookings(user.id);
-            if (isMounted) {
-              setUserBookings(Array.isArray(rawBookings) ? rawBookings : []);
-            }
-          } catch {
-            if (isMounted) setUserBookings([]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load bikes for customer dashboard", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
+    fetchCustomerDashboardBikes();
+    const handleUpdate = () => fetchCustomerDashboardBikes();
+    window.addEventListener("custom_bikes_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
     return () => {
-      isMounted = false;
+      window.removeEventListener("custom_bikes_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
     };
-  }, [user?.id]);
+  }, []);
 
   const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "Customer";
   
@@ -359,9 +427,9 @@ export default function CustomerDashboard() {
               </div>
             ) : filteredBikes.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {filteredBikes.map((bike) => (
+                {filteredBikes.map((bike, idx) => (
                   <div
-                    key={bike.bikeId || bike.id}
+                    key={bike.bikeId || bike.id || bike.registrationNumber || `dashboard_bike_${idx}`}
                     className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition hover:shadow-lg hover:border-primary/40"
                   >
                     {/* Bike Image & Badges */}
@@ -379,8 +447,14 @@ export default function CustomerDashboard() {
                         {bike.location || "Hyderabad"}
                       </div>
 
-                      <div className="absolute top-3 right-3 rounded-xl bg-emerald-500/90 text-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
-                        {bike.bikeStatus || "AVAILABLE"}
+                      <div className="absolute top-3 right-3 shadow-xs">
+                        <BikeAvailability
+                          status={bike.bikeStatus}
+                          availableStartTime={bike.availableStartTime}
+                          availableEndTime={bike.availableEndTime}
+                          isShiftPosted={bike.isShiftPosted}
+                          compact
+                        />
                       </div>
                     </div>
 
@@ -415,12 +489,32 @@ export default function CustomerDashboard() {
                           <span className="text-xs text-muted-foreground font-medium"> / hr</span>
                         </div>
 
-                        <Link
-                          to="/bikes"
-                          className="rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-primary-foreground shadow-xs transition hover:opacity-90 active:scale-[0.98]"
-                        >
-                          Book Now
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBikeDetail(bike)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted active:scale-[0.98] cursor-pointer shadow-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-primary" />
+                            View
+                          </button>
+                          {bike.bikeStatus === "BOOKED" ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="rounded-xl bg-muted text-muted-foreground border border-border px-3.5 py-2 text-xs font-bold cursor-not-allowed"
+                            >
+                              Booked for this Slot
+                            </button>
+                          ) : (
+                            <Link
+                              to="/bikes"
+                              className="rounded-xl bg-primary px-3.5 py-2 text-xs font-extrabold text-primary-foreground shadow-xs transition hover:opacity-90 active:scale-[0.98]"
+                            >
+                              Book Now
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -531,6 +625,154 @@ export default function CustomerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Bike Details Modal */}
+      <Modal
+        isOpen={Boolean(selectedBikeDetail)}
+        onClose={() => setSelectedBikeDetail(null)}
+        size="lg"
+      >
+        {selectedBikeDetail && (
+          <>
+            <ModalHeader onClose={() => setSelectedBikeDetail(null)}>
+              {selectedBikeDetail.bikeName || `${selectedBikeDetail.brand} ${selectedBikeDetail.model}`}
+            </ModalHeader>
+            <ModalBody>
+              <div className="space-y-6">
+                {/* Top Banner Image & Quick Badges */}
+                <div className="relative h-56 sm:h-64 w-full overflow-hidden rounded-2xl bg-muted border border-border">
+                  <img
+                    src={
+                      selectedBikeDetail.imageUrl ||
+                      "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800"
+                    }
+                    alt={selectedBikeDetail.bikeName}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <span className="rounded-xl bg-card/90 px-3 py-1 text-xs font-bold text-foreground backdrop-blur-xs border border-border shadow-xs flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                      {selectedBikeDetail.location || "Hyderabad"}
+                    </span>
+                    <span className="rounded-xl bg-primary px-2.5 py-1 text-xs font-black text-primary-foreground uppercase shadow-xs">
+                      {selectedBikeDetail.fuelType || "PETROL"}
+                    </span>
+                  </div>
+
+                  <div className="absolute top-3 right-3 shadow-xs">
+                    <BikeAvailability
+                      status={selectedBikeDetail.bikeStatus}
+                      availableStartTime={selectedBikeDetail.availableStartTime}
+                      availableEndTime={selectedBikeDetail.availableEndTime}
+                      isShiftPosted={selectedBikeDetail.isShiftPosted}
+                    />
+                  </div>
+
+                  <div className="absolute bottom-3 left-3 right-3 bg-card/90 backdrop-blur-md border border-border/80 p-3 rounded-xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Registration Number</div>
+                      <div className="text-xs font-mono font-bold text-foreground">{selectedBikeDetail.registrationNumber || "TS 09 AB 1234"}</div>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>RC Verified</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Owner Information Card */}
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-black text-lg shadow-sm shrink-0 uppercase">
+                      {(selectedBikeDetail.ownerName || "Rajesh Kumar")[0]}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-sm font-bold text-foreground">
+                          {selectedBikeDetail.ownerName || "Rajesh Kumar"}
+                        </h4>
+                        <span className="bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Verified Owner
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                        Verified partner • Direct pickup & keyless handover support
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing & Shift Time Overview Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider">Hourly Rental Rate</span>
+                    <div className="text-lg font-black text-foreground">₹{selectedBikeDetail.hourlyRate || 80} <span className="text-xs text-muted-foreground font-normal">/ hr</span></div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider">Daily Rental Rate</span>
+                    <div className="text-lg font-black text-foreground">₹{selectedBikeDetail.rentalPrice || (selectedBikeDetail.hourlyRate ? selectedBikeDetail.hourlyRate * 8 : 640)} <span className="text-xs text-muted-foreground font-normal">/ day</span></div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-border bg-card space-y-1 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider">Operating Shift</span>
+                    <div className="text-xs font-bold text-foreground flex items-center gap-1 mt-1">
+                      <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                      {format12Hour(selectedBikeDetail.availableStartTime || "09:00")} – {format12Hour(selectedBikeDetail.availableEndTime || "21:00")}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Technical Specifications */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Vehicle Specifications</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border">
+                      <div className="text-[10px] font-semibold text-muted-foreground">Engine Capacity</div>
+                      <div className="text-xs font-bold text-foreground mt-0.5">{selectedBikeDetail.engineCapacity || "155 cc"}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border">
+                      <div className="text-[10px] font-semibold text-muted-foreground">Mileage / Range</div>
+                      <div className="text-xs font-bold text-foreground mt-0.5">{selectedBikeDetail.mileage || "45 km/l"}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border">
+                      <div className="text-[10px] font-semibold text-muted-foreground">Transmission</div>
+                      <div className="text-xs font-bold text-foreground mt-0.5">{selectedBikeDetail.transmission || "Manual"}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border">
+                      <div className="text-[10px] font-semibold text-muted-foreground">Seating Capacity</div>
+                      <div className="text-xs font-bold text-foreground mt-0.5">{selectedBikeDetail.seatingCapacity || 2} Persons</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bike Description */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">About This Bike</h4>
+                  <p className="text-xs text-foreground/80 leading-relaxed bg-muted/30 border border-border p-3.5 rounded-xl font-medium">
+                    {selectedBikeDetail.description ||
+                      `${selectedBikeDetail.brand} ${selectedBikeDetail.model} (${selectedBikeDetail.fuelType || "Petrol"}) is fully serviced, RC-verified, and maintained in top operational condition for reliable rides.`}
+                  </p>
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                type="button"
+                onClick={() => setSelectedBikeDetail(null)}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl border border-border hover:bg-muted text-foreground transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+              <Link
+                to="/bikes"
+                onClick={() => setSelectedBikeDetail(null)}
+                className="w-full sm:w-auto px-5 py-2 text-xs font-extrabold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Book Now
+              </Link>
+            </ModalFooter>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

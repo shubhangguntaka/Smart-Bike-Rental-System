@@ -48,7 +48,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || "Failed to create booking";
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     } finally {
       setLoading(false);
     }
@@ -69,7 +69,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || "Failed to cancel booking";
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || "Failed to update booking";
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     } finally {
       setLoading(false);
     }
@@ -137,7 +137,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || "Failed to confirm booking";
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     } finally {
       setLoading(false);
     }
@@ -156,7 +156,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || "Failed to get booking details";
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     } finally {
       setLoading(false);
     }

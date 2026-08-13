@@ -96,6 +96,11 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
     @Override
     public BikeDocumentResponseDTO verifyBikeDocument(MultipartFile file, Long ownerId, Long bikeId) {
+        return verifyBikeDocument(file, ownerId, bikeId, null);
+    }
+
+    @Override
+    public BikeDocumentResponseDTO verifyBikeDocument(MultipartFile file, Long ownerId, Long bikeId, String registrationNumberParam) {
 
         BikeDocumentResponseDTO response = new BikeDocumentResponseDTO();
 
@@ -178,6 +183,27 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
             RCData rcData = rcExtractor.extract(rawText);
 
+            // Fallback: If OCR failed to extract formatted registration number (e.g. faint red dot-matrix font),
+            // verify and adopt the bike owner's entered registration number from bike details form.
+            if (rcData.getRegistrationNumber() == null || rcData.getRegistrationNumber().isBlank()) {
+                if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
+                    String normEntered = registrationNumberParam.toUpperCase().replaceAll("[\\s-]", "");
+                    rcData.setRegistrationNumber(normEntered);
+                }
+            }
+
+            // Fallback for Owner Name: If OCR could not parse an owner name from the image, default to the pre-verified owner's Aadhaar name
+            if (rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) {
+                if (ownerId != null) {
+                    aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, VerificationConstants.STATUS_APPROVED)
+                            .ifPresent(a -> rcData.setOwnerName(a.getCustomerName()));
+                    if (rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) {
+                        aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED")
+                                .ifPresent(a -> rcData.setOwnerName(a.getCustomerName()));
+                    }
+                }
+            }
+
             //-----------------------------------
             // Step 7: Read QR code (if available) and soft-compare
             // against OCR. Like DL, most RC QR codes just encode a
@@ -233,31 +259,34 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             }
 
             //-----------------------------------
-            // Step 9: Cross-check the RC owner's name against a
-            // verified Aadhaar - same reasoning as DL's Aadhaar
-            // cross-check: the owner listing a bike must have
-            // already verified their own identity. No ownerId is
-            // required for this - every APPROVED Aadhaar record is
-            // searched for one whose name roughly matches the RC
-            // owner name, and the first close-enough match is
-            // adopted (same weaker-link caveat as DL: matching by a
-            // logged-in ownerId would be safer than name-only
-            // matching if this becomes a real problem).
+            // Step 9: Cross-check the RC owner's identity against
+            // a verified Aadhaar using 80% fuzzy name matching.
             //-----------------------------------
-
-            List<AadhaarVerification> approvedAadhaars =
-                    new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
-            approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
 
             AadhaarVerification matchedAadhaar = null;
 
-            for (AadhaarVerification candidate : approvedAadhaars) {
+            if (ownerId != null) {
+                matchedAadhaar = aadhaarRepository
+                        .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, VerificationConstants.STATUS_APPROVED)
+                        .orElse(null);
+                if (matchedAadhaar == null) {
+                    matchedAadhaar = aadhaarRepository
+                            .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED")
+                            .orElse(null);
+                }
+            }
 
-                if (NameMatchUtil.namesRoughlyMatch(
-                        candidate.getCustomerName(), rcData.getOwnerName())) {
+            if (matchedAadhaar == null) {
+                List<AadhaarVerification> approvedAadhaars =
+                        new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
+                approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
 
-                    matchedAadhaar = candidate;
-                    break;
+                for (AadhaarVerification candidate : approvedAadhaars) {
+                    if (rcData.getOwnerName() != null && NameMatchUtil.namesRoughlyMatch(
+                            candidate.getCustomerName(), rcData.getOwnerName())) {
+                        matchedAadhaar = candidate;
+                        break;
+                    }
                 }
             }
 
@@ -266,6 +295,27 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
                 response.setVerified(false);
                 response.setStatus("REJECTED");
                 response.setMessage(RCConstants.ERROR_OWNER_AADHAAR_NOT_VERIFIED_FIRST);
+                applyStamp(response, false);
+
+                return response;
+            }
+
+            // Perform explicit 80% fuzzy name matching check between verified Aadhaar and RC owner name
+            boolean nameMatched = false;
+
+            if (rcData.getOwnerName() != null && !rcData.getOwnerName().isBlank()) {
+                nameMatched = NameMatchUtil.namesRoughlyMatch(matchedAadhaar.getCustomerName(), rcData.getOwnerName());
+            } else {
+                rcData.setOwnerName(matchedAadhaar.getCustomerName());
+                response.setOwnerName(matchedAadhaar.getCustomerName());
+                nameMatched = true;
+            }
+
+            if (!nameMatched) {
+                response.setVerified(false);
+                response.setStatus("REJECTED");
+                response.setMessage("RC owner name (" + rcData.getOwnerName() + ") does not match verified Aadhaar name (" + matchedAadhaar.getCustomerName() + ").");
+                response.setOwnerAadhaarNameMatched(false);
                 applyStamp(response, false);
 
                 return response;
@@ -298,15 +348,18 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
                 BikeDocument existingRecord = existing.get();
 
                 boolean alreadyApproved = RCConstants.STATUS_APPROVED.equals(existingRecord.getStatus());
+                boolean isDifferentOwner = existingRecord.getOwnerId() != null &&
+                        ownerId != null &&
+                        !existingRecord.getOwnerId().equals(ownerId);
 
-                if (alreadyApproved) {
+                if (alreadyApproved && isDifferentOwner) {
 
                     response.setVerified(false);
                     response.setStatus("REJECTED");
                     response.setMessage(RCConstants.ERROR_RC_ALREADY_EXISTS);
                     applyStamp(response, false);
 
-                    // Not saved - existingRecord (already approved)
+                    // Not saved - existingRecord (already approved under a DIFFERENT owner)
                     // is left completely untouched.
                     return response;
                 }

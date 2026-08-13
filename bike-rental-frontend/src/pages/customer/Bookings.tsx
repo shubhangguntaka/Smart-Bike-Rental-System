@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2 } from "lucide-react";
+import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuth from "@/hooks/useAuth";
 import { BookingService } from "@/services/bookingService";
@@ -16,24 +16,78 @@ export default function CustomerBookings() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    let active = true;
+  const renderBookingStatusBadge = (status: string) => {
+    const s = (status || "PENDING").toUpperCase();
+    if (s === "PENDING" || s === "VERIFICATION_REQUIRED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse">
+          <Clock className="h-3.5 w-3.5" />
+          Waiting for Owner Approval
+        </span>
+      );
+    }
+    if (s === "APPROVED" || s === "CONFIRMED" || s === "ACTIVE") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Bike Booked & Confirmed
+        </span>
+      );
+    }
+    if (s === "REJECTED" || s === "CANCELLED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-red-500/10 text-red-600 border border-red-500/20">
+          <XCircle className="h-3.5 w-3.5" />
+          Request Rejected by Owner
+        </span>
+      );
+    }
+    if (s === "COMPLETED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Ride Completed
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-muted text-muted-foreground border border-border">
+        {status}
+      </span>
+    );
+  };
+
+  const fetchCustomerBookings = async () => {
     if (!user?.id) return;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await BookingService.getCustomerBookings(Number(user.id));
-        if (active) {
-          setBookings(data || []);
-        }
-      } catch (err) {
-        console.error("Failed to load customer bookings:", err);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
+    try {
+      setLoading(true);
+      const data = await BookingService.getCustomerBookings(Number(user.id));
+      const localCustom = JSON.parse(localStorage.getItem("custom_user_bookings") || localStorage.getItem("user_bookings") || "[]");
+      const mergedMap = new Map();
+      (data || []).forEach((b: any) => mergedMap.set(String(b.bookingId || b.id), b));
+      (localCustom || []).forEach((b: any) => {
+        const key = String(b.bookingId || b.id);
+        const existing = mergedMap.get(key);
+        mergedMap.set(key, existing ? { ...existing, ...b } : b);
+      });
+      setBookings(Array.from(mergedMap.values()));
+    } catch (err) {
+      console.error("Failed to load customer bookings:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomerBookings();
+    const handleUpdate = () => fetchCustomerBookings();
+    window.addEventListener("custom_bikes_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
     return () => {
-      active = false;
+      window.removeEventListener("custom_bikes_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
     };
   }, [user]);
 
@@ -103,17 +157,7 @@ export default function CustomerBookings() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-muted-foreground font-mono">BR-{bId}</span>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                        bStatus.toLowerCase() === "active" || bStatus.toLowerCase() === "approved"
-                          ? "bg-green-500/10 text-green-500"
-                          : bStatus.toLowerCase() === "completed"
-                          ? "bg-blue-500/10 text-blue-500"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {bStatus}
-                    </span>
+                    {renderBookingStatusBadge(bStatus)}
                   </div>
                   <h3 className="font-bold text-base text-foreground leading-tight">{booking.bikeName}</h3>
                   
@@ -175,10 +219,8 @@ export default function CustomerBookings() {
                   <p className="font-bold text-sm text-foreground font-mono">BR-{selectedBooking.bookingId || selectedBooking.id}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-muted-foreground font-semibold">Status</p>
-                  <span className="text-xs font-bold text-green-500 capitalize">
-                    {selectedBooking.bookingStatus || selectedBooking.status}
-                  </span>
+                  <p className="text-xs text-muted-foreground font-semibold mb-1">Approval Status</p>
+                  {renderBookingStatusBadge(selectedBooking.bookingStatus || selectedBooking.status)}
                 </div>
               </div>
 

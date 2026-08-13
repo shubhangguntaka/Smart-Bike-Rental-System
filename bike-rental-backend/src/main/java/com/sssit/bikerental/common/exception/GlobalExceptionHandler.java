@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                                 .body(Map.of(
                                                 "success", false,
-                                                "message", "Conflict"));
+                                                "message", ex.getMessage() != null ? ex.getMessage() : "Conflict"));
         }
 
         /**
@@ -189,6 +189,33 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                 .body(ApiResponse.error(
                                                 "Unable to send OTP email. Please check mail SMTP/TLS settings and try again."));
+        }
+
+        /**
+         * Authentication & Bad Credentials
+         */
+        @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+        public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(
+                        org.springframework.security.authentication.BadCredentialsException ex) {
+
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body(ApiResponse.error("Invalid email or password."));
+        }
+
+        @ExceptionHandler(org.springframework.security.authentication.DisabledException.class)
+        public ResponseEntity<ApiResponse<Object>> handleDisabledException(
+                        org.springframework.security.authentication.DisabledException ex) {
+
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(ApiResponse.error("Your account is disabled or unverified."));
+        }
+
+        @ExceptionHandler(RuntimeException.class)
+        public ResponseEntity<ApiResponse<Object>> handleRuntimeException(
+                        RuntimeException ex) {
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.error(ex.getMessage()));
         }
 
         /**

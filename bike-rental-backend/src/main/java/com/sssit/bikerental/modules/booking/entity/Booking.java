@@ -41,6 +41,12 @@ public class Booking extends BaseEntity {
     @Column(name = "return_time")
     private LocalDateTime returnTime;
 
+    @Column(name = "pickup_date")
+    private LocalDateTime pickupDate;
+
+    @Column(name = "return_date")
+    private LocalDateTime returnDate;
+
     @Column(nullable = false)
     private BigDecimal rentalAmount;
 
@@ -55,6 +61,23 @@ public class Booking extends BaseEntity {
     @Column(name = "qr_code", length = 1000)
     private String qrCode;
 
+    @jakarta.persistence.PrePersist
+    @jakarta.persistence.PreUpdate
+    public void syncDates() {
+        if (startTime != null && pickupDate == null) {
+            pickupDate = startTime;
+        }
+        if (pickupDate != null && startTime == null) {
+            startTime = pickupDate;
+        }
+        if (returnTime != null && returnDate == null) {
+            returnDate = returnTime;
+        }
+        if (returnDate != null && returnTime == null) {
+            returnTime = returnDate;
+        }
+    }
+
     // Backward-compatible wrapper getter
     public String getStatus() {
         return bookingStatus != null ? bookingStatus.name() : null;
@@ -64,15 +87,14 @@ public class Booking extends BaseEntity {
     public void setStatus(String statusStr) {
         if (statusStr != null) {
             try {
-                this.bookingStatus = BookingStatus.valueOf(statusStr);
+                this.bookingStatus = BookingStatus.valueOf(statusStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                // Fallback mapping for status strings used in other modules
-                if ("APPROVED".equals(statusStr)) {
-                    this.bookingStatus = BookingStatus.CONFIRMED;
-                } else if ("REJECTED".equals(statusStr)) {
-                    this.bookingStatus = BookingStatus.CANCELLED;
+                if ("APPROVED".equalsIgnoreCase(statusStr)) {
+                    this.bookingStatus = BookingStatus.APPROVED;
+                } else if ("REJECTED".equalsIgnoreCase(statusStr)) {
+                    this.bookingStatus = BookingStatus.REJECTED;
                 } else {
-                    throw e;
+                    this.bookingStatus = BookingStatus.PENDING;
                 }
             }
         } else {

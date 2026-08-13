@@ -11,6 +11,8 @@ public interface BikeDocumentService {
 
     BikeDocumentResponseDTO verifyBikeDocument(MultipartFile file, Long ownerId, Long bikeId);
 
+    BikeDocumentResponseDTO verifyBikeDocument(MultipartFile file, Long ownerId, Long bikeId, String registrationNumber);
+
     // Returns the existing APPROVED RC for this owner + bike, or null
     // if none exists yet. Used by the frontend to skip the upload form
     // when the owner re-adds/re-lists a bike already verified before.

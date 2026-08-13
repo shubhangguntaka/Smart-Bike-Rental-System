@@ -79,7 +79,7 @@ export default function NearbyBikes() {
 
                                 <MapPin size={18} />
 
-                                {bike.distance.toFixed(2)} km
+                                {(bike.distance ?? 0).toFixed(2)} km
 
                             </div>
 

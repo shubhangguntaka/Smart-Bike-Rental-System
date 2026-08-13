@@ -16,24 +16,30 @@ import com.sssit.bikerental.modules.verification.bikedocument.model.RCData;
  * Name, Model, Vehicle Class, Registration Date, Insurance/PUCC/
  * Fitness validity, Address) out of the raw OCR text that
  * OCRService.extractData(file).getRawText() returns.
- *
- * Mirrors drivinglicense.util.DLExtractor - only post-processes plain
- * text, doesn't touch OCRService or anything under aadhaar/
- * drivinglicense.
  */
 @Component
 public class RCExtractor {
 
-    // Indian vehicle registration number, e.g. AP39KA1234, TS09EF4321
+    // Indian vehicle registration number, e.g. AP39KA1234, TS09EF4321, TS02EY4494
     private static final Pattern REG_NUMBER_PATTERN =
             Pattern.compile("\\b[A-Z]{2}[-\\s]?[0-9]{1,2}[-\\s]?[A-Z]{0,3}[-\\s]?[0-9]{4}\\b");
 
     private static final Pattern DATE_PATTERN =
             Pattern.compile("\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}");
 
+    private static final Pattern MFG_DATE_PATTERN =
+            Pattern.compile("\\b(\\d{1,2})[/-](\\d{4})\\b");
+
     // Chassis/engine numbers are alphanumeric, typically 5-20 chars
     private static final Pattern ALNUM_CODE_PATTERN =
             Pattern.compile("\\b[A-Z0-9]{5,20}\\b");
+
+    private static final Pattern OWNER_LABEL_PATTERN =
+            Pattern.compile("(?i)(reg[a-z]*\\.?[\\s:-]*owner|registered[\\s:-]*owner|owner['s\\s]*name|owner)[\\s:-]*");
+
+    private static final String[] NAME_JUNK_MARKERS = {
+            "son/daughter", "s/o", "d/o", "w/o", "address", "signature", "h.no", "hno"
+    };
 
     public RCData extract(String rawText) {
 
@@ -65,16 +71,17 @@ public class RCExtractor {
     // Registration Number
     //-------------------------------------------------------
 
+    // OCR-lenient pattern that allows common OCR digit misreads (O, U, Q, D, Z, I, L) in digit positions
+    private static final Pattern REG_NUMBER_OCR_PATTERN =
+            Pattern.compile("\\b[A-Z]{2}[-\\s]?[0-9OQUZIDo]{1,2}[-\\s]?[A-Za-z]{0,3}[-\\s]?[0-9OQUZIDo]{4}\\b");
+
     private void extractRegistrationNumber(String rawText, String[] lines, RCData data) {
 
+        // 1. Strict regex pass on lines starting with registration labels
         for (String line : lines) {
-
             String lower = line.toLowerCase();
-
-            if (lower.contains("registration no")) {
-
+            if (lower.contains("regn") || lower.contains("registration") || lower.contains("regd") || lower.contains("reg.")) {
                 Matcher m = REG_NUMBER_PATTERN.matcher(line.toUpperCase());
-
                 if (m.find()) {
                     data.setRegistrationNumber(stripSeparators(m.group()));
                     return;
@@ -82,13 +89,64 @@ public class RCExtractor {
             }
         }
 
-        // Fallback: search the whole document for anything matching
-        // the registration-number shape.
+        // 2. Strict regex pass over full text
         Matcher m = REG_NUMBER_PATTERN.matcher(rawText.toUpperCase());
-
         if (m.find()) {
             data.setRegistrationNumber(stripSeparators(m.group()));
+            return;
         }
+
+        // 3. Lenient OCR-corrected pass (fixes O/U/Q -> 0, I/L -> 1, Z -> 2 in digit slots on faint/red text)
+        Matcher ocrMatcher = REG_NUMBER_OCR_PATTERN.matcher(rawText.toUpperCase());
+        if (ocrMatcher.find()) {
+            String rawMatch = stripSeparators(ocrMatcher.group());
+            String corrected = fixRegistrationNumberOcrNoise(rawMatch);
+            if (corrected != null && REG_NUMBER_PATTERN.matcher(corrected).matches()) {
+                data.setRegistrationNumber(corrected);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Fixes common OCR misreads on Indian vehicle registration numbers (e.g. TSU2EY4494 -> TS02EY4494)
+     */
+    public static String fixRegistrationNumberOcrNoise(String raw) {
+        if (raw == null || raw.length() < 8) return raw;
+
+        String stateCode = raw.substring(0, 2);
+        String rest = raw.substring(2);
+
+        // Replace OCR digit confusions in rest
+        StringBuilder sb = new StringBuilder(stateCode);
+        boolean inTrailingDigits = false;
+        int len = rest.length();
+
+        for (int i = 0; i < len; i++) {
+            char c = rest.charAt(i);
+            // Identify if we are in the RTO code (first 1-2 chars) or final serial number (last 4 chars)
+            boolean isDigitSlot = (i < 2) || (i >= len - 4);
+
+            if (isDigitSlot) {
+                if (c == 'O' || c == 'o' || c == 'U' || c == 'Q' || c == 'D') {
+                    sb.append('0');
+                } else if (c == 'I' || c == 'l' || c == '|') {
+                    sb.append('1');
+                } else if (c == 'Z') {
+                    sb.append('2');
+                } else if (c == 'S') {
+                    sb.append('5');
+                } else if (c == 'B') {
+                    sb.append('8');
+                } else {
+                    sb.append(c);
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+
+        return sb.toString();
     }
 
     private String stripSeparators(String value) {
@@ -101,26 +159,71 @@ public class RCExtractor {
 
     private void extractOwnerName(String[] lines, RCData data) {
 
-        for (String line : lines) {
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
 
-            String lower = line.toLowerCase().trim();
+            Matcher m = OWNER_LABEL_PATTERN.matcher(line);
+            if (m.find()) {
+                String value = line.substring(m.end()).trim();
 
-            if (lower.startsWith("owner name")) {
+                if ((value.isBlank() || !isPlausibleName(value)) && i + 1 < lines.length) {
+                    i++;
+                    value = lines[i].trim();
+                }
 
-                String value = valueAfterLabel(line, "owner name");
                 value = truncateAtJunk(value);
 
                 if (isPlausibleName(value)) {
-                    data.setOwnerName(cleanText(value));
+                    StringBuilder fullOwnerName = new StringBuilder(value);
+
+                    if (i + 1 < lines.length) {
+                        String nextLine = lines[i + 1].trim();
+                        String nextLower = nextLine.toLowerCase();
+
+                        if (isPlausibleName(nextLine) && !isKnownLabelOrAddress(nextLower)) {
+                            fullOwnerName.append(" ").append(nextLine);
+                        }
+                    }
+
+                    data.setOwnerName(cleanText(fullOwnerName.toString()));
                     return;
+                }
+            }
+        }
+
+        // Fallback: Check 1-3 lines immediately above "Address" label if label parsing was garbled
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().contains("address")) {
+                for (int j = i - 1; j >= 0 && j >= i - 3; j--) {
+                    String candidate = truncateAtJunk(lines[j].trim());
+                    if (isPlausibleName(candidate) && !isKnownLabelOrAddress(candidate.toLowerCase())) {
+                        data.setOwnerName(cleanText(candidate));
+                        return;
+                    }
                 }
             }
         }
     }
 
-    private static final String[] NAME_JUNK_MARKERS = {
-            "son/daughter", "s/o", "d/o", "w/o", "address", "signature"
-    };
+    private boolean isKnownLabelOrAddress(String text) {
+        return text.contains("address") || text.contains("h.no") || text.contains("hno")
+                || text.contains("vehicle") || text.contains("maker") || text.contains("model")
+                || text.contains("mfg") || text.contains("fuel") || text.contains("type")
+                || text.contains("regn") || text.contains("registration") || text.contains("chassis")
+                || text.contains("engine") || text.contains("signature") || text.contains("valid");
+    }
+
+    private String valueAfterLabelFlexible(String line, String label) {
+        String lower = line.toLowerCase();
+        int idx = lower.indexOf(label);
+        if (idx < 0) return null;
+
+        String rest = line.substring(idx + label.length()).trim();
+        while (rest.startsWith(":") || rest.startsWith("-") || rest.startsWith(".")) {
+            rest = rest.substring(1).trim();
+        }
+        return rest;
+    }
 
     private String truncateAtJunk(String value) {
 
@@ -132,9 +235,7 @@ public class RCExtractor {
         int cutAt = value.length();
 
         for (String marker : NAME_JUNK_MARKERS) {
-
             int idx = lower.indexOf(marker);
-
             if (idx >= 0 && idx < cutAt) {
                 cutAt = idx;
             }
@@ -143,10 +244,23 @@ public class RCExtractor {
         return value.substring(0, cutAt).trim();
     }
 
+    private static final String[] JUNK_LABEL_WORDS = {
+            "owner", "regd", "registered", "address", "number", "transport",
+            "department", "certificate", "registration", "h.no", "hno", "signature",
+            "vehicle", "maker", "model", "class", "fuel", "body"
+    };
+
     private boolean isPlausibleName(String value) {
-        return value != null
-                && !value.isBlank()
-                && value.replaceAll("[^A-Za-z]", "").length() >= 2;
+        if (value == null || value.isBlank()) return false;
+
+        String lower = value.toLowerCase();
+        for (String junk : JUNK_LABEL_WORDS) {
+            if (lower.contains(junk)) {
+                return false;
+            }
+        }
+
+        return value.replaceAll("[^A-Za-z]", "").length() >= 2;
     }
 
     //-------------------------------------------------------
@@ -156,16 +270,11 @@ public class RCExtractor {
     private void extractChassisNumber(String[] lines, RCData data) {
 
         for (String line : lines) {
-
             String lower = line.toLowerCase();
-
-            if (lower.contains("chassis number") || lower.contains("chassis no")) {
-
-                String value = valueAfterAnyLabel(line, "chassis number", "chassis no");
-
+            if (lower.contains("chassis")) {
+                String value = valueAfterAnyLabel(line, "chassis number", "chassis no", "chassis");
                 Matcher m = ALNUM_CODE_PATTERN.matcher(
                         (value != null ? value : line).toUpperCase());
-
                 if (m.find()) {
                     data.setChassisNumber(m.group());
                     return;
@@ -177,16 +286,11 @@ public class RCExtractor {
     private void extractEngineNumber(String[] lines, RCData data) {
 
         for (String line : lines) {
-
             String lower = line.toLowerCase();
-
-            if (lower.contains("engine number") || lower.contains("engine no")) {
-
-                String value = valueAfterAnyLabel(line, "engine number", "engine no");
-
+            if (lower.contains("engine")) {
+                String value = valueAfterAnyLabel(line, "engine number", "engine no", "engine");
                 Matcher m = ALNUM_CODE_PATTERN.matcher(
                         (value != null ? value : line).toUpperCase());
-
                 if (m.find()) {
                     data.setEngineNumber(m.group());
                     return;
@@ -202,28 +306,10 @@ public class RCExtractor {
     private void extractMakerName(String[] lines, RCData data) {
 
         for (String line : lines) {
-
             String lower = line.toLowerCase().trim();
-
-            if (lower.startsWith("maker")) {
-
-                // Deliberately NOT using valueAfterAnyLabel's
-                // label-length arithmetic here: OCR frequently
-                // mangles/drops the apostrophe in "MAKER'S NAME"
-                // (reads it as "MAKERS NAME", "MAKER S NAME", or
-                // just "MAKER NAME"), which made the bare "maker"
-                // fallback label match at the wrong offset and
-                // extract junk like "'S NAME : BAJAJ AUTO LTD"
-                // instead of "BAJAJ AUTO LTD". Every real RC prints
-                // this as "LABEL : VALUE", so splitting on the first
-                // colon is robust regardless of exactly how the
-                // apostrophe/label text itself came out of OCR.
+            if (lower.contains("maker")) {
                 int colonIndex = line.indexOf(':');
-
-                String value = colonIndex >= 0
-                        ? line.substring(colonIndex + 1).trim()
-                        : null;
-
+                String value = colonIndex >= 0 ? line.substring(colonIndex + 1).trim() : null;
                 if (value != null && !value.isBlank()) {
                     data.setMakerName(cleanText(value));
                     return;
@@ -235,13 +321,9 @@ public class RCExtractor {
     private void extractModel(String[] lines, RCData data) {
 
         for (String line : lines) {
-
             String lower = line.toLowerCase().trim();
-
-            if (lower.startsWith("model")) {
-
+            if (lower.contains("model")) {
                 String value = valueAfterLabel(line, "model");
-
                 if (value != null && !value.isBlank()) {
                     data.setModel(cleanText(value));
                     return;
@@ -253,13 +335,9 @@ public class RCExtractor {
     private void extractVehicleClass(String[] lines, RCData data) {
 
         for (String line : lines) {
-
             String lower = line.toLowerCase().trim();
-
-            if (lower.startsWith("vehicle class")) {
-
+            if (lower.contains("vehicle class")) {
                 String value = valueAfterLabel(line, "vehicle class");
-
                 if (value != null && !value.isBlank()) {
                     data.setVehicleClass(value.trim());
                     return;
@@ -275,16 +353,28 @@ public class RCExtractor {
     private void extractRegistrationDate(String[] lines, RCData data) {
 
         for (int i = 0; i < lines.length; i++) {
-
             String lower = lines[i].toLowerCase();
-
-            if (lower.contains("registration date")) {
-
+            if (lower.contains("registration date") || lower.contains("reg. date") || lower.contains("reg date")) {
                 LocalDate date = findDateNear(lines, i);
-
                 if (date != null) {
                     data.setRegistrationDate(date);
                     return;
+                }
+            }
+        }
+
+        for (String line : lines) {
+            String lower = line.toLowerCase();
+            if (lower.contains("mfg") || lower.contains("mth")) {
+                Matcher m = MFG_DATE_PATTERN.matcher(line);
+                if (m.find()) {
+                    try {
+                        int month = Integer.parseInt(m.group(1));
+                        int year = Integer.parseInt(m.group(2));
+                        data.setRegistrationDate(LocalDate.of(year, Math.min(Math.max(month, 1), 12), 1));
+                        return;
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }
@@ -293,13 +383,9 @@ public class RCExtractor {
     private void extractInsuranceValidUpto(String[] lines, RCData data) {
 
         for (int i = 0; i < lines.length; i++) {
-
             String lower = lines[i].toLowerCase();
-
-            if (lower.contains("insurance valid")) {
-
+            if (lower.contains("insurance valid") || lower.contains("ins valid")) {
                 LocalDate date = findDateNear(lines, i);
-
                 if (date != null) {
                     data.setInsuranceValidUpto(date);
                     return;
@@ -311,13 +397,9 @@ public class RCExtractor {
     private void extractPuccValidUpto(String[] lines, RCData data) {
 
         for (int i = 0; i < lines.length; i++) {
-
             String lower = lines[i].toLowerCase();
-
             if (lower.contains("pucc valid") || lower.contains("puc valid")) {
-
                 LocalDate date = findDateNear(lines, i);
-
                 if (date != null) {
                     data.setPuccValidUpto(date);
                     return;
@@ -329,13 +411,9 @@ public class RCExtractor {
     private void extractFitnessValidUpto(String[] lines, RCData data) {
 
         for (int i = 0; i < lines.length; i++) {
-
             String lower = lines[i].toLowerCase();
-
-            if (lower.contains("fitness valid")) {
-
+            if (lower.contains("fitness valid") || lower.contains("fit valid")) {
                 LocalDate date = findDateNear(lines, i);
-
                 if (date != null) {
                     data.setFitnessValidUpto(date);
                     return;
@@ -347,7 +425,6 @@ public class RCExtractor {
     private LocalDate findDateNear(String[] lines, int labelIndex) {
 
         LocalDate date = parseFirstDate(lines[labelIndex]);
-
         if (date != null) {
             return date;
         }
@@ -362,7 +439,6 @@ public class RCExtractor {
     private LocalDate parseFirstDate(String line) {
 
         Matcher m = DATE_PATTERN.matcher(line);
-
         if (!m.find()) {
             return null;
         }
@@ -518,9 +594,6 @@ public class RCExtractor {
             }
         }
 
-        // Label may not be at the very start of the line (e.g. it
-        // follows a leading section marker) - fall back to a plain
-        // indexOf + colon-strip.
         String lower = line.toLowerCase();
 
         for (String label : labels) {
@@ -549,3 +622,4 @@ public class RCExtractor {
                 .trim();
     }
 }
+

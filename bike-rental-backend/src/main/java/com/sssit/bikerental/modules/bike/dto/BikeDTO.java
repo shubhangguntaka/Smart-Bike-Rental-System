@@ -38,6 +38,7 @@ public class BikeDTO {
         private Long ownerId;
         private String ownerName;
     }
+    private String ownerName;
 
     @NotBlank(message = "Bike name is required")
     @Size(max = 120)
@@ -136,10 +137,22 @@ public class BikeDTO {
             return;
         }
         try {
-            if (str.length() == 5) {
-                str = str + ":00";
+            String clean = str.toUpperCase();
+            if (clean.contains("AM") || clean.contains("PM")) {
+                boolean isPM = clean.contains("PM");
+                clean = clean.replace("AM", "").replace("PM", "").trim();
+                String[] parts = clean.split(":");
+                int h = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                if (isPM && h < 12) h += 12;
+                if (!isPM && h == 12) h = 0;
+                this.availableStartTime = LocalTime.of(h, m);
+                return;
             }
-            this.availableStartTime = LocalTime.parse(str);
+            if (clean.length() == 5) {
+                clean = clean + ":00";
+            }
+            this.availableStartTime = LocalTime.parse(clean);
         } catch (Exception e) {
             this.availableStartTime = LocalTime.of(9, 0);
         }
@@ -161,10 +174,22 @@ public class BikeDTO {
             return;
         }
         try {
-            if (str.length() == 5) {
-                str = str + ":00";
+            String clean = str.toUpperCase();
+            if (clean.contains("AM") || clean.contains("PM")) {
+                boolean isPM = clean.contains("PM");
+                clean = clean.replace("AM", "").replace("PM", "").trim();
+                String[] parts = clean.split(":");
+                int h = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                if (isPM && h < 12) h += 12;
+                if (!isPM && h == 12) h = 0;
+                this.availableEndTime = LocalTime.of(h, m);
+                return;
             }
-            this.availableEndTime = LocalTime.parse(str);
+            if (clean.length() == 5) {
+                clean = clean + ":00";
+            }
+            this.availableEndTime = LocalTime.parse(clean);
         } catch (Exception e) {
             this.availableEndTime = LocalTime.of(21, 0);
         }

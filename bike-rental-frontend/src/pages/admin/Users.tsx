@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SearchBar } from "@/components/common/SearchBar";
 import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
@@ -6,14 +6,7 @@ import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import { ShieldAlert, UserX, UserCheck, Mail, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
-
-const MOCK_USERS = [
-  { id: 1, name: "Rahul Sharma", email: "rahul@gmail.com", role: "CUSTOMER", status: "Active" },
-  { id: 2, name: "Amit Kumar", email: "amit.kumar@yahoo.com", role: "OWNER", status: "Active" },
-  { id: 3, name: "Priya Patel", email: "priya@gmail.com", role: "CUSTOMER", status: "Blocked" },
-  { id: 4, name: "Vikram Singh", email: "vikram@outlook.com", role: "OWNER", status: "Active" },
-  { id: 5, name: "Suresh Gupta", email: "suresh@admin.com", role: "ADMIN", status: "Active" },
-];
+import api from "@/api/axios";
 
 const FILTER_CONFIGS: FilterField[] = [
   {
@@ -38,12 +31,35 @@ const FILTER_CONFIGS: FilterField[] = [
 ];
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState(MOCK_USERS);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [page, setPage] = useState(1);
-  const [actionUser, setActionUser] = useState<typeof MOCK_USERS[0] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [actionUser, setActionUser] = useState<any | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/users");
+        const list = Array.isArray(res.data) ? res.data : [];
+        setUsers(list.map((u: any) => ({
+          id: u.userId || u.id,
+          name: u.fullName || u.name || u.email?.split("@")[0] || "User",
+          email: u.email || "",
+          role: (u.role || "CUSTOMER").toUpperCase(),
+          status: u.status || (u.active !== false ? "Active" : "Blocked"),
+        })));
+      } catch (err) {
+        console.error("Could not fetch users:", err);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleBlockUser = async () => {
     if (!actionUser) return;

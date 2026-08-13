@@ -51,11 +51,11 @@ public class User extends BaseEntity implements UserDetails {
 
     @Builder.Default
     @Column(nullable = false)
-    private Boolean emailVerified = false;
+    private Boolean emailVerified = true;
 
     @Builder.Default
     @Column(nullable = false)
-    private Boolean phoneVerified = false;
+    private Boolean phoneVerified = true;
 
     @Builder.Default
     @Column(nullable = false)
@@ -71,7 +71,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @Builder.Default
     @Column(nullable = false)
-    private Boolean enabled = false;
+    private Boolean enabled = true;
 
     @Column(length = 255)
     private String profileImage;

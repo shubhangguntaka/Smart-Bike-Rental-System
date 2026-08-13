@@ -111,12 +111,16 @@ const DocumentVerification = () => {
       <StepIndicator step={step} onStepClick={setStep} />
 
       {step === "aadhaar" && (
-        <AadhaarVerification onVerified={handleAadhaarVerified} onBack={exitVerification} />
+        <AadhaarVerification
+          customerId={customerId}
+          onVerified={handleAadhaarVerified}
+          onBack={exitVerification}
+        />
       )}
 
       {step === "license" && (
         <DrivingLicenseVerification
-          customerId={aadhaarResult?.id}
+          customerId={aadhaarResult?.customerId || customerId}
           onVerified={handleLicenseVerified}
           onBack={() => setStep("aadhaar")}
         />

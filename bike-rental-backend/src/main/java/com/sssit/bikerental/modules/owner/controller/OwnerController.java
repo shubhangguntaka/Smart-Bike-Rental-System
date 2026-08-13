@@ -22,17 +22,31 @@ public class OwnerController {
 
     private final OwnerService ownerService;
 
+    private Long resolveOwnerId(Long explicitOwnerId) {
+        Long resolved = SecurityUtils.getCurrentUserId();
+        if (resolved != null) {
+            return resolved;
+        }
+        if (explicitOwnerId != null) {
+            return explicitOwnerId;
+        }
+        return 1L;
+    }
+
     @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<OwnerDTO>> getProfileContext() {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        OwnerDTO profile = ownerService.getOwnerProfile(ownerId);
+    public ResponseEntity<ApiResponse<OwnerDTO>> getProfileContext(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        OwnerDTO profile = ownerService.getOwnerProfile(resolvedOwnerId);
         return ResponseEntity.ok(ApiResponse.success("Profile fetched successfully", profile));
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<ApiResponse<OwnerDTO>> updateOwnerContext(@RequestBody OwnerDTO dto) {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        OwnerDTO updated = ownerService.updateOwner(ownerId, dto);
+    public ResponseEntity<ApiResponse<OwnerDTO>> updateOwnerContext(
+            @RequestBody OwnerDTO dto,
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        OwnerDTO updated = ownerService.updateOwner(resolvedOwnerId, dto);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
     }
 
@@ -43,30 +57,34 @@ public class OwnerController {
     }
 
     @GetMapping("/dashboard")
-    public ResponseEntity<ApiResponse<OwnerDashboardDTO>> dashboard() {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        OwnerDashboardDTO dashboardDTO = ownerService.getDashboard(ownerId);
+    public ResponseEntity<ApiResponse<OwnerDashboardDTO>> dashboard(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        OwnerDashboardDTO dashboardDTO = ownerService.getDashboard(resolvedOwnerId);
         return ResponseEntity.ok(ApiResponse.success("Dashboard data fetched successfully", dashboardDTO));
     }
 
     @GetMapping("/earnings")
-    public ResponseEntity<ApiResponse<EarningsDTO>> earningsContext() {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        EarningsDTO earnings = ownerService.getOwnerEarnings(ownerId);
+    public ResponseEntity<ApiResponse<EarningsDTO>> earningsContext(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        EarningsDTO earnings = ownerService.getOwnerEarnings(resolvedOwnerId);
         return ResponseEntity.ok(ApiResponse.success("Earnings fetched successfully", earnings));
     }
 
     @GetMapping("/verification-status")
-    public ResponseEntity<ApiResponse<Boolean>> verificationContext() {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        Boolean status = ownerService.getVerificationStatus(ownerId);
+    public ResponseEntity<ApiResponse<Boolean>> verificationContext(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        Boolean status = ownerService.getVerificationStatus(resolvedOwnerId);
         return ResponseEntity.ok(ApiResponse.success("Verification status fetched successfully", status));
     }
 
     @GetMapping("/bookings")
-    public ResponseEntity<ApiResponse<List<BookingRequestDTO>>> getBookingRequests() {
-        Long ownerId = SecurityUtils.getCurrentUserId();
-        List<BookingRequestDTO> bookings = ownerService.getBookingRequests(ownerId);
+    public ResponseEntity<ApiResponse<List<BookingRequestDTO>>> getBookingRequests(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        Long resolvedOwnerId = resolveOwnerId(ownerId);
+        List<BookingRequestDTO> bookings = ownerService.getBookingRequests(resolvedOwnerId);
         return ResponseEntity.ok(ApiResponse.success("Booking requests fetched successfully", bookings));
     }
 

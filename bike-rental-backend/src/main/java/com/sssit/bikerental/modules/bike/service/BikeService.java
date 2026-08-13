@@ -35,6 +35,8 @@ public interface BikeService {
 
     BikeDocumentResponseDTO verifyBikeRC(MultipartFile file, Long ownerId, Long bikeId);
 
+    BikeDocumentResponseDTO verifyBikeRC(MultipartFile file, Long ownerId, Long bikeId, String registrationNumber);
+
     List<BikeDTO> searchBikes(String location, String brand, String bikeStatus);
 
     List<BikeDTO> searchBikes(String location, String brand, String category, String bikeStatus, java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice);
