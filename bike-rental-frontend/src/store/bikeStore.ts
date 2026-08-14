@@ -66,7 +66,7 @@ export const useBikeStore = create<BikeStore>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const saved = await bikeService.addBike(bike);
-      const ownerBikes = await bikeService.getOwnerBikes(bike.ownerId);
+      const ownerBikes = await bikeService.getOwnerBikes(bike.ownerId || 17);
       set({ ownerBikes, loading: false });
       return saved;
     } catch (err: unknown) {

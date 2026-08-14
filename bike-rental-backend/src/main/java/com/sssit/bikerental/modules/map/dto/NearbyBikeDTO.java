@@ -53,5 +53,7 @@ public class NearbyBikeDTO {
 
     private String availableEndTime;
 
+    private String availableDate;
+
     private String ownerName;
 }

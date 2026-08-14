@@ -23,6 +23,7 @@ import useAuth from "@/hooks/useAuth";
 import BikeForm from "@/components/bike/BikeForm";
 import bikeService, { type ApprovedRc } from "@/services/bikeService";
 import { emptyBike, type Bike } from "@/types/bike";
+import { notifyBikeUpdated } from "@/utils/syncUtils";
 import type {
   AadhaarVerificationResult,
   BikeDocumentVerificationResult,
@@ -168,6 +169,7 @@ const AddBike = () => {
       bikeStatus: "AVAILABLE",
       availableStartTime: formatTimeForBackend(bikeDraft?.availableStartTime || "09:00"),
       availableEndTime: formatTimeForBackend(bikeDraft?.availableEndTime || "21:00"),
+      availableDate: new Date().toISOString().split("T")[0],
       imageUrl: photoUrl,
       imageUrls: photoList,
     };
@@ -183,14 +185,14 @@ const AddBike = () => {
       const filtered = cached.filter((b) => (b.registrationNumber || "").trim().toUpperCase() !== reg.toUpperCase());
       filtered.unshift(saved);
       localStorage.setItem("custom_owner_bikes", JSON.stringify(filtered));
+      localStorage.setItem("local_owner_bikes", JSON.stringify(filtered));
 
       // Clear deleted_bike_keys entry for this bike registration & name
       const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_bike_keys") || "[]");
       const updatedDeletedKeys = deletedKeys.filter((k) => k.toUpperCase() !== reg.toUpperCase() && k.toUpperCase() !== name.toUpperCase());
       localStorage.setItem("deleted_bike_keys", JSON.stringify(updatedDeletedKeys));
 
-      window.dispatchEvent(new Event("custom_bikes_updated"));
-      window.dispatchEvent(new Event("storage"));
+      notifyBikeUpdated(saved);
       toast.success("Bike Listed Successfully!");
       setStepMode("step4_success");
     } catch (err: any) {

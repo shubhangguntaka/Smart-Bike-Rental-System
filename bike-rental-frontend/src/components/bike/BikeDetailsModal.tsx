@@ -101,6 +101,7 @@ export default function BikeDetailsModal({
                 availableStartTime={bike.availableStartTime || "09:00"}
                 availableEndTime={bike.availableEndTime || "21:00"}
                 isShiftPosted={bike.isShiftPosted}
+                availableDate={bike.availableDate}
               />
             </div>
 

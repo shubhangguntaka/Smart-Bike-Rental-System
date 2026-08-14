@@ -7,7 +7,22 @@ import java.time.LocalTime;
 import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 import com.sssit.bikerental.modules.bike.enums.RentalType;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -109,6 +124,8 @@ public class Bike {
 
     private LocalTime availableEndTime;
 
+    private java.time.LocalDate availableDate;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -120,6 +137,9 @@ public class Bike {
         LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
+        if (availableDate == null) {
+            availableDate = java.time.LocalDate.now();
+        }
 
         if (bikeStatus == null) {
             bikeStatus = BikeStatus.AVAILABLE;

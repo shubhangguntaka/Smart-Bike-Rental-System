@@ -83,6 +83,7 @@ const BikeCard = ({
             status={bike.bikeStatus}
             availableStartTime={bike.availableStartTime}
             availableEndTime={bike.availableEndTime}
+            availableDate={bike.availableDate}
             compact
           />
         </div>

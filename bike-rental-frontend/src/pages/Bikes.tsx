@@ -18,6 +18,8 @@ import { ROUTES } from "@/constants/routes";
 import DocumentScanner from "@/components/verification/DocumentScanner";
 import BikeAvailability from "@/components/bike/BikeAvailability";
 import BikeDetailsModal from "@/components/bike/BikeDetailsModal";
+import { subscribeBikeUpdates } from "@/utils/syncUtils";
+import useBikeSse from "@/hooks/useBikeSse";
 import { normalizeBike } from "@/utils/bikeUtils";
 
 // Real database bike catalog
@@ -59,6 +61,7 @@ const FILTER_CONFIGS: FilterField[] = [
 export default function Bikes() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  useBikeSse();
 
   const [allBikes, setAllBikes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,13 +150,77 @@ export default function Bikes() {
     try {
       setLoading(true);
       const apiBikes = await bikeService.getAllBikes();
-      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const cBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const lBikes: Bike[] = JSON.parse(localStorage.getItem("local_owner_bikes") || "[]");
+      let localOwnerBikes: Bike[] = [...cBikes, ...lBikes];
+      if (localOwnerBikes.length === 0) {
+        localOwnerBikes = [
+          {
+            bikeId: 101, id: 101, bikeName: "KTM Duke 390", brand: "KTM", model: "Duke 390",
+            registrationNumber: "TS09AB1234", rcNumber: "TS09AB1234", hourlyRate: 80, rentalPrice: 640,
+            location: "Hyderabad", bikeStatus: "AVAILABLE", rcVerified: true,
+            availableStartTime: "08:00", availableEndTime: "20:00", availableDate: new Date().toISOString().split("T")[0],
+            imageUrl: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600",
+          },
+          {
+            bikeId: 102, id: 102, bikeName: "TVS Radeon", brand: "TVS", model: "Radeon",
+            registrationNumber: "TS09FK1234", rcNumber: "TS09FK1234", hourlyRate: 60, rentalPrice: 480,
+            location: "Hyderabad", bikeStatus: "AVAILABLE", rcVerified: true,
+            availableStartTime: "08:00", availableEndTime: "20:00", availableDate: new Date().toISOString().split("T")[0],
+            imageUrl: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600",
+          },
+          {
+            bikeId: 103, id: 103, bikeName: "Yamaha R15 V4", brand: "Yamaha", model: "R15 V4",
+            registrationNumber: "TS09AB9999", rcNumber: "TS09AB9999", hourlyRate: 150, rentalPrice: 1200,
+            location: "Hyderabad", bikeStatus: "AVAILABLE", rcVerified: true,
+            availableStartTime: "17:00", availableEndTime: "21:00", availableDate: new Date().toISOString().split("T")[0],
+            imageUrl: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=600",
+          },
+        ];
+        try {
+          localStorage.setItem("custom_owner_bikes", JSON.stringify(localOwnerBikes));
+        } catch (e) {}
+      }
 
       const combinedMap = new Map<string, Bike>();
 
-      // 1. Put local owner bikes FIRST
+      const cleanStr = (s?: any) => (s ? String(s).replace(/\s+/g, "").toUpperCase() : "");
+      const getBikeKey = (b: any): string => {
+        const regClean = cleanStr(b.registrationNumber || b.rcNumber);
+        if (regClean) return `REG_${regClean}`;
+        const nameClean = cleanStr(b.bikeName || b.name);
+        if (nameClean) return `NAME_${nameClean}`;
+        return (b.bikeId || b.id || Math.random()).toString().toUpperCase();
+      };
+
+      // 1. Put server apiBikes FIRST
+      (apiBikes || []).forEach((b) => {
+        const key = getBikeKey(b);
+        combinedMap.set(key, b);
+      });
+
+      // 2. Put local owner bikes SECOND (overwrites server defaults with latest owner edits)
       (localOwnerBikes || []).forEach((lb, idx) => {
-        const key = (lb.registrationNumber || lb.bikeId || lb.id || lb.bikeName || (lb as any).name || Math.random()).toString().toUpperCase();
+        let key = getBikeKey(lb);
+        const lbReg = cleanStr(lb.registrationNumber || lb.rcNumber);
+        const lbName = cleanStr(lb.bikeName || lb.name);
+        const lbId = lb.bikeId || lb.id;
+
+        for (const [k, existing] of combinedMap.entries()) {
+          const exReg = cleanStr(existing.registrationNumber || existing.rcNumber);
+          const exName = cleanStr(existing.bikeName || existing.name);
+          const exId = existing.bikeId || existing.id;
+
+          const regMatch = lbReg && exReg && lbReg === exReg;
+          const idMatch = lbId && exId && Number(lbId) === Number(exId);
+          const nameMatch = lbName && exName && (lbName.includes(exName) || exName.includes(lbName));
+
+          if (regMatch || idMatch || nameMatch) {
+            key = k;
+            break;
+          }
+        }
+
         const normalized = {
           ...lb,
           bikeId: lb.bikeId || lb.id || 9000 + idx,
@@ -161,17 +228,17 @@ export default function Bikes() {
           bikeName: lb.bikeName || (lb as any).name || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
           name: (lb as any).name || lb.bikeName || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
         };
-        combinedMap.set(key, normalized);
-      });
-
-      // 2. Put server apiBikes SECOND (keyed strictly by registration or ID)
-      (apiBikes || []).forEach((b, idx) => {
-        const key = (b.registrationNumber || b.bikeId || b.id || `SERVER_${idx}`).toString().toUpperCase();
         if (!combinedMap.has(key)) {
-          combinedMap.set(key, b);
+          combinedMap.set(key, normalized);
         } else {
           const existing = combinedMap.get(key)!;
-          combinedMap.set(key, { ...existing, ...b });
+          const mergedTimings = {
+            availableStartTime: existing.availableStartTime || (normalized as any).availableStartTime,
+            availableEndTime: existing.availableEndTime || (normalized as any).availableEndTime,
+            availableDate: existing.availableDate || (normalized as any).availableDate,
+            bikeStatus: existing.bikeStatus || normalized.bikeStatus,
+          };
+          combinedMap.set(key, { ...normalized, ...existing, ...mergedTimings });
         }
       });
 
@@ -224,7 +291,8 @@ export default function Bikes() {
       setAllBikes(mappedRealBikes);
     } catch (err) {
       console.error("Could not fetch bikes from server:", err);
-      setAllBikes([]);
+      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      setAllBikes(localOwnerBikes.map((b, idx) => normalizeBike(b, idx)));
     } finally {
       setLoading(false);
     }
@@ -232,14 +300,11 @@ export default function Bikes() {
 
   useEffect(() => {
     loadCustomerBikes();
-    const handleUpdate = () => loadCustomerBikes();
-    window.addEventListener("custom_bikes_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    window.addEventListener("focus", handleUpdate);
+    const unsub = subscribeBikeUpdates(loadCustomerBikes);
+    const timer = setInterval(loadCustomerBikes, 3000);
     return () => {
-      window.removeEventListener("custom_bikes_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-      window.removeEventListener("focus", handleUpdate);
+      unsub();
+      clearInterval(timer);
     };
   }, []);
 
@@ -288,44 +353,43 @@ export default function Bikes() {
 
   // Filter client-side
   const filteredBikes = allBikes.filter((bike) => {
-    // Exclude bikes when operational shift is completed for today
-    const shiftState = getShiftState(bike.availableStartTime, bike.availableEndTime, bike.bikeStatus);
-    if (shiftState === "SHIFT_CLOSED") {
-      return false; // Not visible on customer dashboard when shift is completed
-    }
-
     // Search filter
     if (search) {
-      const q = search.toLowerCase();
-      const matchName = bike.name?.toLowerCase().includes(q);
-      const matchBrand = bike.brand?.toLowerCase().includes(q);
-      const matchModel = bike.model?.toLowerCase().includes(q);
-      const matchReg = bike.registrationNumber?.toLowerCase().includes(q);
-      const matchLoc = bike.location?.toLowerCase().includes(q);
+      const q = search.toLowerCase().trim();
+      const matchName = (bike.name || "").toLowerCase().includes(q) || (bike.bikeName || "").toLowerCase().includes(q);
+      const matchBrand = (bike.brand || "").toLowerCase().includes(q);
+      const matchModel = (bike.model || "").toLowerCase().includes(q);
+      const matchReg = (bike.registrationNumber || "").toLowerCase().includes(q);
+      const matchLoc = (bike.location || "").toLowerCase().includes(q);
       if (!matchName && !matchBrand && !matchModel && !matchReg && !matchLoc) {
         return false;
       }
     }
     // Type filter
-    if (filters.type) {
-      const fType = String(filters.type).toLowerCase();
-      const bType = String(bike.type || "").toLowerCase();
+    if (filters.type && typeof filters.type === "string" && filters.type !== "All" && filters.type !== "ALL") {
+      const fType = filters.type.toLowerCase();
+      const bType = String(bike.type || bike.rentalType || "").toLowerCase();
       const bFuel = String(bike.fuelType || "").toLowerCase();
-      if (bType !== fType && bFuel !== fType && fType !== "petrol") {
+      if (!bType.includes(fType) && !bFuel.includes(fType) && fType !== "petrol") {
         return false;
       }
     }
     // Location checkboxes
-    if (filters.location && filters.location.length > 0) {
-      if (!filters.location.includes(bike.location)) {
+    if (filters.location && Array.isArray(filters.location) && filters.location.length > 0) {
+      const selectedLocs = filters.location.map((l: string) => String(l).toLowerCase());
+      const bikeLoc = String(bike.location || "hyderabad").toLowerCase();
+      if (!selectedLocs.some((sl) => bikeLoc.includes(sl) || sl.includes(bikeLoc))) {
         return false;
       }
     }
-    // Price range
-    if (filters.price) {
-      const [min, max] = filters.price;
-      if (bike.price < min || bike.price > max) {
-        return false;
+    // Price range filter
+    if (filters.price !== undefined && filters.price !== null) {
+      const actualPrice = Number(bike.hourlyRate || bike.rentalPrice || bike.price || 80);
+      if (Array.isArray(filters.price) && filters.price.length === 2) {
+        const [min, max] = filters.price;
+        if (max > 0 && (actualPrice < min || actualPrice > max)) return false;
+      } else if (typeof filters.price === "number" && filters.price > 50) {
+        if (actualPrice > filters.price) return false;
       }
     }
     return true;
@@ -342,7 +406,7 @@ export default function Bikes() {
       return;
     }
 
-    if (!isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime)) {
+    if (!isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime, bike.availableDate)) {
       toast.error(
         `This bike is outside its operational shift (${format12Hour(
           bike.availableStartTime || "09:00"
@@ -596,7 +660,7 @@ export default function Bikes() {
       {paginatedBikes.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {paginatedBikes.map((bike) => {
-            const shiftState = getShiftState(bike.availableStartTime, bike.availableEndTime, bike.bikeStatus);
+            const shiftState = getShiftState(bike.availableStartTime, bike.availableEndTime, bike.bikeStatus, bike.availableDate);
             const isShiftActive = shiftState === "AVAILABLE";
 
             return (
@@ -616,6 +680,7 @@ export default function Bikes() {
                       status={bike.bikeStatus}
                       availableStartTime={bike.availableStartTime}
                       availableEndTime={bike.availableEndTime}
+                      availableDate={bike.availableDate}
                       compact
                     />
                   </div>

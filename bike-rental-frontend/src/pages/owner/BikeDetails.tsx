@@ -143,7 +143,12 @@ const BikeDetails = () => {
               className="h-full w-full object-cover transition duration-300"
             />
             <div className="absolute left-4 top-4 flex gap-2">
-              <BikeAvailability status={bike.bikeStatus} />
+              <BikeAvailability
+                status={bike.bikeStatus}
+                availableStartTime={bike.availableStartTime}
+                availableEndTime={bike.availableEndTime}
+                availableDate={bike.availableDate}
+              />
             </div>
             <div className="absolute right-4 top-4">
               <span

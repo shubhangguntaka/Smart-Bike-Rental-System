@@ -96,26 +96,30 @@ export default function MapPage() {
       const matchesSearch =
         !keyword ||
         bike.bikeName?.toLowerCase().includes(keyword) ||
-        bike.brand?.toLowerCase().includes(keyword);
+        bike.name?.toLowerCase().includes(keyword) ||
+        bike.brand?.toLowerCase().includes(keyword) ||
+        bike.model?.toLowerCase().includes(keyword) ||
+        bike.location?.toLowerCase().includes(keyword);
 
       let matchesPrice = true;
-      if (Array.isArray(filterValues.maxPrice)) {
+      if (Array.isArray(filterValues.maxPrice) && filterValues.maxPrice.length === 2 && filterValues.maxPrice[1] > 0) {
         const [minP, maxP] = filterValues.maxPrice;
-        const price = bike.rentalPrice ?? 0;
+        const price = bike.rentalPrice || bike.hourlyRate || bike.price || 0;
         matchesPrice = price >= minP && price <= maxP;
       }
 
       let matchesDistance = true;
-      if (Array.isArray(filterValues.maxDistance)) {
+      if (Array.isArray(filterValues.maxDistance) && filterValues.maxDistance.length === 2 && filterValues.maxDistance[1] > 0) {
         const [minD, maxD] = filterValues.maxDistance;
-        const dist = bike.distance ?? 0;
+        const dist = bike.distance ?? 1.2;
         matchesDistance = dist >= minD && dist <= maxD;
       }
 
       let matchesBrand = true;
-      if (filterValues.brand) {
+      if (filterValues.brand && filterValues.brand !== "ALL") {
         matchesBrand =
-          bike.brand?.toLowerCase() === filterValues.brand.toLowerCase();
+          bike.brand?.toLowerCase() === filterValues.brand.toLowerCase() ||
+          bike.bikeName?.toLowerCase().includes(filterValues.brand.toLowerCase());
       }
 
       return matchesSearch && matchesPrice && matchesDistance && matchesBrand;

@@ -87,13 +87,14 @@ const bikeService = {
 
     const mergedMap = new Map<string, Bike>();
 
+    const cleanStr = (s?: any) => (s ? String(s).replace(/\s+/g, "").toUpperCase() : "");
+
     const getBikeKey = (b: Bike): string => {
-      if (b.registrationNumber && b.registrationNumber.trim()) {
-        return b.registrationNumber.trim().toUpperCase();
-      }
-      if (b.bikeId) return `ID_${b.bikeId}`;
-      if (b.id) return `ID_${b.id}`;
-      if (b.bikeName) return `NAME_${b.bikeName.trim().toUpperCase()}`;
+      const regClean = cleanStr(b.registrationNumber || (b as any).rcNumber);
+      if (regClean) return `REG_${regClean}`;
+      const nameClean = cleanStr(b.bikeName || (b as any).name);
+      if (nameClean) return `NAME_${nameClean}`;
+      if (b.bikeId || b.id) return `ID_${b.bikeId || b.id}`;
       return `RANDOM_${Math.random()}`;
     };
 
@@ -116,9 +117,15 @@ const bikeService = {
           for (const [k, existing] of mergedMap.entries()) {
             const idMatch = (b.bikeId && (b.bikeId === existing.bikeId || b.bikeId === existing.id)) ||
                             (b.id && (b.id === existing.id || b.id === existing.bikeId));
-            const regMatch = b.registrationNumber && existing.registrationNumber &&
-                              b.registrationNumber.trim().toUpperCase() === existing.registrationNumber.trim().toUpperCase();
-            if (idMatch || regMatch) {
+            const regClean1 = cleanStr(b.registrationNumber || (b as any).rcNumber);
+            const regClean2 = cleanStr(existing.registrationNumber || (existing as any).rcNumber);
+            const regMatch = regClean1 && regClean2 && regClean1 === regClean2;
+
+            const nameClean1 = cleanStr(b.bikeName || (b as any).name);
+            const nameClean2 = cleanStr(existing.bikeName || (existing as any).name);
+            const nameMatch = nameClean1 && nameClean2 && (nameClean1.includes(nameClean2) || nameClean2.includes(nameClean1));
+
+            if (idMatch || regMatch || nameMatch) {
               matchedKey = k;
               existingServer = existing;
               break;
@@ -126,7 +133,13 @@ const bikeService = {
           }
         }
 
-        mergedMap.set(matchedKey, existingServer ? { ...existingServer, ...b } : b);
+        const mergedTimings = existingServer ? {
+          availableStartTime: existingServer.availableStartTime || b.availableStartTime,
+          availableEndTime: existingServer.availableEndTime || b.availableEndTime,
+          availableDate: existingServer.availableDate || b.availableDate,
+          bikeStatus: existingServer.bikeStatus || b.bikeStatus,
+        } : {};
+        mergedMap.set(matchedKey, existingServer ? { ...b, ...existingServer, ...mergedTimings } : b);
       }
     });
 
@@ -225,7 +238,13 @@ const bikeService = {
           }
         }
 
-        mergedMap.set(matchedKey, existingServer ? { ...existingServer, ...b } : b);
+        const mergedTimings = existingServer ? {
+          availableStartTime: existingServer.availableStartTime || b.availableStartTime,
+          availableEndTime: existingServer.availableEndTime || b.availableEndTime,
+          availableDate: existingServer.availableDate || b.availableDate,
+          bikeStatus: existingServer.bikeStatus || b.bikeStatus,
+        } : {};
+        mergedMap.set(matchedKey, existingServer ? { ...b, ...existingServer, ...mergedTimings } : b);
       }
     });
 

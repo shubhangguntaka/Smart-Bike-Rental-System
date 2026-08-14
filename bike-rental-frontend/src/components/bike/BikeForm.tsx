@@ -149,6 +149,9 @@ const BikeForm = ({
     prepared.hourlyRate = rate > 0 ? rate : 80;
     prepared.rentalType = "HOURLY";
     prepared.rentalPrice = prepared.hourlyRate * 8;
+    prepared.availableStartTime = prepared.availableStartTime || "09:00";
+    prepared.availableEndTime = prepared.availableEndTime || "21:00";
+    prepared.availableDate = prepared.availableDate || new Date().toISOString().split("T")[0];
 
     const next: Record<string, string> = {};
     if (!prepared.bikeName?.trim()) next.bikeName = "Bike Name is required";

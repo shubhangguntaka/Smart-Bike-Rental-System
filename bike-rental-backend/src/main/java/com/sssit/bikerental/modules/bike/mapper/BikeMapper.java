@@ -55,6 +55,7 @@ public class BikeMapper {
                 .hourlyRate(bike.getHourlyRate())
                 .availableStartTime(bike.getAvailableStartTime())
                 .availableEndTime(bike.getAvailableEndTime())
+                .availableDate(bike.getAvailableDate())
                 .build();
     }
 
@@ -96,6 +97,7 @@ public class BikeMapper {
                 .hourlyRate(bikeDTO.getHourlyRate())
                 .availableStartTime(bikeDTO.getAvailableStartTime())
                 .availableEndTime(bikeDTO.getAvailableEndTime())
+                .availableDate(bikeDTO.getAvailableDate() != null ? bikeDTO.getAvailableDate() : java.time.LocalDate.now())
                 .build();
     }
 
@@ -159,6 +161,11 @@ public class BikeMapper {
         }
         if (bikeDTO.getAvailableEndTime() != null) {
             bike.setAvailableEndTime(bikeDTO.getAvailableEndTime());
+        }
+        if (bikeDTO.getAvailableDate() != null) {
+            bike.setAvailableDate(bikeDTO.getAvailableDate());
+        } else if (bike.getAvailableDate() == null || bike.getAvailableDate().isBefore(java.time.LocalDate.now())) {
+            bike.setAvailableDate(java.time.LocalDate.now());
         }
         // registrationNumber / rcNumber / rcVerified are immutable after create
     }

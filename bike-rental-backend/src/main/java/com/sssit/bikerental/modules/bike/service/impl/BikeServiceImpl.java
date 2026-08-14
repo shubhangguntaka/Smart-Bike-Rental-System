@@ -180,6 +180,9 @@ public class BikeServiceImpl implements BikeService {
         }
 
         bikeMapper.applyUpdate(bike, bikeDTO);
+        if (bike.getAvailableDate() == null || bike.getAvailableDate().isBefore(java.time.LocalDate.now())) {
+            bike.setAvailableDate(java.time.LocalDate.now());
+        }
         return enrichDTO(bikeMapper.toDTO(bikeRepository.save(bike)));
     }
 
@@ -237,11 +240,20 @@ public class BikeServiceImpl implements BikeService {
         return bikeMapper.toDTO(bike);
     }
 
+    private boolean isNotExpiredFromPast(java.time.LocalDate availableDate) {
+        if (availableDate == null) {
+            return true;
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return !availableDate.isBefore(today);
+    }
+
     @Override
     @Transactional
     public List<BikeDTO> getAllBikes() {
         return bikeRepository.findAll().stream()
                 .map(this::syncBikeStatus)
+                .filter(bike -> isNotExpiredFromPast(bike.getAvailableDate()))
                 .map(bikeMapper::toDTO)
                 .map(this::enrichDTO)
                 .collect(Collectors.toList());

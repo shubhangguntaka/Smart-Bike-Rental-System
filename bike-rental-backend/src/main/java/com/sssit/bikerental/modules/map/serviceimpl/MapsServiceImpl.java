@@ -29,13 +29,25 @@ public class MapsServiceImpl implements MapsService {
 
 
 
+    private boolean isNotExpiredFromPast(java.time.LocalDate availableDate) {
+        if (availableDate == null) {
+            return true;
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return !availableDate.isBefore(today);
+    }
+
     @Override
     public List<NearbyBikeDTO> getNearbyBikes(
             double latitude,
             double longitude) {
 
-        List<Bike> bikes =
-        		bikeRepository.findAvailableVerifiedBikes();
+        // Include all bikes from repository so owner-added listings are visible
+        // to customers in the nearby bikes feed. We still filter out bikes
+        // whose availableDate is in the past below.
+        List<Bike> bikes = bikeRepository.findAll().stream()
+                .filter(bike -> isNotExpiredFromPast(bike.getAvailableDate()))
+                .collect(Collectors.toList());
 
         return bikes.stream()
                 .map(bike -> {
@@ -48,7 +60,8 @@ public class MapsServiceImpl implements MapsService {
                                     bike.getLongitude() != null ? bike.getLongitude() : 0.0
                             );
 
-                    boolean isAvailable = bike.getBikeStatus() == BikeStatus.AVAILABLE;
+                    boolean isAvailable = bike.getBikeStatus() == BikeStatus.AVAILABLE && isWithinOperatingWindow(
+                            bike.getAvailableStartTime(), bike.getAvailableEndTime(), bike.getAvailableDate());
 
                     return NearbyBikeDTO.builder()
                             .bikeId(bike.getBikeId())
@@ -72,6 +85,7 @@ public class MapsServiceImpl implements MapsService {
                             .available(isAvailable)
                             .availableStartTime(bike.getAvailableStartTime() != null ? bike.getAvailableStartTime().toString() : "09:00")
                             .availableEndTime(bike.getAvailableEndTime() != null ? bike.getAvailableEndTime().toString() : "21:00")
+                            .availableDate(bike.getAvailableDate() != null ? bike.getAvailableDate().toString() : java.time.LocalDate.now().toString())
                             .ownerName("Shiva Sai Kalyan Kalyan")
                             .build();
 
@@ -79,6 +93,35 @@ public class MapsServiceImpl implements MapsService {
                 .sorted(Comparator.comparingDouble(b -> b.getDistance() != null ? b.getDistance() : Double.MAX_VALUE))
                 .collect(Collectors.toList());
     }
+
+        private boolean isWithinOperatingWindow(java.time.LocalTime start, java.time.LocalTime end, java.time.LocalDate date) {
+                try {
+                        java.time.LocalDate today = java.time.LocalDate.now();
+                        if (date != null && date.isBefore(today)) {
+                                return false;
+                        }
+                        // If date is specified and it's after today, treat as not active yet
+                        if (date != null && date.isAfter(today)) {
+                                return false;
+                        }
+
+                        if (start == null || end == null) {
+                                return true;
+                        }
+
+                        java.time.LocalTime now = java.time.LocalTime.now();
+
+                        if (!start.isAfter(end)) {
+                                // simple same-day window
+                                return !now.isBefore(start) && !now.isAfter(end);
+                        } else {
+                                // overnight window (e.g., 21:00 -> 05:00)
+                                return !now.isBefore(start) || !now.isAfter(end);
+                        }
+                } catch (Exception e) {
+                        return true;
+                }
+        }
 
     @Override
     public BikeLocationDTO getBikeLocation(Long bikeId) {

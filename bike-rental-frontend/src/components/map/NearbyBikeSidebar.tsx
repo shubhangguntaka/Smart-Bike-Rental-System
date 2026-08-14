@@ -4,6 +4,7 @@ import BikeCard from "./BikeCard";
 import SearchBar from "./SearchBar";
 import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
+import useBikeSse from "@/hooks/useBikeSse";
 
 const SIDEBAR_FILTERS: FilterField[] = [
   {
@@ -41,6 +42,7 @@ const SIDEBAR_FILTERS: FilterField[] = [
 ];
 
 export default function NearbyBikeSidebar() {
+  useBikeSse();
   const { nearbyBikes, loading } = useLocation();
   const [search, setSearch] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});

@@ -20,6 +20,7 @@ export interface RouteDetails {
 export interface NearbyBike {
   bikeId: number;
   bikeName: string;
+  name?: string;
   brand: string;
   model?: string;
   registrationNumber?: string;
@@ -31,14 +32,17 @@ export interface NearbyBike {
   transmission?: string;
   seatingCapacity?: number;
   hourlyRate?: number;
+  price?: number;
   rentalPrice: number;
   latitude: number;
   longitude: number;
   distance?: number;
   imageUrl: string;
   available: boolean;
+  bikeStatus?: string;
   availableStartTime?: string;
   availableEndTime?: string;
+  availableDate?: string;
   rating?: number;
   ownerName?: string;
   owner?: {

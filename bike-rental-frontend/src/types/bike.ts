@@ -20,18 +20,19 @@ export interface BikeSpecification {
 export interface Bike {
   id?: number;
   bikeId?: number;
-  ownerId: number;
+  ownerId?: number;
   ownerName?: string;
+  name?: string;
   bikeName: string;
   brand: string;
   model: string;
   registrationNumber: string;
-  fuelType: string;
+  fuelType?: string;
   rentalPrice: number;
   location: string;
   bikeStatus: BikeStatus;
-  rcNumber: string;
-  rcVerified: boolean;
+  rcNumber?: string;
+  rcVerified?: boolean;
   /** Spec alias returned by backend */
   rcVerificationStatus?: boolean;
   imageUrl: string;
@@ -47,6 +48,7 @@ export interface Bike {
   hourlyRate?: number;
   availableStartTime?: string;
   availableEndTime?: string;
+  availableDate?: string;
   isShiftPosted?: boolean;
   specifications?: BikeSpecification;
   images?: BikeImage[];

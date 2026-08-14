@@ -29,12 +29,16 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/
 import bikeService from "@/services/bikeService";
 import { BookingService } from "@/services/bookingService";
 import type { Bike } from "@/types/bike";
-import { format12Hour } from "@/utils/timeUtils";
+import { format12Hour, isBikeAvailableNow } from "@/utils/timeUtils";
+import { normalizeBike } from "@/utils/bikeUtils";
+import { subscribeBikeUpdates } from "@/utils/syncUtils";
+import useBikeSse from "@/hooks/useBikeSse";
 import api from "@/api/axios";
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  useBikeSse();
 
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
@@ -46,81 +50,139 @@ export default function CustomerDashboard() {
   const fetchCustomerDashboardBikes = async () => {
     try {
       setLoading(true);
+
       const data = await bikeService.getAllBikes();
-      const rawList = data || [];
+      const rawList = Array.isArray(data) ? data : [];
 
-      const approvedBookings: any[] = [];
-      try {
-        ["custom_user_bookings", "user_bookings", "customer_bookings"].forEach((key) => {
-          const list = JSON.parse(localStorage.getItem(key) || "[]");
-          (list || []).forEach((b: any) => {
-            const s = (b.bookingStatus || b.status || "").toUpperCase();
-            if (s === "APPROVED" || s === "CONFIRMED" || s === "ACTIVE") {
-              approvedBookings.push(b);
-            }
-          });
-        });
-      } catch (e) {}
+      const cBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const lBikes: Bike[] = JSON.parse(localStorage.getItem("local_owner_bikes") || "[]");
+      let localOwnerBikes: Bike[] = [...(cBikes || []), ...(lBikes || [])];
 
-      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      if (localOwnerBikes.length === 0) {
+        localOwnerBikes = [
+          {
+            bikeId: 101,
+            id: 101,
+            bikeName: "KTM Duke 390",
+            brand: "KTM",
+            model: "Duke 390",
+            registrationNumber: "TS09AB1234",
+            rcNumber: "TS09AB1234",
+            hourlyRate: 80,
+            rentalPrice: 640,
+            location: "Hyderabad",
+            bikeStatus: "AVAILABLE",
+            rcVerified: true,
+            availableStartTime: "08:00",
+            availableEndTime: "20:00",
+            availableDate: new Date().toISOString().split("T")[0],
+            imageUrl: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600",
+          },
+        ];
+        try {
+          localStorage.setItem("custom_owner_bikes", JSON.stringify(localOwnerBikes));
+        } catch (e) {}
+      }
 
       const combinedMap = new Map<string, Bike>();
+      const cleanStr = (s?: any) => (s ? String(s).replace(/\s+/g, "").toUpperCase() : "");
 
-      // 1. Put local owner bikes FIRST
+      const getBikeKey = (b: any): string => {
+        const regClean = cleanStr(b.registrationNumber || b.rcNumber);
+        if (regClean) return `REG_${regClean}`;
+        const nameClean = cleanStr(b.bikeName || b.name);
+        if (nameClean) return `NAME_${nameClean}`;
+        return (b.bikeId || b.id || Math.random()).toString().toUpperCase();
+      };
+
+      // 1. server bikes first
+      (rawList || []).forEach((b) => {
+        const key = getBikeKey(b);
+        combinedMap.set(key, b);
+      });
+
+      // 2. local owner bikes overwrite server ones
       (localOwnerBikes || []).forEach((lb, idx) => {
-        const key = (lb.registrationNumber || lb.bikeId || lb.id || lb.bikeName || (lb as any).name || Math.random()).toString().toUpperCase();
+        let key = getBikeKey(lb);
+        const lbReg = cleanStr(lb.registrationNumber || lb.rcNumber);
+        const lbName = cleanStr(lb.bikeName || lb.name);
+        const lbId = lb.bikeId || lb.id;
+
+        if (!combinedMap.has(key)) {
+          for (const [k, existing] of combinedMap.entries()) {
+            const exReg = cleanStr(existing.registrationNumber || existing.rcNumber);
+            const exName = cleanStr(existing.bikeName || existing.name);
+            const exId = existing.bikeId || existing.id;
+
+            const regMatch = lbReg && exReg && lbReg === exReg;
+            const idMatch = lbId && exId && Number(lbId) === Number(exId);
+            const nameMatch = lbName && exName && (lbName.includes(exName) || exName.includes(lbName));
+
+            if (regMatch || idMatch || nameMatch) {
+              key = k;
+              break;
+            }
+          }
+        }
+
         const normalized = {
           ...lb,
           bikeId: lb.bikeId || lb.id || 9000 + idx,
           id: lb.id || lb.bikeId || 9000 + idx,
-          bikeName: lb.bikeName || (lb as any).name || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
-          name: (lb as any).name || lb.bikeName || `${lb.brand || ''} ${lb.model || ''}`.trim() || "Rental Bike",
-        };
-        combinedMap.set(key, normalized);
-      });
+          bikeName: lb.bikeName || (lb as any).name || `${lb.brand || ""} ${lb.model || ""}`.trim() || "Rental Bike",
+          name: (lb as any).name || lb.bikeName || `${lb.brand || ""} ${lb.model || ""}`.trim() || "Rental Bike",
+        } as Bike;
 
-      // 2. Put server rawList SECOND (keyed strictly by registration or ID)
-      (rawList || []).forEach((b, idx) => {
-        const key = (b.registrationNumber || b.bikeId || b.id || `SERVER_${idx}`).toString().toUpperCase();
         if (!combinedMap.has(key)) {
-          combinedMap.set(key, b);
+          combinedMap.set(key, normalized);
         } else {
           const existing = combinedMap.get(key)!;
-          combinedMap.set(key, { ...existing, ...b });
+          const mergedTimings = {
+            availableStartTime: existing.availableStartTime || (normalized as any).availableStartTime,
+            availableEndTime: existing.availableEndTime || (normalized as any).availableEndTime,
+            availableDate: existing.availableDate || (normalized as any).availableDate,
+            bikeStatus: existing.bikeStatus || normalized.bikeStatus,
+          };
+          combinedMap.set(key, { ...normalized, ...existing, ...mergedTimings });
         }
       });
 
-      const allMerged = Array.from(combinedMap.values());
-      allMerged.sort((a, b) => {
-        const aReg = (a.registrationNumber || "").toUpperCase();
-        const bReg = (b.registrationNumber || "").toUpperCase();
-        if (aReg === "TS02EY4494") return -1;
-        if (bReg === "TS02EY4494") return 1;
-        return (Number(b.bikeId || b.id || 0)) - (Number(a.bikeId || a.id || 0));
-      });
+      // Keep local owner bikes cache in sync with fresh server data
+      if (rawList.length > 0 && localOwnerBikes.length > 0) {
+        let updatedLocalCache = false;
+        const syncedLocal = localOwnerBikes.map((lb: any) => {
+          const lbReg = cleanStr(lb.registrationNumber || lb.rcNumber);
+          const lbId = lb.bikeId || lb.id;
+          const matchServer = rawList.find((sb: any) => {
+            const sbReg = cleanStr(sb.registrationNumber || sb.rcNumber);
+            const sbId = sb.bikeId || sb.id;
+            return (lbReg && sbReg && lbReg === sbReg) || (lbId && sbId && Number(lbId) === Number(sbId));
+          });
+          if (matchServer) {
+            updatedLocalCache = true;
+            return { ...lb, ...matchServer };
+          }
+          return lb;
+        });
+        if (updatedLocalCache) {
+          try {
+            localStorage.setItem("custom_owner_bikes", JSON.stringify(syncedLocal));
+          } catch (e) {}
+        }
+      }
 
-      const updated = allMerged.map((bike: Bike, idx: number) => {
+      const merged = Array.from(combinedMap.values());
+
+      const updated = merged.map((bike: Bike, idx: number) => {
         const norm = normalizeBike(bike, idx);
-        let bStatus = norm.bikeStatus || "AVAILABLE";
-        const isApprovedBooked = approvedBookings.some((ab: any) => {
-          const nameMatch = ab.bikeName && norm.bikeName && ab.bikeName.trim().toLowerCase() === norm.bikeName.trim().toLowerCase();
-          const idMatch = (ab.bikeId || ab.id) && (Number(ab.bikeId || ab.id) === Number(norm.bikeId || norm.id));
-          return nameMatch || idMatch;
-        });
-        const localMatch = localOwnerBikes.find((lb: any) => {
-          const nameMatch = lb.bikeName && norm.bikeName && lb.bikeName.trim().toLowerCase() === norm.bikeName.trim().toLowerCase();
-          const idMatch = (lb.id || lb.bikeId) && (Number(lb.id || lb.bikeId) === Number(norm.bikeId || norm.id));
-          return nameMatch || idMatch;
-        });
-        if (isApprovedBooked || (localMatch && localMatch.bikeStatus === "BOOKED")) {
-          bStatus = "BOOKED";
-        }
-        return { ...norm, bikeStatus: bStatus };
+        return { ...norm, bikeStatus: norm.bikeStatus || "AVAILABLE" } as unknown as Bike;
       });
 
       setBikes(updated);
     } catch (err) {
       console.error("Failed to load bikes for customer dashboard", err);
+      const localOwnerBikes: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      setBikes(localOwnerBikes.map((b, idx) => normalizeBike(b, idx)) as unknown as Bike[]);
     } finally {
       setLoading(false);
     }
@@ -128,14 +190,11 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     fetchCustomerDashboardBikes();
-    const handleUpdate = () => fetchCustomerDashboardBikes();
-    window.addEventListener("custom_bikes_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    window.addEventListener("focus", handleUpdate);
+    const unsub = subscribeBikeUpdates(fetchCustomerDashboardBikes);
+    const timer = setInterval(fetchCustomerDashboardBikes, 3000);
     return () => {
-      window.removeEventListener("custom_bikes_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-      window.removeEventListener("focus", handleUpdate);
+      unsub();
+      clearInterval(timer);
     };
   }, []);
 
@@ -151,8 +210,28 @@ export default function CustomerDashboard() {
 
   const isIdentityVerified = Boolean(user?.enabled || user?.id);
 
-  // Filter bikes based on search & category
+  const isBikeWithinOperatingHours = (bike: Bike): boolean => {
+    if (!bike.availableStartTime || !bike.availableEndTime) return true;
+    try {
+      const now = new Date();
+      const todayStr = now.toISOString().split("T")[0];
+      if ((bike as any).availableDate) {
+        const bikeDateStr = String((bike as any).availableDate).split("T")[0].trim();
+        if (bikeDateStr && bikeDateStr < todayStr) {
+          return false;
+        }
+      }
+      return isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime, bike.availableDate);
+    } catch {
+      return true;
+    }
+  };
+
+  // Filter bikes based on search, category & operating hours
   const filteredBikes = bikes.filter((bike) => {
+    const withinHours = isBikeWithinOperatingHours(bike);
+    if (!withinHours) return false;
+
     const matchesCategory =
       selectedCategory === "ALL" ||
       bike.fuelType?.toUpperCase() === selectedCategory;
@@ -453,6 +532,7 @@ export default function CustomerDashboard() {
                           availableStartTime={bike.availableStartTime}
                           availableEndTime={bike.availableEndTime}
                           isShiftPosted={bike.isShiftPosted}
+                          availableDate={bike.availableDate}
                           compact
                         />
                       </div>
@@ -665,6 +745,7 @@ export default function CustomerDashboard() {
                       availableStartTime={selectedBikeDetail.availableStartTime}
                       availableEndTime={selectedBikeDetail.availableEndTime}
                       isShiftPosted={selectedBikeDetail.isShiftPosted}
+                      availableDate={selectedBikeDetail.availableDate}
                     />
                   </div>
 

@@ -81,11 +81,27 @@ export type ShiftState = "AVAILABLE" | "YET_TO_START" | "SHIFT_CLOSED" | "BOOKED
 export const getShiftState = (
   availableStartTime?: string,
   availableEndTime?: string,
-  bikeStatus?: string
+  bikeStatus?: string,
+  availableDate?: string | Date
 ): ShiftState => {
   const statusUpper = (bikeStatus || "AVAILABLE").toUpperCase().replace(/\s+/g, "_");
   if (statusUpper === "BOOKED") return "BOOKED";
   if (statusUpper === "UNDER_MAINTENANCE" || statusUpper === "MAINTENANCE") return "MAINTENANCE";
+
+  // If an explicit availableDate is provided, compare with today
+  try {
+    if (availableDate) {
+      const today = new Date();
+      const ad = typeof availableDate === "string" ? new Date(availableDate) : availableDate;
+      // Normalize to date-only for comparison
+      const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split("T")[0];
+      const adStr = new Date(ad.getFullYear(), ad.getMonth(), ad.getDate()).toISOString().split("T")[0];
+      if (adStr > todayStr) return "YET_TO_START";
+      if (adStr < todayStr) return "SHIFT_CLOSED";
+    }
+  } catch (e) {
+    // ignore parse errors and continue
+  }
 
   if (!availableStartTime || !availableEndTime) return "AVAILABLE";
 
@@ -115,7 +131,8 @@ export const getShiftState = (
  */
 export const isBikeAvailableNow = (
   availableStartTime?: string,
-  availableEndTime?: string
+  availableEndTime?: string,
+  availableDate?: string | Date
 ): boolean => {
-  return getShiftState(availableStartTime, availableEndTime) === "AVAILABLE";
+  return getShiftState(availableStartTime, availableEndTime, undefined, availableDate) === "AVAILABLE";
 };

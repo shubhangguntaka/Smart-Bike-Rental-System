@@ -22,6 +22,7 @@ import bikeService from "@/services/bikeService";
 import type { Bike } from "@/types/bike";
 import { ROUTES } from "@/constants/routes";
 import { isBikeAvailableNow, format12Hour, parse12HourTo24 } from "@/utils/timeUtils";
+import { notifyBikeUpdated } from "@/utils/syncUtils";
 
 interface TimePicker12hProps {
   label: string;
@@ -138,22 +139,42 @@ const MyBikes = () => {
   const [savingTiming, setSavingTiming] = useState(false);
 
   const loadBikes = async () => {
-    const targetOwnerId = ownerId || user?.id;
+    const targetOwnerId = ownerId || (user as any)?.id || 17;
     if (!targetOwnerId) {
-      setBikes([]);
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const data = await bikeService.getOwnerBikes(targetOwnerId);
-      setBikes(data || []);
+      const serverData = await bikeService.getOwnerBikes(targetOwnerId).catch(() => []);
+      const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+
+      const combinedMap = new Map<string, Bike>();
+
+      // 1. Server bikes FIRST
+      (serverData || []).forEach((b: any, idx: number) => {
+        const key = (b.registrationNumber || b.bikeId || b.id || `SERVER_${idx}`).toString().toUpperCase();
+        combinedMap.set(key, b);
+      });
+
+      // 2. Local custom owner bikes SECOND (overwrites server defaults with owner edits)
+      (localCached || []).forEach((lb, idx) => {
+        const key = (lb.registrationNumber || lb.bikeId || lb.id || lb.bikeName || (lb as any).name || `LOCAL_${idx}`).toString().toUpperCase();
+        if (!combinedMap.has(key)) {
+          combinedMap.set(key, lb);
+        } else {
+          const existing = combinedMap.get(key)!;
+          combinedMap.set(key, { ...existing, ...lb });
+        }
+      });
+
+      setBikes(Array.from(combinedMap.values()));
     } catch (err) {
       console.error("Failed to load bikes from server:", err);
       const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
       const ownerBikesOnly = localCached.filter(
-        (b) => b.ownerId && Number(b.ownerId) === Number(targetOwnerId)
+        (b) => !b.ownerId || Number(b.ownerId) === Number(targetOwnerId)
       );
       setBikes(ownerBikesOnly);
     } finally {
@@ -193,12 +214,12 @@ const MyBikes = () => {
     if (statusFilter === "ACTIVE") {
       list = list.filter((b) => {
         const st = (b.bikeStatus || "AVAILABLE").toUpperCase();
-        return st === "AVAILABLE" && isBikeAvailableNow(b.availableStartTime, b.availableEndTime);
+        return st === "AVAILABLE" && isBikeAvailableNow(b.availableStartTime, b.availableEndTime, b.availableDate);
       });
     } else if (statusFilter === "CLOSED") {
       list = list.filter((b) => {
         const st = (b.bikeStatus || "AVAILABLE").toUpperCase();
-        return st === "AVAILABLE" && !isBikeAvailableNow(b.availableStartTime, b.availableEndTime);
+        return st === "AVAILABLE" && !isBikeAvailableNow(b.availableStartTime, b.availableEndTime, b.availableDate);
       });
     } else if (statusFilter === "BOOKED") {
       list = list.filter((b) => (b.bikeStatus || "").toUpperCase() === "BOOKED");
@@ -220,7 +241,7 @@ const MyBikes = () => {
       } else if (st === "UNDER_MAINTENANCE" || st === "MAINTENANCE") {
         maintenance++;
       } else if (st === "AVAILABLE") {
-        const isActive = isBikeAvailableNow(b.availableStartTime, b.availableEndTime);
+        const isActive = isBikeAvailableNow(b.availableStartTime, b.availableEndTime, b.availableDate);
         if (isActive) {
           activeNow++;
         } else {
@@ -278,6 +299,7 @@ const MyBikes = () => {
         ...timingModalBike,
         availableStartTime: parse12HourTo24(modalStartTime),
         availableEndTime: parse12HourTo24(modalEndTime),
+        availableDate: new Date().toISOString().split("T")[0],
         hourlyRate: modalHourlyRate,
         rentalPrice: modalHourlyRate * 8,
         location: modalLocation,
@@ -317,8 +339,9 @@ const MyBikes = () => {
 
       filteredList.unshift(updatedBike);
       localStorage.setItem("custom_owner_bikes", JSON.stringify(filteredList));
+      localStorage.setItem("local_owner_bikes", JSON.stringify(filteredList));
 
-      window.dispatchEvent(new Event("custom_bikes_updated"));
+      notifyBikeUpdated(updatedBike);
 
       toast.success(`${updatedBike.bikeName || "Bike"} shift timing updated & live on Customer page!`);
       setTimingModalBike(null);

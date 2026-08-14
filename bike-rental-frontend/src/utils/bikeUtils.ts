@@ -24,6 +24,7 @@ export interface NormalizedBike {
   description: string;
   availableStartTime: string;
   availableEndTime: string;
+  availableDate: string;
   bikeStatus: string;
   available: boolean;
   isShiftPosted?: boolean;
@@ -31,6 +32,8 @@ export interface NormalizedBike {
   longitude: number;
   distance?: number;
   rating: number;
+  ownerId?: number;
+  rcVerified?: boolean;
 }
 
 export function normalizeBike(b: any, index: number = 0): NormalizedBike {
@@ -61,6 +64,7 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
       description: "TVS Radeon in excellent driving condition.",
       availableStartTime: "09:00",
       availableEndTime: "21:00",
+      availableDate: new Date().toISOString().split("T")[0],
       bikeStatus: "AVAILABLE",
       available: true,
       latitude: 17.3850,
@@ -125,8 +129,9 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
     transmission: trans,
     seatingCapacity: seats,
     description: desc,
-    availableStartTime: b.availableStartTime ? b.availableStartTime.toString() : "09:00",
-    availableEndTime: b.availableEndTime ? b.availableEndTime.toString() : "21:00",
+    availableStartTime: b.availableStartTime ? b.availableStartTime.toString() : (b.startTime ? b.startTime.toString() : "08:00"),
+    availableEndTime: b.availableEndTime ? b.availableEndTime.toString() : (b.endTime ? b.endTime.toString() : "20:00"),
+    availableDate: b.availableDate ? b.availableDate.toString() : new Date().toISOString().split("T")[0],
     bikeStatus: statusStr,
     available: isAvail,
     isShiftPosted: b.isShiftPosted,
@@ -134,5 +139,7 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
     longitude: Number(b.longitude || 78.4867),
     distance: b.distance !== undefined ? Number(b.distance) : undefined,
     rating: Number(b.rating || 4.9),
+    ownerId: Number(b.ownerId || 17),
+    rcVerified: b.rcVerified !== undefined ? Boolean(b.rcVerified) : true,
   };
 }

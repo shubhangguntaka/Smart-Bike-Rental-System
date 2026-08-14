@@ -6,6 +6,7 @@ interface BikeAvailabilityProps {
   availableStartTime?: string;
   availableEndTime?: string;
   isShiftPosted?: boolean;
+  availableDate?: string | Date;
 }
 
 const STATUS_META: Record<
@@ -49,8 +50,9 @@ const BikeAvailability = ({
   compact = false,
   availableStartTime,
   availableEndTime,
+  availableDate,
 }: BikeAvailabilityProps) => {
-  const shiftState = getShiftState(availableStartTime, availableEndTime, status);
+  const shiftState = getShiftState(availableStartTime, availableEndTime, status, availableDate);
   const meta = STATUS_META[shiftState] || STATUS_META.AVAILABLE;
 
   return (

@@ -23,7 +23,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BikeController {
 
-    private final BikeService bikeService;
+        private final BikeService bikeService;
+        private final com.sssit.bikerental.modules.stream.service.SseService sseService;
 
     /** Public catalog — customers browse available bikes */
     @GetMapping
@@ -116,6 +117,12 @@ public class BikeController {
     @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<BikeDTO>> addBike(@Valid @RequestBody BikeDTO bikeDTO) {
         BikeDTO saved = bikeService.addBike(bikeDTO);
+                // Broadcast to SSE subscribers that a new bike was added
+                try {
+                        sseService.broadcast(saved);
+                } catch (Exception e) {
+                        // swallow - broadcasting should not break API
+                }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Bike registered successfully", saved));
     }
@@ -126,16 +133,24 @@ public class BikeController {
             @PathVariable Long bikeId,
             @Valid @RequestBody BikeDTO bikeDTO) {
 
+        BikeDTO updated = bikeService.updateBike(bikeId, bikeDTO);
+        try {
+            sseService.broadcast(updated);
+        } catch (Exception e) {}
+
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Bike updated successfully",
-                        bikeService.updateBike(bikeId, bikeDTO)));
+                        updated));
     }
 
     @DeleteMapping("/{bikeId}")
     @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
     public ResponseEntity<ApiResponse<String>> deleteBike(@PathVariable Long bikeId) {
-        bikeService.deleteBike(bikeId);
+                bikeService.deleteBike(bikeId);
+                try {
+                        sseService.broadcast(java.util.Map.of("deletedBikeId", bikeId));
+                } catch (Exception e) {}
         return ResponseEntity.ok(
                 ApiResponse.success("Bike deleted successfully.", "OK"));
     }

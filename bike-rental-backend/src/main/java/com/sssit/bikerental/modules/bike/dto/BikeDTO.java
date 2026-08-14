@@ -121,6 +121,9 @@ public class BikeDTO {
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime availableEndTime;
 
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
+    private java.time.LocalDate availableDate;
+
     @com.fasterxml.jackson.annotation.JsonProperty("availableStartTime")
     public void setAvailableStartTimeJson(Object val) {
         if (val == null) {

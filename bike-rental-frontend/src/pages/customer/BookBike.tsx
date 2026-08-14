@@ -66,7 +66,7 @@ const BookBike = () => {
         const data = await bikeService.getAllBikes();
         // Include verified bikes whose shift is active (not closed)
         const availableBikes = data.filter((b) => {
-          const shiftState = getShiftState(b.availableStartTime, b.availableEndTime, b.bikeStatus);
+          const shiftState = getShiftState(b.availableStartTime, b.availableEndTime, b.bikeStatus, b.availableDate);
           return b.rcVerified && shiftState !== "SHIFT_CLOSED" && b.bikeStatus !== "UNDER_MAINTENANCE" && b.bikeStatus !== "NOT_AVAILABLE";
         });
         setBikes(availableBikes);

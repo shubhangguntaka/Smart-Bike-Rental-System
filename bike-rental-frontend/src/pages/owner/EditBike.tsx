@@ -10,6 +10,7 @@ import bikeService from "@/services/bikeService";
 import { emptyBike, type Bike } from "@/types/bike";
 import type { BikeDocumentVerificationResult } from "@/types/verification";
 import { ROUTES } from "@/constants/routes";
+import { notifyBikeUpdated } from "@/utils/syncUtils";
 
 const EditBike = () => {
   const { bikeId } = useParams();
@@ -101,13 +102,36 @@ const EditBike = () => {
 
     try {
       setSaving(true);
-      await bikeService.updateBike(Number(bikeId), {
+      const payload: Bike = {
         ...updatedBike,
         ownerId: updatedBike.ownerId || ownerId || 0,
         registrationNumber: updatedBike.registrationNumber,
         rcNumber: updatedBike.rcNumber || updatedBike.registrationNumber,
         rcVerified: regChanged ? true : initialBike.rcVerified ?? true,
+        availableDate: updatedBike.availableDate || new Date().toISOString().split("T")[0],
+      };
+
+      const updated = await bikeService.updateBike(Number(bikeId), payload);
+      const savedBike = updated || payload;
+
+      // Update local storage cache
+      const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
+      const targetReg = (savedBike.registrationNumber || "").trim().toUpperCase();
+      const targetId = savedBike.bikeId || savedBike.id || Number(bikeId);
+
+      const filteredList = localCached.filter((b) => {
+        const bReg = (b.registrationNumber || "").trim().toUpperCase();
+        const bId = b.bikeId || b.id;
+        if (targetReg && bReg === targetReg) return false;
+        if (targetId && (bId === targetId || String(bId) === String(targetId))) return false;
+        return true;
       });
+
+      filteredList.unshift(savedBike);
+      localStorage.setItem("custom_owner_bikes", JSON.stringify(filteredList));
+      localStorage.setItem("local_owner_bikes", JSON.stringify(filteredList));
+
+      notifyBikeUpdated(savedBike);
 
       toast.success("Bike Updated Successfully!");
       navigate(ROUTES.OWNER.BIKES);
