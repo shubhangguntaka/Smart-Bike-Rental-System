@@ -35,6 +35,18 @@ public class BookingResponse {
 
     private String bikeImage;
 
+    private String customerName;
+
+    private String registrationNumber;
+
+    private Long ownerId;
+
+    private String ownerName;
+
+    private LocalDateTime actualPickupTime;
+
+    private LocalDateTime actualReturnTime;
+
     private Integer totalDays;
 
     private BigDecimal totalAmount; // Kept for frontend compatibility

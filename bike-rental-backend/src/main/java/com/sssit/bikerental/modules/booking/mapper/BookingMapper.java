@@ -40,6 +40,8 @@ public final class BookingMapper {
                 .bookingStatus(booking.getBookingStatus())
                 .paymentStatus(booking.getPaymentStatus())
                 .qrCode(booking.getQrCode())
+                .actualPickupTime(booking.getActualPickupTime())
+                .actualReturnTime(booking.getActualReturnTime())
                 .bookingDate(booking.getCreatedAt())
                 .createdAt(booking.getCreatedAt())
                 .build();

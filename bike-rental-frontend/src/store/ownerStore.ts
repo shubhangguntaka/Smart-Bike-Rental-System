@@ -123,7 +123,8 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
     try {
       await ownerService.approveBooking(bookingId);
     } catch (err) {
-      console.warn("Backend API approve call notice, updating state locally:", err);
+      console.error("Failed to approve booking", err);
+      throw err;
     }
 
     const nowIso = new Date().toISOString();
@@ -174,7 +175,8 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
     try {
       await ownerService.rejectBooking(bookingId);
     } catch (err) {
-      console.warn("Backend API reject call notice, updating state locally:", err);
+      console.error("Failed to reject booking", err);
+      throw err;
     }
 
     const nowIso = new Date().toISOString();
@@ -227,4 +229,4 @@ export function useOwnerStore<T>(selector?: (state: OwnerStoreState) => T): T | 
     () => (selector ? selector(ownerStore.getState()) : ownerStore.getState()),
     () => (selector ? selector(ownerStore.getState()) : ownerStore.getState())
   );
-}
+}

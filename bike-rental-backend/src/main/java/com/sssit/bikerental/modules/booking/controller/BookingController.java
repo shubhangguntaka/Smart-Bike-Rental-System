@@ -199,9 +199,14 @@ public class BookingController {
     @PostMapping("/scan")
     @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<BookingResponse>> scanQRCode(
-            @RequestParam String qrCode
+            @RequestParam(required = false) String qrCode,
+            @RequestBody(required = false) java.util.Map<String, String> body
     ) {
-        BookingResponse response = bookingService.scanQRCode(qrCode);
+        String token = qrCode;
+        if ((token == null || token.trim().isEmpty()) && body != null) {
+            token = body.get("qrCode");
+        }
+        BookingResponse response = bookingService.scanQRCode(token);
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "QR Code scanned successfully.",
@@ -236,5 +241,35 @@ public class BookingController {
                 ApiResponse.success(
                         "Booking deleted successfully.",
                         null));
+    }
+
+    /**
+     * Handover bike to customer
+     */
+    @PostMapping("/{bookingId}/handover")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<BookingResponse>> handoverBooking(
+            @PathVariable Long bookingId
+    ) {
+        BookingResponse response = bookingService.handoverBooking(bookingId);
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Bike handed over successfully. Ride started.",
+                        response));
+    }
+
+    /**
+     * Return bike from customer
+     */
+    @PostMapping("/{bookingId}/return")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<BookingResponse>> returnBooking(
+            @PathVariable Long bookingId
+    ) {
+        BookingResponse response = bookingService.returnBooking(bookingId);
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Bike returned successfully. Rental completed.",
+                        response));
     }
 }

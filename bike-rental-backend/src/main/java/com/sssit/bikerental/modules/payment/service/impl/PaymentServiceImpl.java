@@ -61,18 +61,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 2. Transition booking and payment statuses based on outcome
         if (isSuccess) {
-            booking.setBookingStatus(BookingStatus.CONFIRMED);
+            booking.setBookingStatus(BookingStatus.PENDING);
             booking.setPaymentStatus(PaymentStatus.SUCCESS);
-            log.info("BookingId: {} status set to CONFIRMED and PaymentStatus to SUCCESS", booking.getId());
-
-            // Generate booking QR code if not already present
-            if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
-                String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
-                        booking.getId(), booking.getBikeId(), booking.getCustomerId(), booking.getRentalAmount().toString());
-                String qrData = qrCodeService.generateQRCode(qrText, 250, 250);
-                booking.setQrCode(qrData);
-                log.info("QR Code generated for BookingId: {}", booking.getId());
-            }
+            log.info("BookingId: {} status set to PENDING and PaymentStatus to SUCCESS", booking.getId());
         } else {
             booking.setBookingStatus(BookingStatus.PENDING);
             booking.setPaymentStatus(PaymentStatus.FAILED);

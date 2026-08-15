@@ -56,4 +56,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             return 0;
         }
     }
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT bk FROM Booking bk WHERE bk.id = :id")
+    java.util.Optional<Booking> findByIdForUpdate(@Param("id") Long id);
 }

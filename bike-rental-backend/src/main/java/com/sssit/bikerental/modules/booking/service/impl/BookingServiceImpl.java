@@ -201,15 +201,6 @@ public class BookingServiceImpl implements BookingService {
         booking.setReturnTime(request.getReturnTime());
         booking.setRentalAmount(rentalAmount);
 
-        // Re-generate QR code with updated details if already generated
-        if (booking.getQrCode() != null && !booking.getQrCode().isEmpty()) {
-            String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
-                    booking.getId(), booking.getBikeId(), booking.getCustomerId(), booking.getRentalAmount().toString());
-            String qrData = qrCodeService.generateQRCode(qrText, 250, 250);
-            booking.setQrCode(qrData);
-            log.info("QR Code updated for bookingId: {}", booking.getId());
-        }
-
         return convertToResponse(bookingRepository.save(booking));
     }
 
@@ -267,8 +258,10 @@ public class BookingServiceImpl implements BookingService {
             throw new VerificationRequiredException("Customer must be verified before confirming booking.");
         }
 
-        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        // Bypass payment validation check
         booking.setPaymentStatus(PaymentStatus.SUCCESS);
+
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
 
         // Generate QR code if missing
         if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
@@ -327,128 +320,247 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public BookingResponse updateBookingStatus(Long bookingId, BookingStatus bookingStatus) {
         log.info("Updating status of bookingId: {} to {}", bookingId, bookingStatus);
+        if (bookingStatus == BookingStatus.ACTIVE) {
+            return handoverBooking(bookingId);
+        } else if (bookingStatus == BookingStatus.COMPLETED) {
+            return returnBooking(bookingId);
+        }
+
         Booking booking = findBooking(bookingId);
         validateBookingAccess(booking);
 
-        // State Machine validation: 
-        // Can transition to ACTIVE only if current status is CONFIRMED (i.e. payment received and verified)
-        if (bookingStatus == BookingStatus.ACTIVE && booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            log.warn("Invalid status transition: cannot set ACTIVE status from {}", booking.getBookingStatus());
-            throw new IllegalStateException("Handover can only be confirmed for bookings that are currently CONFIRMED.");
-        }
-        // Can transition to COMPLETED only if current status is ACTIVE
-        if (bookingStatus == BookingStatus.COMPLETED && booking.getBookingStatus() != BookingStatus.ACTIVE) {
-            log.warn("Invalid status transition: cannot set COMPLETED status from {}", booking.getBookingStatus());
-            throw new IllegalStateException("Ride can only be marked as completed if it is currently ACTIVE.");
+        if (bookingStatus == BookingStatus.CONFIRMED) {
+            if (!checkVerificationStatus(booking.getCustomerId())) {
+                throw new VerificationRequiredException("Customer must be verified before confirming booking.");
+            }
+            // Bypass payment validation check
+            booking.setPaymentStatus(PaymentStatus.SUCCESS);
+            // Generate QR code if missing
+            if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
+                String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
+                        booking.getId(), booking.getBikeId(), booking.getCustomerId(), booking.getRentalAmount().toString());
+                String qrData = qrCodeService.generateQRCode(qrText, 250, 250);
+                booking.setQrCode(qrData);
+                log.info("QR Code generated during status transition to CONFIRMED for bookingId: {}", booking.getId());
+            }
         }
 
         booking.setBookingStatus(bookingStatus);
 
-        // If status changes to CANCELLED or COMPLETED, free up the bike
-        if (bookingStatus == BookingStatus.CANCELLED || bookingStatus == BookingStatus.COMPLETED) {
+        // If status changes to CANCELLED, free up the bike
+        if (bookingStatus == BookingStatus.CANCELLED) {
             bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
                 bike.setBikeStatus(BikeStatus.AVAILABLE);
                 bikeRepository.save(bike);
-                log.info("BikeId: {} returned to AVAILABLE state", bike.getBikeId());
+                log.info("BikeId: {} returned to AVAILABLE state due to cancellation", bike.getBikeId());
             });
-        } else if (bookingStatus == BookingStatus.CONFIRMED || bookingStatus == BookingStatus.ACTIVE) {
-            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-                bike.setBikeStatus(BikeStatus.BOOKED);
-                bikeRepository.save(bike);
-                log.info("BikeId: {} marked as BOOKED state", bike.getBikeId());
-            });
-        }
-
-        // Generate QR code if now confirmed and not present yet
-        if (bookingStatus == BookingStatus.CONFIRMED && (booking.getQrCode() == null || booking.getQrCode().isEmpty())) {
-            String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
-                    booking.getId(), booking.getBikeId(), booking.getCustomerId(), booking.getRentalAmount().toString());
-            String qrData = qrCodeService.generateQRCode(qrText, 250, 250);
-            booking.setQrCode(qrData);
-            log.info("QR Code generated during status transition to CONFIRMED for bookingId: {}", booking.getId());
         }
 
         Booking savedBooking = bookingRepository.save(booking);
-
-        // Send completion notification to bike owner if ride is completed
-        if (bookingStatus == BookingStatus.COMPLETED) {
-            try {
-                java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
-                String formattedStart = savedBooking.getStartTime() != null ? savedBooking.getStartTime().format(timeFormatter) : "N/A";
-                String formattedEnd = savedBooking.getReturnTime() != null ? savedBooking.getReturnTime().format(timeFormatter) : "N/A";
-
-                String customerName = "Unknown Customer";
-                com.sssit.bikerental.modules.user.User customer = userRepository.findById(savedBooking.getCustomerId()).orElse(null);
-                if (customer != null) {
-                    customerName = customer.getFullName();
-                }
-
-                Bike bike = bikeRepository.findById(savedBooking.getBikeId()).orElse(null);
-                if (bike != null && bike.getOwnerId() != null) {
-                    String messageContent = String.format(
-                            "Rental Completed\n\n" +
-                            "Bike: %s\n" +
-                            "Customer: %s\n" +
-                            "Booking: BK-%d\n" +
-                            "Rental: %s - %s\n\n" +
-                            "The rental has been successfully completed.",
-                            bike.getBikeName(), customerName, savedBooking.getId(), formattedStart, formattedEnd);
-
-                    Notification notif = Notification.builder()
-                            .userId(bike.getOwnerId())
-                            .title("Rental Completed")
-                            .message(messageContent)
-                            .notificationType("RIDE")
-                            .isRead(false)
-                            .createdAt(LocalDateTime.now())
-                            .build();
-
-                    notificationService.sendNotification(notif);
-                    log.info("Sent ride completion notification to owner: {}", bike.getOwnerId());
-                }
-            } catch (Exception e) {
-                log.error("Failed to send ride completion notification to owner", e);
-            }
-        }
-
         return convertToResponse(savedBooking);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public BookingResponse scanQRCode(String qrCode) {
         log.info("Scanning QR code payload: {}", qrCode);
-        if (qrCode == null || qrCode.isEmpty()) {
-            throw new IllegalArgumentException("QR Code is empty.");
+        if (qrCode == null || qrCode.trim().isEmpty()) {
+            throw new IllegalArgumentException("Invalid QR code.");
         }
-        
-        // Try parsing ID from formatted QR code
+
+        Long bookingId = null;
         try {
             if (qrCode.contains("BK-")) {
                 int startIndex = qrCode.indexOf("BK-") + 3;
                 int endIndex = qrCode.indexOf(" ", startIndex);
+                if (endIndex == -1) {
+                    endIndex = qrCode.indexOf(":", startIndex);
+                }
+                if (endIndex == -1) {
+                    endIndex = qrCode.indexOf("|", startIndex);
+                }
                 String idStr = (endIndex != -1) ? qrCode.substring(startIndex, endIndex) : qrCode.substring(startIndex);
-                Long bookingId = Long.parseLong(idStr.trim());
-                log.info("QR code successfully parsed to Booking ID: {}", bookingId);
-                Booking booking = findBooking(bookingId);
-                validateBookingAccess(booking);
-                return convertToResponse(booking);
+                bookingId = Long.parseLong(idStr.trim());
+            } else {
+                bookingId = Long.parseLong(qrCode.trim());
             }
         } catch (Exception e) {
-            log.warn("Failed to parse booking ID from QR text: {}. Falling back to db scan.", qrCode);
+            log.warn("Failed to parse booking ID from QR text: {}. Doing fallback search.", qrCode);
         }
 
-        // Fallback: search by exact QR Code match
-        Booking booking = bookingRepository.findAll().stream()
-                .filter(b -> qrCode.equals(b.getQrCode()))
-                .findFirst()
-                .orElseThrow(() -> {
-                    log.error("Scanned QR Code does not match any booking.");
-                    return new BookingNotFoundException("Booking not found for the scanned QR Code.");
-                });
-        
-        validateBookingAccess(booking);
+        Booking booking = null;
+        if (bookingId != null) {
+            booking = bookingRepository.findById(bookingId).orElse(null);
+        }
+
+        if (booking == null) {
+            final String finalQrCode = qrCode;
+            booking = bookingRepository.findAll().stream()
+                    .filter(b -> finalQrCode.equals(b.getQrCode()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (booking == null) {
+            throw new BookingNotFoundException("Booking not found.");
+        }
+
+        // Verify that the authenticated user is the owner of the bike or an admin
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        Role role = SecurityUtils.getCurrentRole();
+        Bike bike = bikeRepository.findById(booking.getBikeId())
+                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+        if (role != Role.ADMIN && (currentUserId == null || !bike.getOwnerId().equals(currentUserId))) {
+            throw new AccessDeniedException("You are not authorized to manage this bike.");
+        }
+
+        // Perform status validations
+        if (booking.getBookingStatus() == BookingStatus.PENDING || booking.getBookingStatus() == BookingStatus.VERIFICATION_REQUIRED) {
+            throw new IllegalArgumentException("Booking is not confirmed yet.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalArgumentException("This booking has been cancelled.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalArgumentException("This rental has already been completed.");
+        }
+
         return convertToResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse handoverBooking(Long bookingId) {
+        log.info("Processing handover for bookingId: {}", bookingId);
+        
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found."));
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        Role role = SecurityUtils.getCurrentRole();
+        Bike bike = bikeRepository.findById(booking.getBikeId())
+                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+        if (role != Role.ADMIN && (currentUserId == null || !bike.getOwnerId().equals(currentUserId))) {
+            throw new AccessDeniedException("You are not authorized to manage this bike.");
+        }
+
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalArgumentException("This booking has been cancelled.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalArgumentException("This rental has already been completed.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.ACTIVE) {
+            throw new IllegalArgumentException("This booking is already active.");
+        }
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Booking is not confirmed yet.");
+        }
+
+        booking.setBookingStatus(BookingStatus.ACTIVE);
+        booking.setActualPickupTime(LocalDateTime.now());
+        Booking savedBooking = bookingRepository.save(booking);
+        
+        bike.setBikeStatus(BikeStatus.BOOKED);
+        bikeRepository.save(bike);
+
+        log.info("Handover confirmed for bookingId: {} at {}", bookingId, savedBooking.getActualPickupTime());
+        return convertToResponse(savedBooking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse returnBooking(Long bookingId) {
+        log.info("Processing return for bookingId: {}", bookingId);
+        
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found."));
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        Role role = SecurityUtils.getCurrentRole();
+        Bike bike = bikeRepository.findById(booking.getBikeId())
+                .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+        if (role != Role.ADMIN && (currentUserId == null || !bike.getOwnerId().equals(currentUserId))) {
+            throw new AccessDeniedException("You are not authorized to manage this bike.");
+        }
+
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalArgumentException("This booking has been cancelled.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalArgumentException("This rental has already been completed.");
+        }
+        if (booking.getBookingStatus() != BookingStatus.ACTIVE) {
+            throw new IllegalArgumentException("Booking is not active yet.");
+        }
+
+        booking.setBookingStatus(BookingStatus.COMPLETED);
+        booking.setActualReturnTime(LocalDateTime.now());
+        Booking savedBooking = bookingRepository.save(booking);
+
+        bike.setBikeStatus(BikeStatus.AVAILABLE);
+        bikeRepository.save(bike);
+
+        // Send completion notifications to bike owner and customer
+        try {
+            java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+            String formattedPickup = savedBooking.getActualPickupTime() != null ? savedBooking.getActualPickupTime().format(timeFormatter) : "N/A";
+            String formattedReturn = savedBooking.getActualReturnTime() != null ? savedBooking.getActualReturnTime().format(timeFormatter) : "N/A";
+
+            String customerName = "Unknown Customer";
+            com.sssit.bikerental.modules.user.User customer = userRepository.findById(savedBooking.getCustomerId()).orElse(null);
+            if (customer != null) {
+                customerName = customer.getFullName();
+            }
+
+            // 1. Notification to owner
+            String ownerMessageContent = String.format(
+                    "Rental Completed\n\n" +
+                    "Bike: %s\n" +
+                    "Customer: %s\n" +
+                    "Booking: BK-%d\n" +
+                    "Actual Pickup: %s\n" +
+                    "Actual Return: %s\n\n" +
+                    "Rental completed successfully.",
+                    bike.getBikeName(), customerName, savedBooking.getId(), formattedPickup, formattedReturn);
+
+            Notification ownerNotif = Notification.builder()
+                    .userId(bike.getOwnerId())
+                    .title("Rental Completed")
+                    .message(ownerMessageContent)
+                    .notificationType("RIDE")
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            notificationService.sendNotification(ownerNotif);
+            log.info("Sent ride completion notification to owner: {}", bike.getOwnerId());
+
+            // 2. Notification to customer
+            String custMessageContent = String.format(
+                    "Bike return confirmed.\n\n" +
+                    "Booking: BK-%d\n" +
+                    "Actual Return: %s\n" +
+                    "Status: COMPLETED",
+                    savedBooking.getId(), formattedReturn);
+
+            Notification custNotif = Notification.builder()
+                    .userId(savedBooking.getCustomerId())
+                    .title("Bike Return Confirmed")
+                    .message(custMessageContent)
+                    .notificationType("BOOKING")
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            notificationService.sendNotification(custNotif);
+            log.info("Sent ride completion notification to customer: {}", savedBooking.getCustomerId());
+
+        } catch (Exception e) {
+            log.error("Failed to send ride completion notifications", e);
+        }
+
+        log.info("Return confirmed for bookingId: {} at {}", bookingId, savedBooking.getActualReturnTime());
+        return convertToResponse(savedBooking);
     }
 
     @Override
@@ -504,7 +616,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         log.warn("Access Denied: UserId: {} attempted access to bookingId: {}", currentUserId, booking.getId());
-        throw new AccessDeniedException("You do not have permission to view or edit this booking.");
+        throw new AccessDeniedException("You are not authorized to view this booking.");
     }
 
     private BookingResponse convertToResponse(Booking booking) {
@@ -514,9 +626,17 @@ public class BookingServiceImpl implements BookingService {
                 bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
                     response.setBikeName(bike.getBikeName());
                     response.setBikeImage(bike.getImageUrl());
+                    response.setRegistrationNumber(bike.getRegistrationNumber());
+                    response.setOwnerId(bike.getOwnerId());
+                    userRepository.findById(bike.getOwnerId()).ifPresent(owner -> {
+                        response.setOwnerName(owner.getFullName());
+                    });
+                });
+                userRepository.findById(booking.getCustomerId()).ifPresent(customer -> {
+                    response.setCustomerName(customer.getFullName());
                 });
             } catch (Exception e) {
-                log.warn("Failed to fetch bike details for booking response: {}", e.getMessage());
+                log.warn("Failed to fetch bike/customer details for booking response: {}", e.getMessage());
             }
         }
         return response;

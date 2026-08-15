@@ -252,67 +252,56 @@ const BookingDetails = () => {
                                 <Divider sx={{ my: 3 }} />
 
                                 <Typography>
-
                                     Bike: <strong>{booking.bikeName || `ID: #${booking.bikeId}`}</strong>
+                                </Typography>
 
+                                {booking.registrationNumber && (
+                                    <Typography>
+                                        Registration: <strong>{booking.registrationNumber}</strong>
+                                    </Typography>
+                                )}
+
+                                <Typography>
+                                    Customer ID: {booking.customerId}
                                 </Typography>
 
                                 <Typography>
-
-                                    Customer ID :
-                                    {booking.customerId}
-
+                                    Scheduled Pickup: {formatDateTime(booking.startTime)}
                                 </Typography>
 
                                 <Typography>
+                                    Scheduled Return: {formatDateTime(booking.returnTime)}
+                                </Typography>
 
-                                    Start Time: {formatDateTime(booking.startTime)}
+                                {booking.actualPickupTime && (
+                                    <Typography sx={{ color: "success.main", fontWeight: "bold" }}>
+                                        Actual Pickup: {formatDateTime(booking.actualPickupTime)}
+                                    </Typography>
+                                )}
 
+                                {booking.actualReturnTime && (
+                                    <Typography sx={{ color: "info.main", fontWeight: "bold" }}>
+                                        Actual Return: {formatDateTime(booking.actualReturnTime)}
+                                    </Typography>
+                                )}
+
+                                <Typography>
+                                    Total Days: {booking.totalDays}
                                 </Typography>
 
                                 <Typography>
-
-                                    Return Time: {formatDateTime(booking.returnTime)}
-
+                                    Amount: ₹ {booking.rentalAmount || booking.totalAmount}
                                 </Typography>
 
                                 <Typography>
-
-                                    Total Days :
-                                    {booking.totalDays}
-
-                                </Typography>
-
-                                <Typography>
-
-                                    Amount :
-                                    ₹ {booking.totalAmount}
-
-                                </Typography>
-
-                                <Typography>
-
-                                    Payment :
-                                    {booking.paymentStatus}
-
+                                    Payment: {booking.paymentStatus}
                                 </Typography>
 
                                 <Box mt={3} display="flex" gap={2} alignItems="center">
-
                                     <Chip
-
-                                        label={
-                                            booking.bookingStatus
-                                        }
-
-                                        color={
-                                            getStatusColor(
-                                                booking.bookingStatus
-                                            ) as any
-                                        }
-
+                                        label={booking.bookingStatus}
+                                        color={getStatusColor(booking.bookingStatus) as any}
                                     />
-
                                 </Box>
 
                                 <Box mt={3} display="flex" gap={2}>
@@ -357,6 +346,8 @@ const BookingDetails = () => {
                             }
                             bookingId={booking.bookingId}
                             bookingStatus={booking.bookingStatus}
+                            actualPickupTime={booking.actualPickupTime}
+                            actualReturnTime={booking.actualReturnTime}
                         />
 
                     </Grid>

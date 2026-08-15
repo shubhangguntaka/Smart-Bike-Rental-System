@@ -14,14 +14,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "bookings",
-        indexes = {
-                @Index(name = "idx_bookings_customer_id", columnList = "customerId"),
-                @Index(name = "idx_bookings_bike_id", columnList = "bikeId"),
-                @Index(name = "idx_bookings_status", columnList = "status")
-        }
-)
+@Table(name = "bookings", indexes = {
+        @Index(name = "idx_bookings_customer_id", columnList = "customerId"),
+        @Index(name = "idx_bookings_bike_id", columnList = "bikeId"),
+        @Index(name = "idx_bookings_status", columnList = "status")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -60,6 +57,12 @@ public class Booking extends BaseEntity {
 
     @Column(name = "qr_code", length = 1000)
     private String qrCode;
+
+    @Column(name = "actual_pickup_time")
+    private LocalDateTime actualPickupTime;
+
+    @Column(name = "actual_return_time")
+    private LocalDateTime actualReturnTime;
 
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate

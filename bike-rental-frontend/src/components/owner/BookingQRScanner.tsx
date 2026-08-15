@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import jsQR from "jsqr";
 import { useOwnerStore } from "../../store/ownerStore";
+import { ownerService } from "../../services/ownerService";
 import { 
     QrCode, 
     Upload, 
@@ -12,10 +14,14 @@ import {
     Calendar, 
     CreditCard, 
     Camera, 
-    Lock,
-    Play
+    Lock, 
+    Play,
+    Clock,
+    Sparkles,
+    AlertCircle
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { BookingService } from "../../services/bookingService";
 
 interface BookingQRScannerProps {
     onClose?: () => void;
@@ -24,7 +30,7 @@ interface BookingQRScannerProps {
 type PermissionState = "prompt" | "requesting" | "granted" | "denied";
 
 export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
-    const { bookingRequests, approveBooking } = useOwnerStore();
+    const { bookingRequests } = useOwnerStore();
     
     // UI flow states
     const [permission, setPermission] = useState<PermissionState>("prompt");
@@ -44,50 +50,56 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
         setTimeout(() => {
             setPermission("granted");
             toast.success("Camera access granted!");
-        }, 1200);
+        }, 800);
     };
 
-    const handleSearchBooking = (idStr: string) => {
+    const handleSearchBooking = async (idStr: string) => {
         setErrorMsg("");
         setIsExpired(false);
         setIsAlreadyUsed(false);
         setScannedBooking(null);
         setRideStarted(false);
         
-        // Clean booking ID string (e.g. BR-12 -> 12)
+        // Clean booking ID string (e.g. BK-1 -> 1)
         const numericId = parseInt(idStr.replace(/[^0-9]/g, ""), 10);
         if (isNaN(numericId)) {
-            setErrorMsg("Invalid QR Code format. Please use a numeric ID or format like BR-XXX.");
+            setErrorMsg("Invalid format. Please use format like BK-1 or enter number.");
             return;
         }
 
-        const found = bookingRequests.find(b => b.bookingId === numericId);
-        if (found) {
-            validateBookingDetails(found);
-        } else {
-            setErrorMsg(`Booking reference BR-${numericId} not found in this owner's fleet.`);
+        setIsScanning(true);
+        try {
+            const data = await BookingService.scanQRCode(`BOOKING-REF: BK-${numericId}`);
+            validateBookingDetails(data);
+        } catch (err: any) {
+            setErrorMsg(err.response?.data?.message || err.message || `Booking reference BK-${numericId} not found or unauthorized.`);
+            toast.error("Failed to scan booking.");
+        } finally {
+            setIsScanning(false);
         }
     };
 
     const validateBookingDetails = (booking: any) => {
         setScannedBooking(booking);
 
-        // Check if Return date is in the past (Expired QR)
-        const returnDate = new Date(booking.returnDate);
-        if (returnDate < new Date()) {
-            setIsExpired(true);
-            setErrorMsg("This booking period has expired. The return date is in the past.");
-            return;
-        }
-
-        // Check if booking is already completed or cancelled (Already Used)
-        if (booking.bookingStatus === "COMPLETED" || booking.bookingStatus === "CANCELLED") {
+        if (booking.bookingStatus === "CANCELLED") {
             setIsAlreadyUsed(true);
-            setErrorMsg(`This booking QR has already been used or closed. Status: ${booking.bookingStatus}`);
+            setErrorMsg("This booking has been cancelled.");
             return;
         }
 
-        toast.success(`Booking BR-${booking.bookingId} validated! Ready for handover.`);
+        if (booking.bookingStatus === "COMPLETED") {
+            setIsAlreadyUsed(true);
+            setErrorMsg("This rental has already been completed.");
+            return;
+        }
+
+        if (booking.bookingStatus === "ACTIVE") {
+            toast.success(`Booking BK-${booking.bookingId} verified! Ready for bike return.`);
+            return;
+        }
+
+        toast.success(`Booking BK-${booking.bookingId} verified! Ready for handover.`);
     };
 
     const handleSimulateScan = (type: "valid" | "expired" | "used" | "invalid") => {
@@ -98,24 +110,25 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
         setScannedBooking(null);
         setRideStarted(false);
 
-        setTimeout(() => {
+        setTimeout(async () => {
             setIsScanning(false);
 
             if (type === "invalid") {
-                setErrorMsg("Decoded QR metadata check: Invalid format. Secure signature mismatch.");
+                setErrorMsg("Decoded QR metadata check: Invalid format or signature mismatch.");
                 return;
             }
 
             if (type === "expired") {
-                // Simulate an expired booking details
                 const expiredMock = {
                     bookingId: 999,
                     bikeName: "Royal Enfield Classic 350",
+                    registrationNumber: "TS09AB9999",
                     customerName: "Rohan Sharma",
-                    pickupDate: "2026-08-01",
-                    returnDate: "2026-08-05", // past date
+                    startTime: "2026-08-01T10:00:00",
+                    returnTime: "2026-08-05T12:00:00",
                     rentalAmount: 3200,
-                    bookingStatus: "APPROVED"
+                    bookingStatus: "APPROVED",
+                    paymentStatus: "SUCCESS"
                 };
                 setScannedBooking(expiredMock);
                 setIsExpired(true);
@@ -124,33 +137,41 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
             }
 
             if (type === "used") {
-                // Simulate an already completed booking
                 const usedMock = {
                     bookingId: 888,
                     bikeName: "KTM Duke 250",
+                    registrationNumber: "TS09AB8888",
                     customerName: "Sneha Patel",
-                    pickupDate: "2026-08-05",
-                    returnDate: "2026-08-10",
+                    startTime: "2026-08-05T10:00:00",
+                    returnTime: "2026-08-10T12:00:00",
+                    actualPickupTime: "2026-08-05T10:05:00",
+                    actualReturnTime: "2026-08-10T11:45:00",
                     rentalAmount: 4500,
-                    bookingStatus: "COMPLETED"
+                    bookingStatus: "COMPLETED",
+                    paymentStatus: "SUCCESS"
                 };
                 setScannedBooking(usedMock);
                 setIsAlreadyUsed(true);
-                setErrorMsg("This booking QR has already been checked-in/used.");
+                setErrorMsg("This booking QR has already been completed.");
                 return;
             }
 
-            // Grab a pending/approved request if exists
-            const activeBookings = bookingRequests.filter(b => b.bookingStatus === "PENDING" || b.bookingStatus === "APPROVED");
-            const target = activeBookings.length > 0 ? activeBookings[0] : (bookingRequests.length > 0 ? bookingRequests[0] : null);
-
-            if (target) {
-                setBookingIdInput(`BR-${target.bookingId}`);
-                validateBookingDetails(target);
-            } else {
-                setErrorMsg("No bookings found in database to simulate scanning.");
+            // Grab a real owner booking from DB to simulate scanning
+            try {
+                const res = await ownerService.getBookingRequests();
+                const list = (res?.data && Array.isArray(res.data.data)) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+                const target = list.find((b: any) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "ACTIVE" || b.bookingStatus === "PENDING") || list[0];
+                if (target) {
+                    setBookingIdInput(`BK-${target.bookingId}`);
+                    const scanned = await BookingService.scanQRCode(`BOOKING-REF: BK-${target.bookingId}`);
+                    validateBookingDetails(scanned);
+                } else {
+                    setErrorMsg("No bookings found for your bikes to simulate scanning.");
+                }
+            } catch (err: any) {
+                setErrorMsg(err.response?.data?.message || err.message || "No bookings found for your bikes.");
             }
-        }, 2000);
+        }, 800);
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,51 +185,102 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
         setScannedBooking(null);
         setRideStarted(false);
 
-        setTimeout(() => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = async () => {
+                try {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    if (!ctx) throw new Error("Canvas context not available");
+                    
+                    ctx.drawImage(img, 0, 0, img.width, img.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert",
+                    });
+
+                    if (code && code.data) {
+                        const scannedData = await BookingService.scanQRCode(code.data);
+                        setBookingIdInput(`BK-${scannedData.bookingId}`);
+                        validateBookingDetails(scannedData);
+                    } else {
+                        const codeInverted = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: "onlyInvert",
+                        });
+                        if (codeInverted && codeInverted.data) {
+                            const scannedData = await BookingService.scanQRCode(codeInverted.data);
+                            setBookingIdInput(`BK-${scannedData.bookingId}`);
+                            validateBookingDetails(scannedData);
+                        } else {
+                            const match = file.name.match(/\d+/);
+                            if (match) {
+                                const id = match[0];
+                                const scannedData = await BookingService.scanQRCode(`BOOKING-REF: BK-${id}`);
+                                setBookingIdInput(`BK-${scannedData.bookingId}`);
+                                validateBookingDetails(scannedData);
+                            } else {
+                                setErrorMsg("Could not detect a clear QR Code in the uploaded image. Please try again with a clear photo.");
+                            }
+                        }
+                    }
+                } catch (err: any) {
+                    setErrorMsg(err.response?.data?.message || err.message || "Failed to scan QR code from image.");
+                } finally {
+                    setIsScanning(false);
+                }
+            };
+            img.onerror = () => {
+                setIsScanning(false);
+                setErrorMsg("Failed to process image file.");
+            };
+            img.src = reader.result as string;
+        };
+        reader.onerror = () => {
             setIsScanning(false);
-            const target = bookingRequests[Math.floor(Math.random() * bookingRequests.length)];
-            if (target) {
-                setBookingIdInput(`BR-${target.bookingId}`);
-                validateBookingDetails(target);
-            } else {
-                setErrorMsg("Simulated QR decoder could not resolve image metadata.");
-            }
-        }, 1500);
+            setErrorMsg("Failed to read file.");
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleConfirmHandover = async () => {
         if (!scannedBooking) return;
         setIsActioning(true);
         try {
-            // TODO: Replace with Member 1 QR Validation / checkin API integration
-            const success = await approveBooking(scannedBooking.bookingId);
-            if (success) {
+            let success = false;
+            let updatedBooking;
+            if (scannedBooking.bookingStatus === "CONFIRMED") {
+                updatedBooking = await BookingService.handoverBooking(scannedBooking.bookingId);
                 setRideStarted(true);
                 toast.success("Handover confirmed! Ride started successfully.");
-                // Update local status representation
-                setScannedBooking((prev: any) => prev ? { ...prev, bookingStatus: "COMPLETED" } : null);
+                success = true;
+            } else if (scannedBooking.bookingStatus === "ACTIVE") {
+                updatedBooking = await BookingService.returnBooking(scannedBooking.bookingId);
+                toast.success("Bike return confirmed! Rental completed.");
+                success = true;
             } else {
-                toast.error("Failed to confirm handover.");
+                toast.error(`Invalid booking status: ${scannedBooking.bookingStatus}`);
             }
-        } catch (err) {
-            toast.error("Error occurred while starting ride.");
+
+            if (success && updatedBooking) {
+                setScannedBooking(updatedBooking);
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || err.message || "Error occurred during transaction.");
         } finally {
             setIsActioning(false);
         }
     };
 
-    const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0
-        }).format(val);
-    };
-
-    const formatDateTime = (dtStr: string) => {
+    const formatDateTime = (dtStr?: string) => {
         try {
-            if (!dtStr) return "N/A";
-            return new Date(dtStr).toLocaleString("en-US", {
+            if (!dtStr) return "—";
+            const d = new Date(dtStr);
+            if (isNaN(d.getTime())) return dtStr;
+            return d.toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
                 hour: "2-digit",
@@ -216,36 +288,36 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                 hour12: true
             });
         } catch {
-            return dtStr;
+            return dtStr || "—";
         }
     };
 
-    // Render Camera Permission State
+    // Render Camera Permission Prompt
     if (permission === "prompt" || permission === "requesting") {
         return (
-            <div className="flex flex-col items-center justify-center p-8 text-center space-y-6 bg-card border border-border rounded-2xl min-h-[350px]">
-                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                    <Camera className="h-8 w-8" />
+            <div className="flex flex-col items-center justify-center p-8 text-center space-y-5 bg-card/90 border border-border/80 rounded-3xl min-h-[300px]">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+                    <Camera className="w-8 h-8" />
                 </div>
-                <div className="space-y-2 max-w-sm">
-                    <h3 className="text-base font-bold text-foreground">Camera Access Required</h3>
-                    <p className="text-xs text-muted-foreground">The Booking QR Scanner requires camera permissions to detect customer barcodes and code tickets.</p>
+                <div className="space-y-1.5 max-w-sm">
+                    <h3 className="text-base font-extrabold text-foreground tracking-tight">Camera Access Required</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Grant camera access to scan customer QR passes directly for handover and returns.</p>
                 </div>
                 <button
                     type="button"
                     onClick={requestCameraPermission}
                     disabled={permission === "requesting"}
-                    className="px-6 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer shadow-md shadow-primary/20"
                 >
                     {permission === "requesting" ? (
                         <>
-                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                             <span>Requesting Access...</span>
                         </>
                     ) : (
                         <>
-                            <Lock className="h-4 w-4" />
-                            <span>Grant Camera Permission</span>
+                            <Lock className="w-4 h-4" />
+                            <span>Enable Scanner Camera</span>
                         </>
                     )}
                 </button>
@@ -254,67 +326,78 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="w-full max-w-full space-y-5 text-foreground overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                 
-                {/* Left Side: QR Scanner Simulator Viewport */}
-                <div className="flex flex-col items-center justify-center p-6 bg-muted/20 border border-border rounded-2xl relative overflow-hidden min-h-[340px]">
-                    {isScanning ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/95 z-10">
-                            <QrCode className="h-14 w-14 text-primary animate-pulse" />
-                            <p className="text-xs font-bold text-foreground mt-4 animate-bounce">Analyzing QR Code Matrix...</p>
-                            <div className="absolute left-0 right-0 h-0.5 bg-primary/80 top-1/2 -translate-y-1/2 animate-[bounce_2s_infinite]"></div>
+                {/* Left Side: QR Scanner Viewport */}
+                <div className="flex flex-col items-center justify-center p-5 bg-muted/20 border border-border/70 rounded-3xl relative overflow-hidden">
+                    {/* Active Scanning Animation Overlay */}
+                    {isScanning && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/90 backdrop-blur-xs z-20 space-y-3">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary animate-pulse">
+                                <QrCode className="w-6 h-6" />
+                            </div>
+                            <p className="text-xs font-extrabold text-foreground tracking-wide">Decoding QR Matrix...</p>
+                            <div className="absolute inset-x-4 h-0.5 bg-primary/80 top-1/2 -translate-y-1/2 animate-scan-sweep" />
                         </div>
-                    ) : null}
+                    )}
 
-                    <div className="w-48 h-48 border-4 border-dashed border-primary/40 rounded-3xl flex flex-col items-center justify-center bg-card relative shadow-inner group hover:border-primary transition-all duration-300">
-                        <QrCode className="h-16 w-16 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
-                        <div className="absolute inset-3 border border-muted-foreground/10 rounded-2xl flex items-center justify-center">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Scanner Target</span>
-                        </div>
+                    {/* Viewfinder Target Box */}
+                    <div className="relative w-44 h-44 rounded-2xl bg-background/80 border border-border/80 flex flex-col items-center justify-center shadow-inner group">
+                        {/* Brass Viewfinder Reticles */}
+                        <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-primary rounded-tl-sm" />
+                        <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-primary rounded-tr-sm" />
+                        <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-primary rounded-bl-sm" />
+                        <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-primary rounded-br-sm" />
+
+                        <QrCode className="w-14 h-14 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+                        <span className="text-[9px] font-mono font-bold text-muted-foreground uppercase tracking-widest mt-2">
+                            Scanner Target
+                        </span>
                     </div>
 
-                    <div className="mt-6 w-full max-w-xs space-y-2">
+                    {/* Scan Simulation Pills */}
+                    <div className="mt-4 w-full space-y-2">
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
                                 onClick={() => handleSimulateScan("valid")}
-                                className="py-2 px-3 bg-primary text-white text-[10px] font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                className="py-2 px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                                <QrCode className="h-3.5 w-3.5" />
-                                <span>Scan Valid QR</span>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                <span>Valid Scan</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => handleSimulateScan("expired")}
-                                className="py-2 px-3 bg-amber-600 text-white text-[10px] font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                className="py-2 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                                <QrCode className="h-3.5 w-3.5" />
-                                <span>Scan Expired QR</span>
+                                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span>Expired QR</span>
                             </button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
                                 onClick={() => handleSimulateScan("used")}
-                                className="py-2 px-3 bg-slate-600 text-white text-[10px] font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                className="py-2 px-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                                <QrCode className="h-3.5 w-3.5" />
-                                <span>Scan Used QR</span>
+                                <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                <span>Used / Return</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => handleSimulateScan("invalid")}
-                                className="py-2 px-3 bg-destructive text-white text-[10px] font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                className="py-2 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                                <QrCode className="h-3.5 w-3.5" />
-                                <span>Scan Invalid QR</span>
+                                <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                <span>Invalid QR</span>
                             </button>
                         </div>
                         
-                        <label className="py-2 px-4 border border-border hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center">
-                            <Upload className="h-3.5 w-3.5" />
-                            <span>Upload QR Image file</span>
+                        <label className="w-full py-2 px-3 border border-border/80 bg-card hover:bg-muted/70 text-foreground text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center shadow-2xs">
+                            <Upload className="w-3.5 h-3.5 text-primary" />
+                            <span>Upload QR Pass Image</span>
                             <input
                                 type="file"
                                 accept="image/*"
@@ -325,117 +408,142 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                     </div>
                 </div>
 
-                {/* Right Side: Manual Checkin and details display */}
+                {/* Right Side: Manual Lookup & Result Panel */}
                 <div className="space-y-4">
-                    <div className="bg-card border border-border p-5 rounded-2xl space-y-3">
-                        <h3 className="text-sm font-bold text-foreground">Manual Check-In Lookup</h3>
-                        <p className="text-xs text-muted-foreground font-light">Enter the Customer Booking reference ID to validate manually.</p>
+                    {/* Manual Check-in */}
+                    <div className="bg-card/95 border border-border/80 p-4 rounded-3xl space-y-2.5 shadow-xs">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-xs font-bold text-foreground tracking-tight">Manual Lookup</h3>
+                            <span className="text-[10px] text-muted-foreground">Type ID or BK-XXX</span>
+                        </div>
                         
                         <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={bookingIdInput}
                                 onChange={(e) => setBookingIdInput(e.target.value)}
-                                placeholder="e.g. BR-12"
-                                className="flex-1 px-3.5 py-2 border border-border bg-background text-foreground text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="e.g. BK-1 or 1"
+                                className="flex-1 px-3.5 py-2 border border-border/80 bg-background text-foreground text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
                             />
                             <button
                                 type="button"
                                 onClick={() => handleSearchBooking(bookingIdInput)}
-                                className="px-4 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer"
+                                className="px-4 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer shadow-xs flex items-center justify-center"
                             >
-                                <ArrowRight className="h-4 w-4" />
+                                <ArrowRight className="w-4 h-4" />
                             </button>
                         </div>
 
                         {errorMsg && (
-                            <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 mt-2">
-                                <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-2.5 rounded-xl border border-destructive/20 mt-2">
+                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                 <span>{errorMsg}</span>
                             </div>
                         )}
                     </div>
 
-                    {/* Result and Validation Details Card */}
+                    {/* Scanned Booking Result Card */}
                     {scannedBooking ? (
-                        <div className="bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300">
-                            <div className="bg-muted/40 p-4 border-b border-border flex justify-between items-center">
+                        <div className="bg-card border border-border/80 rounded-3xl overflow-hidden shadow-md transition-all duration-300">
+                            {/* Card Header */}
+                            <div className="bg-muted/40 p-4 border-b border-border/70 flex justify-between items-center">
                                 <div>
-                                    <span className="text-[10px] font-bold text-muted-foreground font-mono">REFERENCE: BR-{scannedBooking.bookingId}</span>
-                                    <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                                        <Bike className="h-4 w-4 text-primary shrink-0" />
+                                    <span className="text-[10px] font-bold text-primary font-mono block">BK-{scannedBooking.bookingId}</span>
+                                    <h4 className="font-extrabold text-sm text-foreground flex items-center gap-1.5 mt-0.5">
+                                        <Bike className="w-4 h-4 text-primary shrink-0" />
                                         {scannedBooking.bikeName}
                                     </h4>
+                                    {scannedBooking.registrationNumber && (
+                                        <span className="text-[10px] font-mono font-bold text-muted-foreground block">
+                                            Reg: {scannedBooking.registrationNumber}
+                                        </span>
+                                    )}
                                 </div>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
                                     isExpired || isAlreadyUsed
-                                        ? "bg-destructive/10 text-destructive"
-                                        : rideStarted
-                                        ? "bg-green-500/10 text-green-500"
-                                        : "bg-amber-500/10 text-amber-500"
+                                        ? "bg-destructive/10 text-destructive border-destructive/20"
+                                        : rideStarted || scannedBooking.bookingStatus === "ACTIVE"
+                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                 }`}>
-                                    {rideStarted ? "RIDE STARTED" : scannedBooking.bookingStatus}
+                                    {rideStarted ? "ACTIVE" : scannedBooking.bookingStatus}
                                 </span>
                             </div>
 
-                            <div className="p-4 space-y-3.5 text-xs">
+                            {/* Details Body */}
+                            <div className="p-4 space-y-3 text-xs">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-1"><User className="h-3.5 w-3.5" /> Customer</span>
-                                    <span className="font-semibold text-foreground">{scannedBooking.customerName}</span>
+                                    <span className="text-muted-foreground flex items-center gap-1"><User className="w-3.5 h-3.5" /> Customer</span>
+                                    <span className="font-bold text-foreground">{scannedBooking.customerName || `Customer #${scannedBooking.customerId}`}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Duration</span>
-                                    <span className="font-semibold text-foreground">{formatDateTime(scannedBooking.pickupDate)} to {formatDateTime(scannedBooking.returnDate)}</span>
+                                    <span className="text-muted-foreground flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Scheduled</span>
+                                    <span className="font-medium text-foreground">{formatDateTime(scannedBooking.startTime || scannedBooking.pickupDate)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Rental Cost</span>
-                                    <span className="font-bold text-primary">{formatCurrency(scannedBooking.rentalAmount)}</span>
+                                {scannedBooking.actualPickupTime && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Actual Pickup</span>
+                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDateTime(scannedBooking.actualPickupTime)}</span>
+                                    </div>
+                                )}
+                                {scannedBooking.actualReturnTime && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Actual Return</span>
+                                        <span className="font-bold text-blue-600 dark:text-blue-400">{formatDateTime(scannedBooking.actualReturnTime)}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                                    <span className="text-muted-foreground flex items-center gap-1"><CreditCard className="w-3.5 h-3.5" /> Amount</span>
+                                    <span className="font-black text-foreground text-sm">₹{scannedBooking.rentalAmount || scannedBooking.totalAmount || 0}</span>
                                 </div>
 
+                                {/* Actions & Status Banners */}
                                 {rideStarted ? (
-                                    <div className="mt-3 bg-green-500/10 border border-green-500/20 text-green-600 rounded-xl p-3 flex items-center gap-2">
-                                        <CheckCircle2 className="h-5 w-5 shrink-0" />
-                                        <span className="font-semibold">Handover confirmed! Customer ride started.</span>
+                                    <div className="mt-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-2xl p-3 flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                                        <span className="font-semibold text-xs">Handover confirmed! Ride is active.</span>
                                     </div>
                                 ) : (isExpired || isAlreadyUsed) ? (
-                                    <div className="mt-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-3 flex items-center gap-2">
-                                        <XCircle className="h-5 w-5 shrink-0" />
-                                        <span className="font-semibold">Verification failed. Bike cannot be handed over.</span>
+                                    <div className="mt-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl p-3 flex items-center gap-2">
+                                        <XCircle className="w-4 h-4 shrink-0" />
+                                        <span className="font-semibold text-xs">{errorMsg || "Verification check failed."}</span>
                                     </div>
                                 ) : (
-                                    <div className="pt-3 border-t border-border mt-2">
+                                    <div className="pt-2">
                                         <button
                                             type="button"
                                             disabled={isActioning}
                                             onClick={handleConfirmHandover}
-                                            className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                            className="w-full py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 active:scale-98"
                                         >
                                             {isActioning ? (
-                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                                <span className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                                             ) : (
-                                                <Play className="h-4 w-4" />
+                                                <Play className="w-4 h-4" />
                                             )}
-                                            <span>Confirm Bike Handover</span>
+                                            <span>
+                                                {scannedBooking.bookingStatus === "CONFIRMED" ? "Confirm Bike Handover" : "Confirm Bike Return"}
+                                            </span>
                                         </button>
                                     </div>
                                 )}
                             </div>
                         </div>
                     ) : (
-                        <div className="h-36 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center bg-card text-muted-foreground text-xs text-center p-6 gap-1.5">
-                            <QrCode className="h-6 w-6 text-muted-foreground/30" />
-                            <span>Scan booking QR code or select simulation to process handover check-in.</span>
+                        <div className="h-32 border-2 border-dashed border-border/80 rounded-3xl flex flex-col items-center justify-center bg-muted/10 text-muted-foreground text-xs text-center p-4 gap-1.5">
+                            <QrCode className="w-6 h-6 text-muted-foreground/30" />
+                            <span className="text-[11px] font-medium">Scan pass QR or use manual lookup to inspect booking.</span>
                         </div>
                     )}
                 </div>
             </div>
             
             {onClose && (
-                <div className="flex justify-end pt-2 border-t border-border">
+                <div className="flex justify-end pt-3 border-t border-border/70">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 border border-border hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold rounded-xl transition-all cursor-pointer focus:outline-none"
+                        className="px-4 py-2 border border-border/80 bg-card hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold rounded-xl transition-all cursor-pointer shadow-2xs"
                     >
                         Close Scanner
                     </button>

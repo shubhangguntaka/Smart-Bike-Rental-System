@@ -44,3 +44,9 @@ export const getRideTracking = (bookingId: number) =>
 
 export const checkAvailability = (bikeId: number, startTime: string, returnTime: string) =>
   axios.get(`${BASE_URL}/check-availability?bikeId=${bikeId}&startTime=${encodeURIComponent(startTime)}&returnTime=${encodeURIComponent(returnTime)}`);
+
+export const handoverBooking = (bookingId: number) =>
+  axios.post(`${BASE_URL}/${bookingId}/handover`);
+
+export const returnBooking = (bookingId: number) =>
+  axios.post(`${BASE_URL}/${bookingId}/return`);

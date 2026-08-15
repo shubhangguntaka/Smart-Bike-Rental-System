@@ -23,8 +23,7 @@ import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
-import com.sssit.bikerental.modules.bike.enums.BikeStatus;
-import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.service.BookingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +37,7 @@ public class OwnerServiceImpl implements OwnerService {
     private final PaymentRepository paymentRepository;
     private final AadhaarRepository aadhaarRepository;
     private final BikeDocumentRepository bikeDocumentRepository;
+    private final BookingService bookingService;
 
     @Override
     public OwnerDTO getOwnerProfile(Long ownerId) {
@@ -411,37 +411,13 @@ public class OwnerServiceImpl implements OwnerService {
     @Transactional
     @Override
     public void approveBooking(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
-        booking.setStatus("APPROVED");
-        booking.setBookingStatus(BookingStatus.APPROVED);
-        booking.setUpdatedAt(LocalDateTime.now());
-        bookingRepository.save(booking);
-
-        if (booking.getBikeId() != null) {
-            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-                bike.setBikeStatus(BikeStatus.BOOKED);
-                bikeRepository.save(bike);
-            });
-        }
+        bookingService.confirmBooking(bookingId);
     }
 
     @Transactional
     @Override
     public void rejectBooking(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
-        booking.setStatus("REJECTED");
-        booking.setBookingStatus(BookingStatus.REJECTED);
-        booking.setUpdatedAt(LocalDateTime.now());
-        bookingRepository.save(booking);
-
-        if (booking.getBikeId() != null) {
-            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-                bike.setBikeStatus(BikeStatus.AVAILABLE);
-                bikeRepository.save(bike);
-            });
-        }
+        bookingService.cancelBooking(bookingId);
     }
 
     private boolean checkAadhaarVerified(Long ownerId) {

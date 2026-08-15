@@ -64,29 +64,33 @@ export default function OwnerBookings() {
 
     const handleApprove = async (id: number) => {
         setActioningId(id);
-        const success = await approveBooking(id);
-        setActioningId(null);
-        if (success) {
+        try {
+            await approveBooking(id);
             toast.success("Booking approved successfully!");
             if (selectedBooking && selectedBooking.bookingId === id) {
                 setSelectedBooking((prev: any) => prev ? { ...prev, bookingStatus: "APPROVED" } : null);
             }
-        } else {
-            toast.error("Failed to approve booking.");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to approve booking.";
+            toast.error(errorMsg);
+        } finally {
+            setActioningId(null);
         }
     };
 
     const handleReject = async (id: number) => {
         setActioningId(id);
-        const success = await rejectBooking(id);
-        setActioningId(null);
-        if (success) {
+        try {
+            await rejectBooking(id);
             toast.success("Booking request rejected.");
             if (selectedBooking && selectedBooking.bookingId === id) {
                 setSelectedBooking((prev: any) => prev ? { ...prev, bookingStatus: "REJECTED" } : null);
             }
-        } else {
-            toast.error("Failed to reject booking.");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to reject booking.";
+            toast.error(errorMsg);
+        } finally {
+            setActioningId(null);
         }
     };
 

@@ -30,6 +30,17 @@ public class GlobalExceptionHandler {
         }
 
         /**
+         * Booking Not Found
+         */
+        @ExceptionHandler(com.sssit.bikerental.modules.booking.exception.BookingNotFoundException.class)
+        public ResponseEntity<ApiResponse<Object>> handleBookingNotFoundException(
+                        com.sssit.bikerental.modules.booking.exception.BookingNotFoundException ex) {
+
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(ApiResponse.error(ex.getMessage()));
+        }
+
+        /**
          * Conflict (409)
          */
         @ExceptionHandler(ConflictException.class)

@@ -82,4 +82,8 @@ public interface BookingService {
     BookingResponse updateBookingStatus(Long bookingId, BookingStatus bookingStatus);
 
     void deleteBooking(Long bookingId);
+
+    BookingResponse handoverBooking(Long bookingId);
+
+    BookingResponse returnBooking(Long bookingId);
 }

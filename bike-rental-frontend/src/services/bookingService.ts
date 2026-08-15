@@ -99,4 +99,14 @@ export const BookingService = {
     const response = await BookingApi.checkAvailability(bikeId, startTime, returnTime);
     return response.data.data; // returns boolean
   },
+
+  handoverBooking: async (bookingId: number) => {
+    const response = await BookingApi.handoverBooking(bookingId);
+    return response.data.data;
+  },
+
+  returnBooking: async (bookingId: number) => {
+    const response = await BookingApi.returnBooking(bookingId);
+    return response.data.data;
+  },
 };

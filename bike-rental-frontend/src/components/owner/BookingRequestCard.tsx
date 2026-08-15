@@ -21,23 +21,27 @@ const BookingRequestCard = () => {
 
     const handleApprove = async (id: number) => {
         setActioningId(id);
-        const success = await approveBooking(id);
-        setActioningId(null);
-        if (success) {
+        try {
+            await approveBooking(id);
             toast.success("Booking request approved successfully!");
-        } else {
-            toast.error("Failed to approve booking request.");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to approve booking request.";
+            toast.error(errorMsg);
+        } finally {
+            setActioningId(null);
         }
     };
 
     const handleReject = async (id: number) => {
         setActioningId(id);
-        const success = await rejectBooking(id);
-        setActioningId(null);
-        if (success) {
+        try {
+            await rejectBooking(id);
             toast.success("Booking request rejected.");
-        } else {
-            toast.error("Failed to reject booking request.");
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to reject booking request.";
+            toast.error(errorMsg);
+        } finally {
+            setActioningId(null);
         }
     };
 

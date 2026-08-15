@@ -15,6 +15,12 @@ export interface Booking {
   qrCode?: string;
   bikeName?: string;
   bikeImage?: string;
+  customerName?: string;
+  registrationNumber?: string;
+  ownerId?: number;
+  ownerName?: string;
+  actualPickupTime?: string;
+  actualReturnTime?: string;
 }
 
 export interface BookingRequest {
