@@ -33,15 +33,24 @@ public class NotificationController {
         return notificationService.getNotificationById(notificationId);
     }
 
+    private void validateUserOwnership(Long userId) {
+        com.sssit.bikerental.modules.user.User currentUser = com.sssit.bikerental.common.security.SecurityUtils.getCurrentUser();
+        if (currentUser != null && currentUser.getRole() != com.sssit.bikerental.common.enums.Role.ADMIN && !currentUser.getId().equals(userId)) {
+            throw new com.sssit.bikerental.common.exception.ResourceOwnershipException("Access denied: You can only access your own notifications");
+        }
+    }
+
     // Get Notifications By User Id
     @GetMapping("/user/{userId}")
     public List<Notification> getNotificationsByUser(@PathVariable Long userId) {
+        validateUserOwnership(userId);
         return notificationService.getNotificationsByUser(userId);
     }
 
     // Get Unread Notifications
     @GetMapping("/user/{userId}/unread")
     public List<Notification> getUnreadNotifications(@PathVariable Long userId) {
+        validateUserOwnership(userId);
         return notificationService.getUnreadNotifications(userId);
     }
 
@@ -59,7 +68,7 @@ public class NotificationController {
     }
     @GetMapping("/user/{userId}/count")
     public ResponseEntity<Long> getUnreadCount(@PathVariable Long userId) {
-
+        validateUserOwnership(userId);
         return ResponseEntity.ok(notificationService.getUnreadCount(userId));
     }
     @PostMapping("/booking-confirmed/{userId}")

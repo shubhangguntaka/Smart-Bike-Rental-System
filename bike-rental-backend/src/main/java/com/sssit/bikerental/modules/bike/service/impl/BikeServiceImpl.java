@@ -53,35 +53,6 @@ public class BikeServiceImpl implements BikeService {
     private final com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
     private final com.sssit.bikerental.modules.review.Entity.ReviewService reviewService;
 
-    @jakarta.annotation.PostConstruct
-    public void seedInitialBikesIfEmpty() {
-        try {
-            if (!bikeRepository.existsByRegistrationNumber("TS02EY4494")) {
-                Bike bike = Bike.builder()
-                        .ownerId(17L)
-                        .bikeName("KTM Duke 390")
-                        .brand("KTM")
-                        .model("Duke 390")
-                        .registrationNumber("TS02EY4494")
-                        .rcNumber("TS02EY4494")
-                        .fuelType("PETROL")
-                        .location("Hyderabad")
-                        .hourlyRate(java.math.BigDecimal.valueOf(76))
-                        .rentalPrice(java.math.BigDecimal.valueOf(608))
-                        .rcVerified(true)
-                        .bikeStatus(BikeStatus.AVAILABLE)
-                        .availableStartTime(java.time.LocalTime.of(9, 0))
-                        .availableEndTime(java.time.LocalTime.of(21, 0))
-                        .imageUrl(
-                                "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80")
-                        .build();
-                bikeRepository.save(bike);
-            }
-        } catch (Exception e) {
-            // Ignore if already seeded
-        }
-    }
-
     @Override
     public BikeDTO addBike(BikeDTO bikeDTO) {
         // Clear transient ID so JPA executes an INSERT with DB auto-increment ID

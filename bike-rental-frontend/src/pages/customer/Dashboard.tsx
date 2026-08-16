@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { 
-  Bike as BikeIcon, 
-  Search, 
-  ShieldCheck, 
+import {
+  Bike as BikeIcon,
+  Search,
+  ShieldCheck,
   ShieldAlert,
-  MapPin, 
-  Sparkles, 
-  Clock, 
+  MapPin,
+  Sparkles,
+  Clock,
   ArrowRight,
   TrendingUp,
   CreditCard,
@@ -34,6 +34,8 @@ import { normalizeBike } from "@/utils/bikeUtils";
 import { subscribeBikeUpdates } from "@/utils/syncUtils";
 import useBikeSse from "@/hooks/useBikeSse";
 import api from "@/api/axios";
+import toast from "react-hot-toast";
+import { ROUTES } from "@/constants/routes";
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -81,7 +83,7 @@ export default function CustomerDashboard() {
         ];
         try {
           localStorage.setItem("custom_owner_bikes", JSON.stringify(localOwnerBikes));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const combinedMap = new Map<string, Bike>();
@@ -167,7 +169,7 @@ export default function CustomerDashboard() {
         if (updatedLocalCache) {
           try {
             localStorage.setItem("custom_owner_bikes", JSON.stringify(syncedLocal));
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -199,7 +201,7 @@ export default function CustomerDashboard() {
   }, []);
 
   const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "Customer";
-  
+
   const getInitials = () => {
     if (user?.fullName) {
       const parts = user.fullName.split(" ");
@@ -247,6 +249,51 @@ export default function CustomerDashboard() {
 
     return matchesCategory && matchesSearch;
   });
+
+  // Book Now
+  const handleBookClick = async (bike: any) => {
+    if (!user) {
+      toast.error("Please login to book a bike.");
+      navigate(ROUTES.LOGIN);
+      return;
+    }
+
+    if (!isBikeAvailableNow(bike.availableStartTime, bike.availableEndTime, bike.availableDate)) {
+      toast.error(
+        `This bike is outside its operational shift (${format12Hour(
+          bike.availableStartTime || "09:00"
+        )} – ${format12Hour(bike.availableEndTime || "21:00")}). Bookings resume during shift hours!`
+      );
+      return;
+    }
+
+    try {
+      const customerId = Number(user.id);
+      
+      // Save pending booking info to local storage
+      localStorage.setItem(
+        "pending_booking",
+        JSON.stringify({
+          bikeId: bike.id || bike.bikeId,
+          returnRoute: window.location.pathname,
+        })
+      );
+
+      // Check verification status from backend
+      const isVerified = await BookingService.checkVerificationStatus(customerId);
+
+      if (isVerified) {
+        // Redirect to catalog page where the booking modal will automatically open
+        navigate("/customer/nearby-bikes");
+      } else {
+        toast.error("You need to complete identity verification to rent a bike.");
+        navigate("/verification");
+      }
+    } catch (err) {
+      console.error("Verification check failed:", err);
+      toast.error("Could not verify listing status. Please try again.");
+    }
+  };
 
   const categories = [
     { id: "ALL", label: "All Rides" },
@@ -452,7 +499,7 @@ export default function CustomerDashboard() {
               </div>
 
               <Link
-                to="/customer/bikes"
+                to="/customer/nearby-bikes"
                 className="inline-flex items-center gap-1.5 text-xs font-extrabold text-primary hover:underline self-start sm:self-auto"
               >
                 Explore Full Catalog <ArrowUpRight className="h-4 w-4" />
@@ -478,11 +525,10 @@ export default function CustomerDashboard() {
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 cursor-pointer ${
-                      selectedCategory === cat.id
+                    className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 cursor-pointer ${selectedCategory === cat.id
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    }`}
+                      }`}
                   >
                     {cat.label}
                   </button>
@@ -521,9 +567,12 @@ export default function CustomerDashboard() {
                         alt={bike.bikeName}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
-                      <div className="absolute top-3 left-3 flex items-center gap-1 rounded-xl bg-card/90 px-2.5 py-1 text-[11px] font-bold text-foreground backdrop-blur-xs border border-border shadow-xs">
-                        <MapPin className="h-3 w-3 text-primary" />
-                        {bike.location || "Hyderabad"}
+                      <div 
+                        className="absolute top-3 left-3 flex items-center gap-1 rounded-xl bg-card/90 px-2.5 py-1 text-[11px] font-bold text-foreground backdrop-blur-xs border border-border shadow-xs max-w-[125px] sm:max-w-[145px]"
+                        title={bike.location || "Hyderabad"}
+                      >
+                        <MapPin className="h-3 w-3 text-primary shrink-0" />
+                        <span className="truncate">{bike.location || "Hyderabad"}</span>
                       </div>
 
                       <div className="absolute top-3 right-3 shadow-xs">
@@ -587,12 +636,14 @@ export default function CustomerDashboard() {
                               Booked for this Slot
                             </button>
                           ) : (
-                            <Link
-                              to="/bikes"
-                              className="rounded-xl bg-primary px-3.5 py-2 text-xs font-extrabold text-primary-foreground shadow-xs transition hover:opacity-90 active:scale-[0.98]"
+                            <button
+                              type="button"
+                              onClick={() => handleBookClick(bike)}
+                              className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 cursor-pointer shadow-xs hover:shadow active:scale-95 flex items-center gap-1"
                             >
-                              Book Now
-                            </Link>
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Rent Now
+                            </button>
                           )}
                         </div>
                       </div>
@@ -843,13 +894,28 @@ export default function CustomerDashboard() {
               >
                 Close Details
               </button>
-              <Link
-                to="/bikes"
-                onClick={() => setSelectedBikeDetail(null)}
+              <button
+                type="button"
+                onClick={() => {
+                  const bId = selectedBikeDetail.bikeId || selectedBikeDetail.id;
+                  setSelectedBikeDetail(null);
+                  navigate(`/customer/bike/${bId}`);
+                }}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl border border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <Eye className="h-3.5 w-3.5 text-primary" /> Full Details & Reviews
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const bikeToBook = selectedBikeDetail;
+                  setSelectedBikeDetail(null);
+                  handleBookClick(bikeToBook);
+                }}
                 className="w-full sm:w-auto px-5 py-2 text-xs font-extrabold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5"
               >
-                <Sparkles className="h-3.5 w-3.5" /> Book Now
-              </Link>
+                <Sparkles className="h-3.5 w-3.5" /> Rent Now
+              </button>
             </ModalFooter>
           </>
         )}

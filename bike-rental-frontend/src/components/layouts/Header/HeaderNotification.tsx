@@ -1,44 +1,47 @@
-import { Bell, Check, Bike, CreditCard, ShieldAlert } from "lucide-react";
+import { Bell, Check, Bike, CreditCard, ShieldAlert, Navigation, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNotification } from "@/hooks/useNotification";
+import useAuth from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import type { Notification } from "@/types/notification";
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  read: boolean;
-  type: "booking" | "payment" | "security";
-}
+const formatRelativeTime = (dateStr?: string) => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    if (diffMs < 0) return "just now";
+    const diffSecs = Math.floor(diffMs / 1000);
+    if (diffSecs < 60) return "just now";
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
+  } catch {
+    return dateStr;
+  }
+};
 
 export default function HeaderNotification() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: "1",
-      title: "Booking Confirmed",
-      description: "Your bike reservation #1892 has been approved.",
-      time: "5 mins ago",
-      read: false,
-      type: "booking",
-    },
-    {
-      id: "2",
-      title: "Payment Received",
-      description: "Payment of $15.00 for last ride succeeded.",
-      time: "2 hours ago",
-      read: false,
-      type: "payment",
-    },
-    {
-      id: "3",
-      title: "Security Verification",
-      description: "Upload driver license to activate GPS ride tracking.",
-      time: "1 day ago",
-      read: true,
-      type: "security",
-    },
-  ]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    refreshNotifications,
+    markAsRead
+  } = useNotification();
+
+  const unreadNotifications = notifications.filter((n) => !n.isRead);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,23 +56,104 @@ export default function HeaderNotification() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    const unreadList = notifications.filter((n) => !n.isRead);
+    for (const n of unreadList) {
+      if (n.notificationId) {
+        await markAsRead(n.notificationId, Number(user.id));
+      }
+    }
   };
 
-  const toggleRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
+  const handleNotificationClick = async (n: Notification) => {
+    if (!user || !n.notificationId) return;
+
+    // Mark as read
+    if (!n.isRead) {
+      try {
+        await markAsRead(n.notificationId, Number(user.id));
+      } catch (err) {
+        console.error("Failed to mark as read:", err);
+      }
+    }
+
+    setOpen(false);
+
+    // Determine route based on notification type and title
+    const type = (n.notificationType || "").toUpperCase();
+    const title = (n.title || "").toUpperCase();
+    const role = (user.role || "CUSTOMER").toUpperCase();
+
+    if (type === "BOOKING" || title.includes("BOOKING")) {
+      if (role === "OWNER") {
+        navigate("/owner/bookings");
+      } else {
+        navigate("/customer/bookings");
+      }
+    } else if (type === "PAYMENT" || title.includes("PAYMENT")) {
+      if (role === "OWNER") {
+        navigate("/owner/payments");
+      } else {
+        navigate("/customer/bookings");
+      }
+    } else if (
+      type === "VERIFICATION" ||
+      type === "BIKE_RC" ||
+      title.includes("VERIFICATION") ||
+      title.includes("RC")
+    ) {
+      if (role === "OWNER") {
+        navigate("/owner/profile");
+      } else {
+        navigate("/customer/profile");
+      }
+    } else if (type === "RIDE" || title.includes("RIDE")) {
+      if (role === "OWNER") {
+        navigate("/owner/bookings");
+      } else {
+        navigate("/customer/bookings");
+      }
+    }
+  };
+
+  const getNotificationIconAndStyle = (type?: string) => {
+    const t = (type || "").toUpperCase();
+    if (t === "BOOKING") {
+      return {
+        icon: <Bike className="h-4 w-4" />,
+        style: "bg-green-500/10 text-green-500",
+      };
+    }
+    if (t === "PAYMENT") {
+      return {
+        icon: <CreditCard className="h-4 w-4" />,
+        style: "bg-blue-500/10 text-blue-500",
+      };
+    }
+    if (t === "VERIFICATION" || t === "BIKE_RC") {
+      return {
+        icon: <ShieldAlert className="h-4 w-4" />,
+        style: "bg-rose-500/10 text-rose-500",
+      };
+    }
+    if (t === "RIDE") {
+      return {
+        icon: <Navigation className="h-4 w-4" />,
+        style: "bg-amber-500/10 text-amber-500",
+      };
+    }
+    return {
+      icon: <Bell className="h-4 w-4" />,
+      style: "bg-primary/10 text-primary",
+    };
   };
 
   return (
     <div className="relative z-45" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative rounded-xl p-2.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="relative rounded-xl p-2.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
         aria-label="Dashboard Notifications"
         aria-expanded={open}
       >
@@ -94,58 +178,74 @@ export default function HeaderNotification() {
               <span className="font-bold text-foreground text-sm">Dashboard Alerts</span>
               {unreadCount > 0 && (
                 <button
-                  onClick={markAllAsRead}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline outline-none"
+                  onClick={handleMarkAllAsRead}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline outline-none cursor-pointer"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Mark all read
+                  Clear All
                 </button>
               )}
             </div>
 
             <div className="max-h-[320px] overflow-y-auto divide-y divide-border/60">
-              {notifications.length > 0 ? (
-                notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => toggleRead(n.id)}
-                    className={`flex items-start gap-3.5 p-4 transition-colors duration-200 cursor-pointer hover:bg-accent/40 ${
-                      !n.read ? "bg-primary/5" : ""
-                    }`}
+              {loading && unreadNotifications.length === 0 ? (
+                <div className="p-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>Loading alerts...</span>
+                </div>
+              ) : error ? (
+                <div className="p-6 text-center space-y-2">
+                  <p className="text-xs text-destructive font-semibold">{error}</p>
+                  <button
+                    onClick={() => user && refreshNotifications(Number(user.id))}
+                    className="text-xs text-primary font-bold hover:underline cursor-pointer"
                   >
-                    <div className="mt-0.5">
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                          n.type === "booking"
-                            ? "bg-green-500/10 text-green-500"
-                            : n.type === "security"
-                            ? "bg-rose-500/10 text-rose-500"
-                            : "bg-primary/10 text-primary"
-                        }`}
-                      >
-                        {n.type === "booking" && <Bike className="h-4 w-4" />}
-                        {n.type === "payment" && <CreditCard className="h-4 w-4" />}
-                        {n.type === "security" && <ShieldAlert className="h-4 w-4" />}
+                    Retry Loading
+                  </button>
+                </div>
+              ) : unreadNotifications.length > 0 ? (
+                unreadNotifications.map((n) => {
+                  const { icon, style } = getNotificationIconAndStyle(n.notificationType);
+                  return (
+                    <div
+                      key={n.notificationId}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`flex items-start gap-3.5 p-4 transition-colors duration-200 cursor-pointer hover:bg-accent/40 ${
+                        !n.isRead ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <div className="mt-0.5">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${style}`}
+                        >
+                          {icon}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className={`text-sm font-semibold leading-none ${!n.read ? "text-foreground font-bold" : "text-muted-foreground"}`}>
-                          {n.title}
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p
+                            className={`text-sm font-semibold leading-none ${
+                              !n.isRead ? "text-foreground font-bold" : "text-muted-foreground"
+                            }`}
+                          >
+                            {n.title}
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatRelativeTime(n.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-normal">
+                          {n.message}
                         </p>
-                        <span className="text-[10px] text-muted-foreground">{n.time}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-normal">
-                        {n.description}
-                      </p>
-                    </div>
 
-                    {!n.read && (
-                      <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0" />
-                    )}
-                  </div>
-                ))
+                      {!n.isRead && (
+                        <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0" />
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   No new dashboard alerts.
@@ -154,7 +254,13 @@ export default function HeaderNotification() {
             </div>
 
             <div className="border-t border-border px-5 py-3 text-center bg-muted/10">
-              <button className="text-xs font-semibold text-primary hover:underline w-full">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate(`/${(user?.role || "CUSTOMER").toLowerCase()}/notification`);
+                }}
+                className="text-xs font-semibold text-primary hover:underline w-full cursor-pointer"
+              >
                 View all notifications
               </button>
             </div>

@@ -50,7 +50,7 @@ export default function OwnerBookings() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
-    const [sortBy, setSortBy] = useState("date-desc");
+    const [sortBy, setSortBy] = useState("request-desc");
     const [page, setPage] = useState(1);
     
     const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -128,14 +128,6 @@ export default function OwnerBookings() {
 
     // --- Search, Filter & Sort Logic ---
     const filtered = bookingRequests.filter((b) => {
-        const refTimeStr = b.updatedAt || b.createdAt || b.pickupDate;
-        if (refTimeStr) {
-            const t = new Date(refTimeStr).getTime();
-            if (!isNaN(t) && (Date.now() - t > 24 * 60 * 60 * 1000)) {
-                return false; // Auto-delete / expire requests & buttons after 24 hours
-            }
-        }
-
         const matchesSearch = 
             b.bikeName.toLowerCase().includes(search.toLowerCase()) ||
             b.customerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -149,6 +141,30 @@ export default function OwnerBookings() {
     });
 
     const sorted = [...filtered].sort((a, b) => {
+        if (sortBy === "request-desc") {
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (timeA !== timeB) return timeB - timeA;
+            return b.bookingId - a.bookingId;
+        }
+        if (sortBy === "request-asc") {
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (timeA !== timeB) return timeA - timeB;
+            return a.bookingId - b.bookingId;
+        }
+        if (sortBy === "today-onwards") {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const timeA = new Date(a.pickupDate).getTime();
+            const timeB = new Date(b.pickupDate).getTime();
+            const isUpcomingA = timeA >= today.getTime();
+            const isUpcomingB = timeB >= today.getTime();
+            if (isUpcomingA && !isUpcomingB) return -1;
+            if (!isUpcomingA && isUpcomingB) return 1;
+            if (isUpcomingA && isUpcomingB) return timeA - timeB;
+            return timeB - timeA;
+        }
         if (sortBy === "date-desc") {
             return new Date(b.pickupDate).getTime() - new Date(a.pickupDate).getTime();
         }
@@ -231,8 +247,11 @@ export default function OwnerBookings() {
                                 onChange={(e) => setSortBy(e.target.value)}
                                 className="px-3 py-2 border border-border bg-background text-foreground text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
                             >
-                                <option value="date-desc">Newest First</option>
-                                <option value="date-asc">Oldest First</option>
+                                <option value="request-desc">Newest Request First</option>
+                                <option value="request-asc">Oldest Request First</option>
+                                <option value="date-desc">Ride Date (Newest First)</option>
+                                <option value="date-asc">Ride Date (Oldest First)</option>
+                                <option value="today-onwards">Ride Date (Upcoming First)</option>
                                 <option value="amount-desc">Price (High to Low)</option>
                                 <option value="amount-asc">Price (Low to High)</option>
                             </select>

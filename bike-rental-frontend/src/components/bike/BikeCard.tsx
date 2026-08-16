@@ -166,11 +166,13 @@ const BikeCard = ({
             <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
               {bike.brand}
             </span>
-            {typeof rating === "number" && (
+            {typeof rating === "number" && rating > 0 ? (
               <div className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
                 <span>{rating.toFixed(1)}</span>
               </div>
+            ) : (
+              <span className="text-[10px] font-semibold text-muted-foreground">Not rated</span>
             )}
           </div>
           <div>

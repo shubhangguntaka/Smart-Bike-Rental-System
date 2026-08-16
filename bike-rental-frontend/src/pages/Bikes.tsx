@@ -12,6 +12,7 @@ import { verifyAadhaar, verifyDrivingLicense } from "@/services/verificationServ
 import { BookingService } from "@/services/bookingService";
 import api from "@/api/axios";
 import useAuth from "@/hooks/useAuth";
+import { useLocation } from "@/hooks/useLocation";
 import type { Bike } from "@/types/bike";
 import { format12Hour, isBikeAvailableNow, getShiftState } from "@/utils/timeUtils";
 import { ROUTES } from "@/constants/routes";
@@ -60,6 +61,7 @@ const FILTER_CONFIGS: FilterField[] = [
 
 export default function Bikes() {
   const { user } = useAuth();
+  const { nearbyBikes } = useLocation();
   const navigate = useNavigate();
   useBikeSse();
 
@@ -67,6 +69,7 @@ export default function Bikes() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, any>>({});
+  const [sortBy, setSortBy] = useState("distance-asc");
   const [page, setPage] = useState(1);
 
   // Booking & Verification Modals
@@ -395,9 +398,50 @@ export default function Bikes() {
     return true;
   });
 
+  const sortedBikes = [...filteredBikes].map(b => {
+    const nearbyMatch = (nearbyBikes ?? []).find(nb => Number(nb.bikeId) === Number(b.bikeId || b.id));
+    return {
+      ...b,
+      distance: nearbyMatch ? nearbyMatch.distance : b.distance
+    };
+  }).sort((a, b) => {
+    if (sortBy === "distance-asc") {
+      const dA = a.distance ?? 99999;
+      const dB = b.distance ?? 99999;
+      return dA - dB;
+    }
+    if (sortBy === "distance-desc") {
+      const dA = a.distance ?? 0;
+      const dB = b.distance ?? 0;
+      return dB - dA;
+    }
+    if (sortBy === "price-asc") {
+      const pA = Number(a.hourlyRate || a.rentalPrice || a.price || 0);
+      const pB = Number(b.hourlyRate || b.rentalPrice || b.price || 0);
+      return pA - pB;
+    }
+    if (sortBy === "price-desc") {
+      const pA = Number(a.hourlyRate || a.rentalPrice || a.price || 0);
+      const pB = Number(b.hourlyRate || b.rentalPrice || b.price || 0);
+      return pB - pA;
+    }
+    if (sortBy === "rating-desc") {
+      const rA = a.rating || 0;
+      const rB = b.rating || 0;
+      return rB - rA;
+    }
+    if (sortBy === "name-asc") {
+      return (a.name || a.bikeName || "").localeCompare(b.name || b.bikeName || "");
+    }
+    if (sortBy === "name-desc") {
+      return (b.name || b.bikeName || "").localeCompare(a.name || a.bikeName || "");
+    }
+    return 0;
+  });
+
   const itemsPerPage = 9;
-  const totalPages = Math.ceil(filteredBikes.length / itemsPerPage);
-  const paginatedBikes = filteredBikes.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.ceil(sortedBikes.length / itemsPerPage);
+  const paginatedBikes = sortedBikes.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const handleBookClick = async (bike: any) => {
     if (!user) {
@@ -639,13 +683,32 @@ export default function Bikes() {
 
       {/* Search and Filters Section */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
           <SearchBar
             value={search}
             onChange={handleSearch}
             placeholder="Search by ride name, brand, model, or location..."
             width="w-full sm:max-w-md"
           />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">Sort By:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border border-border bg-background text-foreground text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer w-full sm:w-auto"
+            >
+              <option value="distance-asc">Nearest First (Distance ↑)</option>
+              <option value="distance-desc">Farthest First (Distance ↓)</option>
+              <option value="name-asc">Name: A to Z</option>
+              <option value="name-desc">Name: Z to A</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="rating-desc">Rating: High to Low</option>
+            </select>
+          </div>
         </div>
         <FilterBar
           filters={FILTER_CONFIGS}
@@ -684,8 +747,11 @@ export default function Bikes() {
                       compact
                     />
                   </div>
-                  <div className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm">
-                    {bike.location}
+                  <div 
+                    className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm max-w-[125px] sm:max-w-[145px]"
+                    title={bike.location}
+                  >
+                    <span className="truncate block">{bike.location}</span>
                   </div>
                 </div>
 

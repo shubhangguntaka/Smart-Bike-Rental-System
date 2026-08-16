@@ -136,7 +136,9 @@ public class BikeController {
         BikeDTO updated = bikeService.updateBike(bikeId, bikeDTO);
         try {
             sseService.broadcast(updated);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(BikeController.class).warn("Failed to broadcast SSE update for bike {}: {}", bikeId, e.getMessage());
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -150,7 +152,9 @@ public class BikeController {
                 bikeService.deleteBike(bikeId);
                 try {
                         sseService.broadcast(java.util.Map.of("deletedBikeId", bikeId));
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                        org.slf4j.LoggerFactory.getLogger(BikeController.class).warn("Failed to broadcast SSE delete for bike {}: {}", bikeId, e.getMessage());
+                }
         return ResponseEntity.ok(
                 ApiResponse.success("Bike deleted successfully.", "OK"));
     }

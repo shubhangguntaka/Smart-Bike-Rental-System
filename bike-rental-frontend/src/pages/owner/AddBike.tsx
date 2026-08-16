@@ -137,14 +137,19 @@ const AddBike = () => {
   // Final Registration API Call
   const registerBikeFinal = async (regNumOverride?: string) => {
     setSaving(true);
-    const activeOwnerId = ownerId || user?.id || 17;
+    const activeOwnerId = ownerId || user?.id;
+    if (!activeOwnerId) {
+      toast.error("Authentication required to register bike.");
+      setSaving(false);
+      return;
+    }
 
-    const name = (bikeDraft?.bikeName && bikeDraft.bikeName.trim()) || "KTM Duke 390";
-    const brandStr = (bikeDraft?.brand && bikeDraft.brand.trim()) || "KTM";
-    const modelStr = (bikeDraft?.model && bikeDraft.model.trim()) || "Duke 390";
+    const name = (bikeDraft?.bikeName && bikeDraft.bikeName.trim()) || "Bike";
+    const brandStr = (bikeDraft?.brand && bikeDraft.brand.trim()) || "Brand";
+    const modelStr = (bikeDraft?.model && bikeDraft.model.trim()) || "Model";
     const fuelStr = (bikeDraft?.fuelType && bikeDraft.fuelType.trim()) || "PETROL";
-    const locStr = (bikeDraft?.location && bikeDraft.location.trim()) || "Hyderabad";
-    const reg = (regNumOverride || (bikeDraft?.registrationNumber && bikeDraft.registrationNumber.trim()) || "TS09AB1234").toUpperCase();
+    const locStr = (bikeDraft?.location && bikeDraft.location.trim()) || "City Center";
+    const reg = (regNumOverride || (bikeDraft?.registrationNumber && bikeDraft.registrationNumber.trim()) || "").toUpperCase();
     const rcStr = (bikeDraft?.rcNumber && bikeDraft.rcNumber.trim()) || reg;
 
     const rate = bikeDraft?.hourlyRate && bikeDraft.hourlyRate > 0 ? bikeDraft.hourlyRate : 80;
@@ -163,6 +168,8 @@ const AddBike = () => {
       rcNumber: rcStr,
       fuelType: fuelStr,
       location: locStr,
+      latitude: bikeDraft?.latitude ?? undefined,
+      longitude: bikeDraft?.longitude ?? undefined,
       hourlyRate: rate,
       rentalPrice: rentalPrice,
       rcVerified: true,

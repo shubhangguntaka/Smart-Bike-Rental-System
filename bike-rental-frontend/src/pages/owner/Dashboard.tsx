@@ -153,14 +153,6 @@ export default function OwnerDashboard() {
             time: isRcVerified ? "Approved" : "Pending RC",
             icon: isRcVerified ? ShieldCheck : ShieldAlert,
             color: isRcVerified ? "text-green-500 bg-green-500/10" : "text-amber-500 bg-amber-500/10"
-        },
-        {
-            id: 3,
-            title: "Payout Account Configured",
-            desc: "Razorpay escrow payouts mapped to primary bank account.",
-            time: "2 days ago",
-            icon: CreditCard,
-            color: "text-indigo-500 bg-indigo-500/10"
         }
     ];
 
@@ -275,7 +267,7 @@ export default function OwnerDashboard() {
                             {/* Verification CTA */}
                             {(!isAadhaarVerified || !isRcVerified) && (
                                 <Link 
-                                    to="/bike-verification"
+                                    to="/owner/documents"
                                     className="w-full py-2.5 px-4 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 focus:outline-none"
                                 >
                                     <span>Complete Verification</span>
@@ -309,7 +301,7 @@ export default function OwnerDashboard() {
                             </Link>
 
                             <Link 
-                                to="/bike-verification" 
+                                to="/owner/documents" 
                                 className="flex flex-col items-center justify-center p-4 bg-muted/20 hover:bg-primary/10 border border-border rounded-xl text-center transition-all duration-200 group focus:outline-none"
                             >
                                 <FileText className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />

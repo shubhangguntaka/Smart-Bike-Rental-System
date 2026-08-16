@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
-import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
+import { useNotification } from "@/hooks/useNotification";
 
 interface SidebarItemProps {
   item: {
@@ -14,6 +14,8 @@ interface SidebarItemProps {
 
 export default function SidebarItem({ item, collapsed, onNavigate }: SidebarItemProps) {
   const Icon = item.icon;
+  const { unreadCount } = useNotification();
+  const isNotifications = item.label.toLowerCase() === "notifications";
 
   return (
     <NavLink
@@ -30,12 +32,25 @@ export default function SidebarItem({ item, collapsed, onNavigate }: SidebarItem
     >
       {({ isActive }) => (
         <>
-          <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-105" />
+          <div className="relative">
+            <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-105" />
+            {isNotifications && unreadCount > 0 && collapsed && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </div>
 
           {/* Label, hidden when collapsed */}
           {!collapsed && (
             <span className="truncate">
               {item.label}
+            </span>
+          )}
+
+          {!collapsed && isNotifications && unreadCount > 0 && (
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-black text-destructive-foreground">
+              {unreadCount}
             </span>
           )}
 

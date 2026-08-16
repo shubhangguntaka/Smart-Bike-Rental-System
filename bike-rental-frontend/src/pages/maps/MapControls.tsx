@@ -15,10 +15,7 @@ export default function MapControls() {
 
   const handleRefresh = async () => {
     getCurrentLocation();
-    
-    setTimeout(() => {
-      getNearbyBikes();
-    }, 500);
+    getNearbyBikes();
   };
 
   return (
@@ -34,33 +31,29 @@ export default function MapControls() {
           w-[150px]
           items-center
           gap-2.5
-          rounded-lg
+          rounded-xl
           border
           border-border
           bg-card
           px-3
-          text-sm
-          font-medium
+          text-xs
+          font-bold
           text-foreground
           shadow-md
           transition-all
           duration-200
-          hover:bg-primary
-          hover:text-white
-          hover:shadow-lg
+          hover:bg-muted
+          hover:text-primary
           active:scale-[0.98]
           cursor-pointer
         "
       >
         <LocateFixed
-          size={18}
+          size={16}
           strokeWidth={2}
-          className="shrink-0"
+          className="shrink-0 text-primary"
         />
-
-        <span>
-          Locate Me
-        </span>
+        <span>Locate Me</span>
       </button>
 
       {/* Refresh Bikes */}
@@ -73,34 +66,29 @@ export default function MapControls() {
           w-[150px]
           items-center
           gap-2.5
-          rounded-lg
+          rounded-xl
           border
           border-border
           bg-card
           px-3
-          text-sm
-          font-medium
+          text-xs
+          font-bold
           text-foreground
           shadow-md
           transition-all
           duration-200
-          hover:bg-primary
-          hover:text-white
+          hover:bg-muted
           hover:text-primary
-          hover:shadow-lg
           active:scale-[0.98]
           cursor-pointer
         "
       >
         <RotateCw
-          size={18}
+          size={16}
           strokeWidth={2}
-          className="shrink-0"
+          className="shrink-0 text-primary"
         />
-
-        <span>
-          Refresh Bikes
-        </span>
+        <span>Refresh Bikes</span>
       </button>
 
       {/* Clear Route */}
@@ -113,34 +101,29 @@ export default function MapControls() {
           w-[150px]
           items-center
           gap-2.5
-          rounded-lg
+          rounded-xl
           border
           border-border
           bg-card
           px-3
-          text-sm
-          font-medium
+          text-xs
+          font-bold
           text-foreground
           shadow-md
           transition-all
           duration-200
-          hover:bg-destructive
-          hover:text-white
+          hover:bg-destructive/10
           hover:text-destructive
-          hover:shadow-lg
           active:scale-[0.98]
           cursor-pointer
         "
       >
         <XCircle
-          size={18}
+          size={16}
           strokeWidth={2}
-          className="shrink-0"
+          className="shrink-0 text-destructive"
         />
-
-        <span>
-          Clear Route
-        </span>
+        <span>Clear Route</span>
       </button>
 
     </div>

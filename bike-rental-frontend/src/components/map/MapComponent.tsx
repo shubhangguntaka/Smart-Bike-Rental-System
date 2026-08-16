@@ -34,13 +34,26 @@ function ChangeView({
     latitude,
     longitude,
 }: {
-    latitude: number;
-    longitude: number;
+    latitude?: number | null;
+    longitude?: number | null;
 }) {
     const map = useMap();
 
     useEffect(() => {
-        map.setView([latitude, longitude], 14);
+        if (
+            typeof latitude === "number" &&
+            typeof longitude === "number" &&
+            !isNaN(latitude) &&
+            !isNaN(longitude) &&
+            latitude !== 0 &&
+            longitude !== 0
+        ) {
+            try {
+                map.setView([latitude, longitude], 14);
+            } catch (err) {
+                console.warn("Leaflet setView error avoided:", err);
+            }
+        }
     }, [latitude, longitude, map]);
 
     return null;
@@ -60,52 +73,28 @@ export default function MapComponent({ bikes, searchedLocation }: MapComponentPr
         currentLocation,
         nearbyBikes,
         route,
-
-        selectedBikeId,
         setSelectedBikeId,
-
-
         getRoute,
-        getCurrentLocation,
-        getNearbyBikes,
     } = useLocation();
 
     const displayBikes = bikes ?? nearbyBikes;
 
-    useEffect(() => {
-        getCurrentLocation();
-    }, []);
-
-    useEffect(() => {
-        if (currentLocation) {
-            getNearbyBikes();
-        }
-    }, [currentLocation]);
-
-    if (!currentLocation) {
-        return (
-            <div className="flex h-[80vh] items-center justify-center">
-                Getting your location...
-            </div>
-        );
-    }
+    const activeLat = searchedLocation?.latitude ?? currentLocation?.latitude ?? 17.3850;
+    const activeLng = searchedLocation?.longitude ?? currentLocation?.longitude ?? 78.4867;
 
     return (
         <MapContainer
-            center={[
-                currentLocation.latitude,
-                currentLocation.longitude,
-            ]}
+            center={[activeLat, activeLng]}
             zoom={14}
             style={{
-                height: "80vh",
+                height: "100%",
                 width: "100%",
                 zIndex: 0,
             }}
         >
             <ChangeView
-                latitude={searchedLocation?.latitude ?? currentLocation.latitude}
-                longitude={searchedLocation?.longitude ?? currentLocation.longitude}
+                latitude={searchedLocation?.latitude ?? currentLocation?.latitude}
+                longitude={searchedLocation?.longitude ?? currentLocation?.longitude}
             />
 
             <TileLayer
@@ -115,10 +104,10 @@ export default function MapComponent({ bikes, searchedLocation }: MapComponentPr
 
             {/* User Marker */}
             {currentLocation &&
-              !isNaN(Number(currentLocation.latitude)) &&
-              !isNaN(Number(currentLocation.longitude)) &&
               currentLocation.latitude !== null &&
-              currentLocation.longitude !== null && (
+              currentLocation.longitude !== null &&
+              !isNaN(Number(currentLocation.latitude)) &&
+              !isNaN(Number(currentLocation.longitude)) && (
                 <Marker
                     position={[
                         Number(currentLocation.latitude),

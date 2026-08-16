@@ -9,7 +9,9 @@ import {
   Navigation,
   Battery,
   Zap,
+  Eye,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import BikeAvailability from "@/components/bike/BikeAvailability";
 import { format12Hour } from "@/utils/timeUtils";
@@ -28,6 +30,7 @@ export default function BikeDetailsModal({
   bike: rawBike,
   onRentNow,
 }: BikeDetailsModalProps) {
+  const navigate = useNavigate();
   if (!rawBike) return null;
 
   const bike = normalizeBike(rawBike);
@@ -275,6 +278,17 @@ export default function BikeDetailsModal({
           className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-xl border border-border hover:bg-muted text-foreground transition-all cursor-pointer"
         >
           Close Details
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            const bId = bike.id || bike.bikeId;
+            navigate(`/customer/bike/${bId}`);
+          }}
+          className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-xl border border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+        >
+          <Eye className="h-3.5 w-3.5 text-primary" /> Full Details & Reviews
         </button>
         <a
           href={googleMapsUrl}

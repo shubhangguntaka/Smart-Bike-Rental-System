@@ -14,6 +14,7 @@ export const ROUTES = {
     BASE: "/customer",
     DASHBOARD: "/customer/dashboard",
     BIKES: "/customer/bikes",
+    BIKE_DETAILS: (id: number | string) => `/customer/bikes/${id}`,
     BOOKINGS: "/customer/bookings",
     PROFILE: "/customer/profile",
     SETTINGS: "/customer/settings",

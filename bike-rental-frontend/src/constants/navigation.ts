@@ -14,6 +14,8 @@ import {
   FileText,
   MapPin,
   Compass,
+  QrCode,
+  Bell,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
@@ -78,6 +80,11 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
         path: "/customer/bookings",
         icon: CalendarDays,
       },
+      {
+        label: "Notifications",
+        path: "/customer/notification",
+        icon: Bell,
+      },
     ],
   },
   {
@@ -118,14 +125,19 @@ export const OWNER_SIDEBAR: SidebarSection[] = [
         icon: Bike,
       },
       {
-        label: "Bookings",
+        label: "Booking Requests",
         path: "/owner/bookings",
         icon: CalendarDays,
       },
       {
-        label: "Payments",
+        label: "Earnings",
         path: "/owner/payments",
         icon: CreditCard,
+      },
+      {
+        label: "Notifications",
+        path: "/owner/notification",
+        icon: Bell,
       },
     ],
   },
@@ -180,6 +192,11 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         label: "Verification",
         path: "/admin/verification",
         icon: ShieldCheck,
+      },
+      {
+        label: "Notifications",
+        path: "/admin/notification",
+        icon: Bell,
       },
     ],
   },

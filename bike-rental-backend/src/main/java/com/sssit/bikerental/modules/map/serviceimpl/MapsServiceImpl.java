@@ -1,5 +1,6 @@
 package com.sssit.bikerental.modules.map.serviceimpl;
 
+import com.sssit.bikerental.common.exception.ResourceNotFoundException;
 import com.sssit.bikerental.modules.bike.entity.Bike;
 import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 import com.sssit.bikerental.modules.bike.repository.BikeRepository;
@@ -9,25 +10,30 @@ import com.sssit.bikerental.modules.map.dto.NearbyBikeDTO;
 import com.sssit.bikerental.modules.map.dto.RouteResponseDTO;
 import com.sssit.bikerental.modules.map.service.MapsService;
 import com.sssit.bikerental.modules.map.utils.DistanceCalculator;
+import com.sssit.bikerental.modules.user.User;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class MapsServiceImpl implements MapsService {
 
     private final BikeRepository bikeRepository;
-    
+    private final UserRepository userRepository;
     private final RestTemplate restTemplate;
 
-
+    private static final double DEFAULT_MAX_RADIUS_KM = 50.0;
 
     private boolean isNotExpiredFromPast(java.time.LocalDate availableDate) {
         if (availableDate == null) {
@@ -42,26 +48,40 @@ public class MapsServiceImpl implements MapsService {
             double latitude,
             double longitude) {
 
-        // Include all bikes from repository so owner-added listings are visible
-        // to customers in the nearby bikes feed. We still filter out bikes
-        // whose availableDate is in the past below.
-        List<Bike> bikes = bikeRepository.findAll().stream()
+        List<Bike> allBikes = bikeRepository.findAll();
+
+        return allBikes.stream()
+                .filter(bike -> bike != null)
+                .filter(bike -> bike.getLatitude() != null && bike.getLongitude() != null)
                 .filter(bike -> isNotExpiredFromPast(bike.getAvailableDate()))
-                .collect(Collectors.toList());
-
-        return bikes.stream()
                 .map(bike -> {
-
-                    double distance =
-                            DistanceCalculator.calculateDistance(
-                                    latitude,
-                                    longitude,
-                                    bike.getLatitude() != null ? bike.getLatitude() : 0.0,
-                                    bike.getLongitude() != null ? bike.getLongitude() : 0.0
-                            );
+                    double distance = 0.0;
+                    if (bike.getLatitude() != null && bike.getLongitude() != null) {
+                        distance = DistanceCalculator.calculateDistance(
+                                latitude,
+                                longitude,
+                                bike.getLatitude(),
+                                bike.getLongitude()
+                        );
+                    } else {
+                        // If bike has no valid coordinates, mark distance as unavailable (null)
+                        distance = -1.0;
+                    }
 
                     boolean isAvailable = bike.getBikeStatus() == BikeStatus.AVAILABLE && isWithinOperatingWindow(
                             bike.getAvailableStartTime(), bike.getAvailableEndTime(), bike.getAvailableDate());
+
+                    String ownerName = "Bike Owner";
+                    if (bike.getOwnerId() != null) {
+                        try {
+                            User owner = userRepository.findById(bike.getOwnerId()).orElse(null);
+                            if (owner != null && owner.getFullName() != null && !owner.getFullName().isBlank()) {
+                                ownerName = owner.getFullName();
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to fetch owner details for ownerId {}: {}", bike.getOwnerId(), e.getMessage());
+                        }
+                    }
 
                     return NearbyBikeDTO.builder()
                             .bikeId(bike.getBikeId())
@@ -80,55 +100,54 @@ public class MapsServiceImpl implements MapsService {
                             .rentalPrice(bike.getRentalPrice() != null ? bike.getRentalPrice().doubleValue() : 0.0)
                             .latitude(bike.getLatitude())
                             .longitude(bike.getLongitude())
-                            .distance(distance)
+                            .distance(distance >= 0 ? distance : null)
                             .imageUrl(bike.getImageUrl())
                             .available(isAvailable)
                             .availableStartTime(bike.getAvailableStartTime() != null ? bike.getAvailableStartTime().toString() : "09:00")
                             .availableEndTime(bike.getAvailableEndTime() != null ? bike.getAvailableEndTime().toString() : "21:00")
                             .availableDate(bike.getAvailableDate() != null ? bike.getAvailableDate().toString() : java.time.LocalDate.now().toString())
-                            .ownerName("Shiva Sai Kalyan Kalyan")
+                            .ownerName(ownerName)
                             .build();
 
                 })
+                // Filter out bikes beyond the configured radius if they have valid distance
+                .filter(b -> b.getDistance() == null || b.getDistance() <= DEFAULT_MAX_RADIUS_KM)
                 .sorted(Comparator.comparingDouble(b -> b.getDistance() != null ? b.getDistance() : Double.MAX_VALUE))
                 .collect(Collectors.toList());
     }
 
-        private boolean isWithinOperatingWindow(java.time.LocalTime start, java.time.LocalTime end, java.time.LocalDate date) {
-                try {
-                        java.time.LocalDate today = java.time.LocalDate.now();
-                        if (date != null && date.isBefore(today)) {
-                                return false;
-                        }
-                        // If date is specified and it's after today, treat as not active yet
-                        if (date != null && date.isAfter(today)) {
-                                return false;
-                        }
+    private boolean isWithinOperatingWindow(java.time.LocalTime start, java.time.LocalTime end, java.time.LocalDate date) {
+        try {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            if (date != null && date.isBefore(today)) {
+                return false;
+            }
+            if (date != null && date.isAfter(today)) {
+                return false;
+            }
 
-                        if (start == null || end == null) {
-                                return true;
-                        }
+            if (start == null || end == null) {
+                return true;
+            }
 
-                        java.time.LocalTime now = java.time.LocalTime.now();
+            java.time.LocalTime now = java.time.LocalTime.now();
 
-                        if (!start.isAfter(end)) {
-                                // simple same-day window
-                                return !now.isBefore(start) && !now.isAfter(end);
-                        } else {
-                                // overnight window (e.g., 21:00 -> 05:00)
-                                return !now.isBefore(start) || !now.isAfter(end);
-                        }
-                } catch (Exception e) {
-                        return true;
-                }
+            if (!start.isAfter(end)) {
+                return !now.isBefore(start) && !now.isAfter(end);
+            } else {
+                return !now.isBefore(start) || !now.isAfter(end);
+            }
+        } catch (Exception e) {
+            return true;
         }
+    }
 
     @Override
     public BikeLocationDTO getBikeLocation(Long bikeId) {
 
         Bike bike = bikeRepository.findById(bikeId)
                 .orElseThrow(() ->
-                        new RuntimeException("Bike not found"));
+                        new ResourceNotFoundException("Bike not found with ID: " + bikeId));
 
         return BikeLocationDTO.builder()
                 .bikeId(bike.getBikeId())
@@ -145,7 +164,11 @@ public class MapsServiceImpl implements MapsService {
 
         Bike bike = bikeRepository.findById(bikeId)
                 .orElseThrow(() ->
-                        new RuntimeException("Bike not found"));
+                        new ResourceNotFoundException("Bike not found with ID: " + bikeId));
+
+        if (bike.getLatitude() == null || bike.getLongitude() == null) {
+            throw new ResourceNotFoundException("Location coordinates unavailable for bike ID: " + bikeId);
+        }
 
         double distance =
                 DistanceCalculator.calculateDistance(
@@ -170,7 +193,11 @@ public class MapsServiceImpl implements MapsService {
             Long bikeId) {
 
         Bike bike = bikeRepository.findById(bikeId)
-                .orElseThrow(() -> new RuntimeException("Bike not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Bike not found with ID: " + bikeId));
+
+        if (bike.getLatitude() == null || bike.getLongitude() == null) {
+            throw new ResourceNotFoundException("Location coordinates unavailable for bike ID: " + bikeId);
+        }
 
         try {
 
@@ -227,7 +254,7 @@ public class MapsServiceImpl implements MapsService {
 
         catch (Exception e) {
 
-            throw new RuntimeException("Unable to fetch route", e);
+            throw new RuntimeException("Unable to fetch route: " + e.getMessage(), e);
 
         }
 

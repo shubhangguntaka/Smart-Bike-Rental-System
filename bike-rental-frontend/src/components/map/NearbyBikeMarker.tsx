@@ -37,7 +37,7 @@ export default function NearbyBikeMarker({
   const lat = Number(bike?.latitude);
   const lng = Number(bike?.longitude);
 
-  if (!bike || isNaN(lat) || isNaN(lng) || bike.latitude === null || bike.longitude === null) {
+  if (!bike || isNaN(lat) || isNaN(lng) || bike.latitude === null || bike.longitude === null || lat === 0 || lng === 0) {
     return null;
   }
 
@@ -99,7 +99,9 @@ export default function NearbyBikeMarker({
                 </span>
 
                 <span className="text-sm font-semibold text-foreground">
-                  {bike.distance?.toFixed(1) ?? "0"} km
+                  {bike.distance !== undefined && bike.distance !== null && bike.distance >= 0
+                    ? `${bike.distance.toFixed(1)} km`
+                    : "N/A"}
                 </span>
               </div>
             </div>

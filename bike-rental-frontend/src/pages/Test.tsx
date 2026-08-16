@@ -8,15 +8,15 @@ function Test() {
       <div className="flex flex-col items-center gap-4">
         <button
           className="rounded-md bg-primary px-4 py-2 text-white"
-          onClick={() => navigate("/verification")}
+          onClick={() => navigate("/customer/verification")}
         >
           Go to Document Verification
         </button>
         <button
           className="rounded-md bg-primary px-4 py-2 text-white"
-          onClick={() => navigate("/bike-verification")}
+          onClick={() => navigate("/owner/documents")}
         >
-          Go to Bike Document Verification
+          Go to Owner Document Verification
         </button>
       </div>
     </div>

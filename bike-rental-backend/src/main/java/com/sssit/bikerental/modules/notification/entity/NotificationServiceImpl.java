@@ -37,16 +37,16 @@ public class NotificationServiceImpl implements NotificationService {
                         new RuntimeException("Notification not found with id: " + notificationId));
     }
 
-    // Get Notifications By User
+    // Get Notifications By User (Latest -> Oldest)
     @Override
     public List<Notification> getNotificationsByUser(Long userId) {
-        return notificationRepository.findByUserId(userId);
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    // Get Unread Notifications
+    // Get Unread Notifications (Latest -> Oldest)
     @Override
     public List<Notification> getUnreadNotifications(Long userId) {
-        return notificationRepository.findByUserIdAndIsReadFalse(userId);
+        return notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
     }
 
     // Mark Notification As Read

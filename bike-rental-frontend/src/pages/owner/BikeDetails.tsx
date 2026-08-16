@@ -18,6 +18,7 @@ import bikeService from "@/services/bikeService";
 import type { Bike } from "@/types/bike";
 import BikeAvailability from "@/components/bike/BikeAvailability";
 import DistanceCard from "@/components/map/DistanceCard";
+import ReviewList from "@/components/review/ReviewList";
 import { ROUTES } from "@/constants/routes";
 import { format12Hour } from "@/utils/timeUtils";
 
@@ -199,10 +200,10 @@ const BikeDetails = () => {
           {/* Location & Mini Map */}
           <DistanceCard
             bikeId={bike.bikeId}
-            latitude={bike.latitude || 17.385}
-            longitude={bike.longitude || 78.4867}
+            latitude={bike.latitude && bike.latitude !== 0 ? bike.latitude : undefined}
+            longitude={bike.longitude && bike.longitude !== 0 ? bike.longitude : undefined}
             locationName={bike.location}
-            showMiniMap={true}
+            showMiniMap={!!bike.latitude && !!bike.longitude && bike.latitude !== 0 && bike.longitude !== 0}
           />
         </div>
 
@@ -326,6 +327,12 @@ const BikeDetails = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Customer Reviews Section */}
+      <div className="pt-6 border-t border-border">
+        <h2 className="text-lg font-bold text-foreground mb-4">Customer Reviews & Ratings</h2>
+        <ReviewList bikeId={Number(bike.bikeId || bike.id || bikeId)} />
       </div>
     </div>
   );

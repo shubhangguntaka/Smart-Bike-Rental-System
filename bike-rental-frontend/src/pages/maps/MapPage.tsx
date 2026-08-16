@@ -37,8 +37,6 @@ const MAP_FILTERS: FilterField[] = [
       { label: "Yamaha", value: "Yamaha" },
       { label: "Honda", value: "Honda" },
       { label: "Hero", value: "Hero" },
-      { label: "Bajaj", value: "Bajaj" },
-      { label: "TVS", value: "TVS" },
       { label: "Ather", value: "Ather" },
       { label: "KTM", value: "KTM" },
     ],
@@ -46,9 +44,10 @@ const MAP_FILTERS: FilterField[] = [
 ];
 
 export default function MapPage() {
-  const { nearbyBikes, loading, refreshLocation } = useLocation();
+  const { nearbyBikes, loading, refreshLocation, getNearbyBikes } = useLocation();
   const [search, setSearch] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [sortBy, setSortBy] = useState("distance-asc");
 
   // Location search state
   const [searchedLocation, setSearchedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -77,9 +76,11 @@ export default function MapPage() {
       if (Array.isArray(data) && data.length > 0) {
         const lat = parseFloat(data[0].lat);
         const lon = parseFloat(data[0].lon);
-        setSearchedLocation({ latitude: lat, longitude: lon });
+        const newLoc = { latitude: lat, longitude: lon };
+        setSearchedLocation(newLoc);
+        getNearbyBikes(newLoc);
       } else {
-        setLocationError("No results found.");
+        setLocationError("No results found for location.");
       }
     } catch (err: any) {
       console.error("Geocoding failed:", err);
@@ -89,10 +90,22 @@ export default function MapPage() {
     }
   };
 
+  const handleResetToMyLocation = () => {
+    setSearchedLocation(null);
+    refreshLocation();
+  };
+
   const filteredBikes = useMemo(() => {
     const keyword = search.toLowerCase().trim();
 
-    return (nearbyBikes ?? []).filter((bike) => {
+    const list = (nearbyBikes ?? []).filter((bike) => {
+      if (bike.latitude == null || bike.longitude == null) return false;
+
+      // Only display rentable/available bikes
+      if (!bike.available || bike.bikeStatus !== "AVAILABLE") {
+        return false;
+      }
+
       const matchesSearch =
         !keyword ||
         bike.bikeName?.toLowerCase().includes(keyword) ||
@@ -106,13 +119,19 @@ export default function MapPage() {
         const [minP, maxP] = filterValues.maxPrice;
         const price = bike.rentalPrice || bike.hourlyRate || bike.price || 0;
         matchesPrice = price >= minP && price <= maxP;
+      } else if (typeof filterValues.maxPrice === "number" && filterValues.maxPrice > 0) {
+        const price = bike.rentalPrice || bike.hourlyRate || bike.price || 0;
+        matchesPrice = price <= filterValues.maxPrice;
       }
 
       let matchesDistance = true;
       if (Array.isArray(filterValues.maxDistance) && filterValues.maxDistance.length === 2 && filterValues.maxDistance[1] > 0) {
         const [minD, maxD] = filterValues.maxDistance;
-        const dist = bike.distance ?? 1.2;
+        const dist = bike.distance ?? 0;
         matchesDistance = dist >= minD && dist <= maxD;
+      } else if (typeof filterValues.maxDistance === "number" && filterValues.maxDistance > 0) {
+        const dist = bike.distance ?? 0;
+        matchesDistance = dist <= filterValues.maxDistance;
       }
 
       let matchesBrand = true;
@@ -124,7 +143,42 @@ export default function MapPage() {
 
       return matchesSearch && matchesPrice && matchesDistance && matchesBrand;
     });
-  }, [nearbyBikes, search, filterValues]);
+
+    return [...list].sort((a, b) => {
+      if (sortBy === "distance-asc") {
+        const dA = a.distance ?? 99999;
+        const dB = b.distance ?? 99999;
+        return dA - dB;
+      }
+      if (sortBy === "distance-desc") {
+        const dA = a.distance ?? 0;
+        const dB = b.distance ?? 0;
+        return dB - dA;
+      }
+      if (sortBy === "price-asc") {
+        const pA = a.rentalPrice || a.hourlyRate || 0;
+        const pB = b.rentalPrice || b.hourlyRate || 0;
+        return pA - pB;
+      }
+      if (sortBy === "price-desc") {
+        const pA = a.rentalPrice || a.hourlyRate || 0;
+        const pB = b.rentalPrice || b.hourlyRate || 0;
+        return pB - pA;
+      }
+      if (sortBy === "rating-desc") {
+        const rA = a.rating || 0;
+        const rB = b.rating || 0;
+        return rB - rA;
+      }
+      if (sortBy === "name-asc") {
+        return (a.bikeName || "").localeCompare(b.bikeName || "");
+      }
+      if (sortBy === "name-desc") {
+        return (b.bikeName || "").localeCompare(a.bikeName || "");
+      }
+      return 0;
+    });
+  }, [nearbyBikes, search, filterValues, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -186,7 +240,7 @@ export default function MapPage() {
       </div>
 
       {/* Interactive Map Wrapper with borders & shadow */}
-      <div className="relative h-[520px] w-full rounded-3xl overflow-hidden shadow-xl border border-border bg-background">
+      <div className="relative h-[420px] md:h-[500px] lg:h-[600px] w-full rounded-3xl overflow-hidden shadow-xl border border-border bg-background">
         <MapComponent bikes={filteredBikes} searchedLocation={searchedLocation} />
         <MapControls />
         <RouteInfoCard />
@@ -194,21 +248,45 @@ export default function MapPage() {
 
       {/* Nearby Bikes Grid Section */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-extrabold text-foreground">
-            Available Bikes Nearby ({filteredBikes.length})
-          </h2>
-          {filteredBikes.length === 0 && (
-            <button
-              onClick={() => {
-                setSearch("");
-                setFilterValues({});
-              }}
-              className="text-sm text-primary font-bold hover:underline cursor-pointer"
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+          <div>
+            <h2 className="text-2xl font-extrabold text-foreground">
+              Available Bikes Nearby ({filteredBikes.length})
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Default sorted by distance (Nearest → Farthest).
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-muted-foreground shrink-0">Sort By:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 shadow-xs cursor-pointer"
             >
-              Reset Filters
-            </button>
-          )}
+              <option value="distance-asc">Nearest First (Distance ↑)</option>
+              <option value="distance-desc">Farthest First (Distance ↓)</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="rating-desc">Rating: High to Low</option>
+              <option value="name-asc">Name: A to Z</option>
+              <option value="name-desc">Name: Z to A</option>
+            </select>
+
+            {filteredBikes.length === 0 && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setFilterValues({});
+                  setSortBy("distance-asc");
+                }}
+                className="text-xs text-primary font-bold hover:underline cursor-pointer ml-2"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
         </div>
 
         <AnimatePresence mode="popLayout">

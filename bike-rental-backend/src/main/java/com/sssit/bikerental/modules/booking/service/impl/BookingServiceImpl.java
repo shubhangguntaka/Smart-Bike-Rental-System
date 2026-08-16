@@ -153,6 +153,24 @@ public class BookingServiceImpl implements BookingService {
         booking = bookingRepository.save(booking);
         log.info("Booking record created with ID: {} and Status: {}. Waiting for owner confirmation.", booking.getId(), initialStatus);
 
+        // Send notification to bike owner about new booking request
+        if (bike.getOwnerId() != null) {
+            try {
+                Notification ownerNotif = Notification.builder()
+                        .userId(bike.getOwnerId())
+                        .title("New Booking Request")
+                        .message(String.format("A new booking request (BK-%d) has been placed for %s.", booking.getId(), bike.getBikeName()))
+                        .notificationType("BOOKING")
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                notificationService.sendNotification(ownerNotif);
+                log.info("Sent new booking request notification to owner: {}", bike.getOwnerId());
+            } catch (Exception e) {
+                log.error("Failed to send booking request notification to owner: {}", bike.getOwnerId(), e);
+            }
+        }
+
         return convertToResponse(booking);
     }
 
@@ -463,6 +481,35 @@ public class BookingServiceImpl implements BookingService {
         bike.setBikeStatus(BikeStatus.BOOKED);
         bikeRepository.save(bike);
 
+        // Send handover notifications to customer and owner
+        try {
+            // 1. Notification to customer
+            Notification custNotif = Notification.builder()
+                    .userId(savedBooking.getCustomerId())
+                    .title("Handover Confirmed")
+                    .message(String.format("Handover confirmed for booking BK-%d (%s). Your ride is now ACTIVE. Enjoy your ride!", savedBooking.getId(), bike.getBikeName()))
+                    .notificationType("BOOKING")
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            notificationService.sendNotification(custNotif);
+
+            // 2. Notification to owner
+            if (bike.getOwnerId() != null) {
+                Notification ownerNotif = Notification.builder()
+                        .userId(bike.getOwnerId())
+                        .title("Handover Successful")
+                        .message(String.format("Bike handover confirmed for booking BK-%d. Ride has started.", savedBooking.getId()))
+                        .notificationType("RIDE")
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                notificationService.sendNotification(ownerNotif);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send handover notifications for bookingId: {}", bookingId, e);
+        }
+
         log.info("Handover confirmed for bookingId: {} at {}", bookingId, savedBooking.getActualPickupTime());
         return convertToResponse(savedBooking);
     }
@@ -659,7 +706,9 @@ public class BookingServiceImpl implements BookingService {
             if (bike != null && bike.getLocation() != null) {
                 startLoc = bike.getLocation();
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.warn("Failed to retrieve bike location for booking {}: {}", booking.getId(), e.getMessage());
+        }
 
         // Calculate elapsed time since ride started (approximated by updatedAt)
         LocalDateTime startTime = booking.getUpdatedAt() != null ? booking.getUpdatedAt() : LocalDateTime.now().minusMinutes(5);

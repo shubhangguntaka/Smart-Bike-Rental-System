@@ -1,5 +1,6 @@
 package com.sssit.bikerental.modules.map.controller;
 
+import com.sssit.bikerental.common.response.ApiResponse;
 import com.sssit.bikerental.modules.map.dto.BikeLocationDTO;
 import com.sssit.bikerental.modules.map.dto.DistanceResponseDTO;
 import com.sssit.bikerental.modules.map.dto.NearbyBikeDTO;
@@ -23,12 +24,13 @@ public class MapsController {
      * Get all nearby bikes
      */
     @GetMapping("/nearby-bikes")
-    public ResponseEntity<List<NearbyBikeDTO>> getNearbyBikes(
+    public ResponseEntity<ApiResponse<List<NearbyBikeDTO>>> getNearbyBikes(
             @RequestParam double latitude,
             @RequestParam double longitude) {
 
+        List<NearbyBikeDTO> nearbyBikes = mapsService.getNearbyBikes(latitude, longitude);
         return ResponseEntity.ok(
-                mapsService.getNearbyBikes(latitude, longitude)
+                ApiResponse.success("Nearby bikes fetched successfully", nearbyBikes)
         );
     }
 
@@ -36,11 +38,12 @@ public class MapsController {
      * Get bike location
      */
     @GetMapping({"/bike/{bikeId}", "/bike-location/{bikeId}"})
-    public ResponseEntity<BikeLocationDTO> getBikeLocation(
+    public ResponseEntity<ApiResponse<BikeLocationDTO>> getBikeLocation(
             @PathVariable Long bikeId) {
 
+        BikeLocationDTO location = mapsService.getBikeLocation(bikeId);
         return ResponseEntity.ok(
-                mapsService.getBikeLocation(bikeId)
+                ApiResponse.success("Bike location fetched successfully", location)
         );
     }
 
@@ -48,18 +51,18 @@ public class MapsController {
      * Calculate distance
      */
     @GetMapping({"/distance", "/calculate-distance"})
-    public ResponseEntity<DistanceResponseDTO> calculateDistance(
-
+    public ResponseEntity<ApiResponse<DistanceResponseDTO>> calculateDistance(
             @RequestParam double customerLatitude,
             @RequestParam double customerLongitude,
             @RequestParam Long bikeId) {
 
+        DistanceResponseDTO distance = mapsService.calculateDistance(
+                customerLatitude,
+                customerLongitude,
+                bikeId
+        );
         return ResponseEntity.ok(
-                mapsService.calculateDistance(
-                        customerLatitude,
-                        customerLongitude,
-                        bikeId
-                )
+                ApiResponse.success("Distance calculated successfully", distance)
         );
     }
 
@@ -67,19 +70,18 @@ public class MapsController {
      * Get route
      */
     @GetMapping("/route")
-    public ResponseEntity<RouteResponseDTO> getRoute(
-
+    public ResponseEntity<ApiResponse<RouteResponseDTO>> getRoute(
             @RequestParam double customerLatitude,
             @RequestParam double customerLongitude,
             @RequestParam Long bikeId) {
 
+        RouteResponseDTO route = mapsService.getRoute(
+                customerLatitude,
+                customerLongitude,
+                bikeId
+        );
         return ResponseEntity.ok(
-                mapsService.getRoute(
-                        customerLatitude,
-                        customerLongitude,
-                        bikeId
-                )
+                ApiResponse.success("Route fetched successfully", route)
         );
     }
-
 }

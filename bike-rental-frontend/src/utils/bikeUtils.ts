@@ -45,31 +45,31 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
       bikeName: "Rental Bike",
       brand: "Smart Bike",
       model: "",
-      registrationNumber: "TS 09 AB 1234",
-      rcNumber: "TS 09 AB 1234",
+      registrationNumber: "",
+      rcNumber: "",
       type: "petrol",
       fuelType: "PETROL",
       price: 60,
       hourlyRate: 60,
       rentalPrice: 480,
-      location: "Hyderabad",
+      location: "City Center",
       image: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80",
       imageUrl: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80",
-      ownerName: "Shiva Sai Kalyan Kalyan",
+      ownerName: "Bike Owner",
       engineCapacity: "155 cc",
       mileage: "45 km/l",
       range: "45 km/l",
       transmission: "Manual",
       seatingCapacity: 2,
-      description: "TVS Radeon in excellent driving condition.",
+      description: "Rental bike in excellent condition.",
       availableStartTime: "09:00",
       availableEndTime: "21:00",
       availableDate: new Date().toISOString().split("T")[0],
       bikeStatus: "AVAILABLE",
       available: true,
-      latitude: 17.3850,
-      longitude: 78.4867,
-      rating: 4.9,
+      latitude: 0,
+      longitude: 0,
+      rating: 0,
     };
   }
 
@@ -84,13 +84,13 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
   const hourly = Math.round(Number(b.hourlyRate || (b.rentalPrice ? Number(b.rentalPrice) / 8 : b.price || 60)));
   const daily = Math.round(Number(b.rentalPrice || hourly * 8));
 
-  const regNo = b.registrationNumber || b.rcNumber || "TS 09 AB 1234";
+  const regNo = b.registrationNumber || b.rcNumber || "";
 
   // Check owner name
-  let owner = "Shiva Sai Kalyan Kalyan";
-  if (b.ownerName && b.ownerName.trim() && b.ownerName !== "Vehicle Owner" && b.ownerName !== "Registered Owner") {
+  let owner = "Bike Owner";
+  if (b.ownerName && b.ownerName.trim()) {
     owner = b.ownerName;
-  } else if (b.owner?.ownerName && b.owner.ownerName.trim() && b.owner.ownerName !== "Vehicle Owner") {
+  } else if (b.owner?.ownerName && b.owner.ownerName.trim()) {
     owner = b.owner.ownerName;
   }
 
@@ -119,7 +119,7 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
     price: hourly,
     hourlyRate: hourly,
     rentalPrice: daily,
-    location: b.location || "Hyderabad",
+    location: b.location || "City Center",
     image: imageRes,
     imageUrl: imageRes,
     ownerName: owner,
@@ -135,11 +135,11 @@ export function normalizeBike(b: any, index: number = 0): NormalizedBike {
     bikeStatus: statusStr,
     available: isAvail,
     isShiftPosted: b.isShiftPosted,
-    latitude: Number(b.latitude || 17.3850),
-    longitude: Number(b.longitude || 78.4867),
-    distance: b.distance !== undefined ? Number(b.distance) : undefined,
-    rating: Number(b.rating || 4.9),
-    ownerId: Number(b.ownerId || 17),
+    latitude: b.latitude !== null && b.latitude !== undefined ? Number(b.latitude) : 0,
+    longitude: b.longitude !== null && b.longitude !== undefined ? Number(b.longitude) : 0,
+    distance: b.distance !== undefined && b.distance !== null ? Number(b.distance) : undefined,
+    rating: b.rating ? Number(b.rating) : 0,
+    ownerId: b.ownerId ? Number(b.ownerId) : undefined,
     rcVerified: b.rcVerified !== undefined ? Boolean(b.rcVerified) : true,
   };
 }

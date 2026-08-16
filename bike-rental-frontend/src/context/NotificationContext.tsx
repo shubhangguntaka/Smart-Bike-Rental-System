@@ -25,39 +25,38 @@ interface Props {
   children: ReactNode;
 }
 
-export const NotificationProvider = ({ children }: Props) => {
+import useAuth from "@/hooks/useAuth";
 
+export const NotificationProvider = ({ children }: Props) => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const USER_ID = 1; // Replace with logged-in user id later
-
-  const refreshNotifications = async (userId: number) => {
+  const refreshNotifications = async (userId?: number, isSilent = false) => {
+    const targetUserId = userId || (user?.id ? Number(user.id) : null);
+    if (!targetUserId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
 
     try {
-
-      setLoading(true);
-
+      if (!isSilent) setLoading(true);
       const notificationList =
-        await notificationService.getNotificationsByUser(userId);
+        await notificationService.getNotificationsByUser(targetUserId);
 
       const unread =
-        await notificationService.getUnreadCount(userId);
+        await notificationService.getUnreadCount(targetUserId);
 
       setNotifications(notificationList);
       setUnreadCount(unread);
       setError("");
-
     } catch (err) {
-
       setError("Unable to load notifications.");
-
     } finally {
-
-      setLoading(false);
-
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -65,27 +64,33 @@ export const NotificationProvider = ({ children }: Props) => {
     id: number,
     userId: number
   ) => {
-
     await notificationService.markAsRead(id);
-
-    refreshNotifications(userId);
+    refreshNotifications(userId, true);
   };
 
   const deleteNotification = async (
     id: number,
     userId: number
   ) => {
-
     await notificationService.deleteNotification(id);
-
-    refreshNotifications(userId);
+    refreshNotifications(userId, true);
   };
 
   useEffect(() => {
+    if (user?.id) {
+      const uId = Number(user.id);
+      refreshNotifications(uId);
 
-    refreshNotifications(USER_ID);
+      const interval = setInterval(() => {
+        refreshNotifications(uId, true);
+      }, 10000); // Poll every 10 seconds
 
-  }, []);
+      return () => clearInterval(interval);
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [user?.id]);
 
   return (
 

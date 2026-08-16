@@ -3,10 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2, CheckCircle2, XCircle, QrCode } from "lucide-react";
+import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2, CheckCircle2, XCircle, QrCode, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuth from "@/hooks/useAuth";
 import { BookingService } from "@/services/bookingService";
+import reviewService from "@/services/reviewService";
+import ReviewForm from "@/components/review/ReviewForm";
+import type { Review, ReviewDTO } from "@/types/review";
 
 export default function CustomerBookings() {
   const { user } = useAuth();
@@ -17,6 +20,13 @@ export default function CustomerBookings() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState("request-desc");
+
+  // Review states
+  const [userReviews, setUserReviews] = useState<Review[]>([]);
+  const [reviewBooking, setReviewBooking] = useState<any | null>(null);
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   const renderBookingStatusBadge = (status: string) => {
     const s = (status || "PENDING").toUpperCase();
@@ -63,7 +73,11 @@ export default function CustomerBookings() {
     if (!user?.id) return;
     try {
       setLoading(true);
-      const data = await BookingService.getCustomerBookings(Number(user.id));
+      const [data, reviewsData] = await Promise.all([
+        BookingService.getCustomerBookings(Number(user.id)),
+        reviewService.getReviewsByCustomer(Number(user.id)).catch(() => []),
+      ]);
+      setUserReviews(reviewsData || []);
       const localCustom = JSON.parse(localStorage.getItem("custom_user_bookings") || localStorage.getItem("user_bookings") || "[]");
       const mergedMap = new Map();
       (data || []).forEach((b: any) => mergedMap.set(String(b.bookingId || b.id), b));
@@ -78,6 +92,30 @@ export default function CustomerBookings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenReviewModal = (booking: any, review: Review | null) => {
+    setReviewBooking(booking);
+    setExistingReview(review);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleReviewSubmit = async (dto: ReviewDTO) => {
+    if (!user) return;
+    if (existingReview?.reviewId) {
+      await reviewService.updateReview(existingReview.reviewId, {
+        rating: dto.rating,
+        reviewMessage: dto.reviewMessage,
+      });
+      toast.success("Review updated!");
+    } else {
+      await reviewService.addReview(dto);
+      toast.success("Review submitted! Thank you for your feedback.");
+    }
+    setIsReviewModalOpen(false);
+    setReviewBooking(null);
+    setExistingReview(null);
+    fetchCustomerBookings();
   };
 
   useEffect(() => {
@@ -100,7 +138,37 @@ export default function CustomerBookings() {
     return bId.includes(term) || name.includes(term);
   });
 
-  const paginated = filtered.slice((page - 1) * 5, page * 5);
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "request-desc") {
+      const idA = Number(a.bookingId || a.id || 0);
+      const idB = Number(b.bookingId || b.id || 0);
+      return idB - idA;
+    }
+    if (sortBy === "request-asc") {
+      const idA = Number(a.bookingId || a.id || 0);
+      const idB = Number(b.bookingId || b.id || 0);
+      return idA - idB;
+    }
+    if (sortBy === "amount-desc") {
+      return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+    }
+    if (sortBy === "amount-asc") {
+      return Number(a.totalAmount || 0) - Number(b.totalAmount || 0);
+    }
+    if (sortBy === "date-desc") {
+      const dtA = new Date(a.startTime || a.pickupDate || 0).getTime();
+      const dtB = new Date(b.startTime || b.pickupDate || 0).getTime();
+      return dtB - dtA;
+    }
+    if (sortBy === "date-asc") {
+      const dtA = new Date(a.startTime || a.pickupDate || 0).getTime();
+      const dtB = new Date(b.startTime || b.pickupDate || 0).getTime();
+      return dtA - dtB;
+    }
+    return 0;
+  });
+
+  const paginated = sorted.slice((page - 1) * 5, page * 5);
 
   const formatDateTime = (dtStr: string) => {
     try {
@@ -131,13 +199,32 @@ export default function CustomerBookings() {
       </div>
 
       {/* Controls */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <SearchBar
           value={search}
           onChange={setSearch}
           placeholder="Search by Booking ID or Bike..."
           width="max-w-md w-full"
         />
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <label htmlFor="sortBy" className="text-xs font-bold text-muted-foreground uppercase whitespace-nowrap">
+            Sort By:
+          </label>
+          <select
+            id="sortBy"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full sm:w-48 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-foreground shadow-xs outline-none focus:ring-2 focus:ring-ring transition duration-200 cursor-pointer"
+          >
+            <option value="request-desc">Newest Request First</option>
+            <option value="request-asc">Oldest Request First</option>
+            <option value="amount-desc">Price: High to Low</option>
+            <option value="amount-asc">Price: Low to High</option>
+            <option value="date-desc">Rental Date: Newest First</option>
+            <option value="date-asc">Rental Date: Oldest First</option>
+          </select>
+        </div>
       </div>
 
       {/* Bookings List */}
@@ -192,6 +279,24 @@ export default function CustomerBookings() {
                       <span>View QR</span>
                     </button>
                   )}
+
+                  {bStatus === "COMPLETED" && (() => {
+                    const rev = userReviews.find((r) => Number(r.bookingId) === Number(bId));
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReviewModal(booking, rev || null)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                          rev
+                            ? "border border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                            : "bg-primary text-primary-foreground hover:opacity-90 active:scale-95 shadow-xs"
+                        }`}
+                      >
+                        <Star className={`h-4 w-4 ${rev ? "fill-amber-500 text-amber-500" : ""}`} />
+                        <span>{rev ? "Edit Review" : "Write Review"}</span>
+                      </button>
+                    );
+                  })()}
 
                   <button
                     type="button"
@@ -305,6 +410,27 @@ export default function CustomerBookings() {
           </button>
         </ModalFooter>
       </Modal>
+
+      {/* Write/Edit Review Modal */}
+      {isReviewModalOpen && reviewBooking && (
+        <Modal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} size="md">
+          <ModalHeader onClose={() => setIsReviewModalOpen(false)}>
+            {existingReview ? "Edit Your Review" : "Review Your Rental Experience"}
+          </ModalHeader>
+          <ModalBody>
+            <ReviewForm
+              bookingId={Number(reviewBooking.bookingId || reviewBooking.id)}
+              bikeId={Number(reviewBooking.bikeId || reviewBooking.bike?.id || 1)}
+              customerId={Number(user?.id)}
+              initialRating={existingReview?.rating || 5}
+              initialMessage={existingReview?.reviewMessage || ""}
+              isEditMode={!!existingReview}
+              onSubmit={handleReviewSubmit}
+              onCancel={() => setIsReviewModalOpen(false)}
+            />
+          </ModalBody>
+        </Modal>
+      )}
     </div>
   );
 }

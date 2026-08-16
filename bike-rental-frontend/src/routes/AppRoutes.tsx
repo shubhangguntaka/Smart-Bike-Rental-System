@@ -30,7 +30,7 @@ import BookingHistory from "../pages/customer/BookingHistory";
 import RideTracking from "../pages/customer/RideTracking";
 import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
 import Payment from "../pages/customer/Payment";
-import QRScannerPage from "../pages/owner/QRScannerPage";
+import Notifications from "../pages/customer/Notifications";
 
 // Owner Pages
 import OwnerDashboard from "@/pages/owner/Dashboard";
@@ -60,6 +60,9 @@ import MapPage from "@/pages/maps/MapPage";
 import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "../pages/errors/NotFound";
 
+// Static Info Pages
+import { PricingPage, FAQPage, HelpPage, PrivacyPolicyPage, TermsPage } from "@/pages/StaticPages";
+
 const AppRoutes = () => {
   return (
     <BrowserRouter>
@@ -67,15 +70,18 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
+          <Route path="bikes" element={<Bikes />} />
           <Route path="nearby-bikes" element={<Bikes />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
           <Route path="maps" element={<MapPage />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
-          {/* <Route path="test" element={<Test />} /> */}
-          {/* Public testing routes (intentionally bypass auth guards) */}
-          <Route path="verification" element={<DocumentVerification />} />
-          <Route path="bike-verification" element={<OwnerVerification />} />
+          <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
+          <Route path="pricing" element={<PricingPage />} />
+          <Route path="faq" element={<FAQPage />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="privacy" element={<PrivacyPolicyPage />} />
+          <Route path="terms" element={<TermsPage />} />
         </Route>
 
         {/* Auth Routes */}
@@ -92,6 +98,7 @@ const AppRoutes = () => {
         >
           <Route index element={<Navigate to="/customer/bikes" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
+          <Route path="bikes" element={<Bikes />} />
           <Route path="nearby-bikes" element={<Bikes />} />
           <Route path="maps" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
@@ -105,6 +112,10 @@ const AppRoutes = () => {
           <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
           <Route path="payment/:bookingId" element={<Payment />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
+          <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
+          <Route path="verification" element={<DocumentVerification />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Owner Dashboard Routes */}
@@ -120,13 +131,18 @@ const AppRoutes = () => {
           <Route path="dashboard" element={<OwnerDashboard />} />
           <Route path="bikes" element={<OwnerBikes />} />
           <Route path="bikes/:bikeId" element={<BikeDetails />} />
+          <Route path="bike/:bikeId" element={<BikeDetails />} />
           <Route path="add-bike" element={<AddBike />} />
           <Route path="edit-bike/:bikeId" element={<EditBike />} />
           <Route path="bookings" element={<OwnerBookings />} />
           <Route path="payments" element={<OwnerPayments />} />
+          <Route path="earnings" element={<OwnerPayments />} />
+          <Route path="documents" element={<OwnerVerification />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="settings" element={<OwnerSettings />} />
-          <Route path="scan-booking" element={<QRScannerPage />} />
+          <Route path="scan-booking" element={<Navigate to="/owner/bookings" replace />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Admin Dashboard Routes */}
@@ -147,6 +163,8 @@ const AppRoutes = () => {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="profile" element={<AdminProfile />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Error Pages */}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     Check, 
@@ -16,6 +16,8 @@ import DocumentScanner from "../../components/verification/DocumentScanner";
 import DocumentStamp from "../../components/verification/DocumentStamp";
 
 import { verifyAadhaar, verifyBikeDocument } from "../../services/verificationService";
+import { ownerService } from "../../services/ownerService";
+import useAuth from "../../hooks/useAuth";
 import { withMinDuration } from "../../utils/scan";
 import type { AadhaarVerificationResult, BikeDocumentVerificationResult } from "../../types/verification";
 
@@ -52,6 +54,7 @@ const SCAN_STEPS_POLLUTION = [
 const MIN_SCAN_MS = 4 * 900 + 500;
 
 export default function OwnerVerification() {
+    const { user } = useAuth();
     const [step, setStep] = useState<Step>("aadhaar");
     
     // Uploaded Files
@@ -76,6 +79,34 @@ export default function OwnerVerification() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    useEffect(() => {
+        if (!user) return;
+        async function fetchVerificationStatus() {
+            try {
+                const res = await ownerService.getDashboard();
+                const raw = res?.data;
+                const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : raw;
+                if (data) {
+                    if (data.aadhaarVerified && data.rcVerified) {
+                        setStep("done");
+                    } else if (data.aadhaarVerified) {
+                        setAadhaarResult({
+                            id: data.ownerId || Number(user?.id) || 1,
+                            status: "APPROVED",
+                            verified: true,
+                            customerName: user?.fullName || "Verified Owner",
+                            aadhaarNumber: "xxxx-xxxx-xxxx"
+                        } as any);
+                        setStep("bikeDocument");
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load verification status:", err);
+            }
+        }
+        fetchVerificationStatus();
+    }, [user]);
+
     const exitVerification = () => window.history.back();
 
     // Progress percentage
@@ -98,7 +129,8 @@ export default function OwnerVerification() {
         try {
             setLoading(true);
             setError("");
-            const data = await withMinDuration(() => verifyAadhaar(aadhaarFile), MIN_SCAN_MS);
+            const customerId = user?.id ? Number(user.id) : undefined;
+            const data = await withMinDuration(() => verifyAadhaar(aadhaarFile, customerId, "BIKE_OWNER"), MIN_SCAN_MS);
             if (data.status === "REJECTED") {
                 setError(data.rejectionReason || "Verification rejected.");
                 setAadhaarResult(data);
@@ -123,8 +155,9 @@ export default function OwnerVerification() {
         try {
             setLoading(true);
             setError("");
+            const ownerId = user?.id ? Number(user.id) : aadhaarResult?.id;
             const data = await withMinDuration(
-                () => verifyBikeDocument(rcFile, aadhaarResult?.id),
+                () => verifyBikeDocument(rcFile, ownerId),
                 MIN_SCAN_MS
             );
             if (!data.verified) {

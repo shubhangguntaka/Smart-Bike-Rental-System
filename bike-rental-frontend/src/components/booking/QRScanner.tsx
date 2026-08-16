@@ -120,67 +120,10 @@ const QRScanner = ({ onHandoverConfirmed }: Props) => {
     }
   };
 
-  // Pre-fill simulator helper
-  const simulateScan = (ref: string) => {
-    setQrInput(ref);
-    setTimeout(() => {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      setScannedBooking(null);
-      BookingService.scanQRCode(ref)
-        .then((data) => {
-          setScannedBooking(data);
-          setSuccess("Simulated QR Scan completed!");
-        })
-        .catch((err) => {
-          setError(err.response?.data?.message || err.message || "Simulated scan failed.");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }, 100);
-  };
-
   return (
-    <Box sx={{ maxWidth: 600, mx: "auto", mt: 2 }}>
-      <Card sx={{ boxShadow: 3, mb: 3, borderRadius: 2 }}>
+    <Box sx={{ width: "100%", maxWidth: 600, mx: "auto" }}>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <QrCodeScannerIcon color="primary" fontSize="large" />
-            <Typography variant="h5" fontWeight="bold">
-              QR Code Scanner Emulator
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            Scan customer's booking QR Code. The same QR code handles both Bike Handover and Bike Return.
-          </Typography>
-
-          {/* Visual Scan laser line mockup */}
-          <Box sx={{
-            width: "100%",
-            height: 150,
-            bgcolor: "#000",
-            borderRadius: 2,
-            mb: 3,
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center"
-          }}>
-            <QrCodeScannerIcon sx={{ color: "grey.700", fontSize: 64 }} />
-            <Box sx={{
-              width: "100%",
-              height: "4px",
-              bgcolor: "#4caf50",
-              position: "absolute",
-              left: 0,
-              boxShadow: "0 0 10px #4caf50",
-              animation: "scanner-laser 2s linear infinite"
-            }} />
-          </Box>
-
           <form onSubmit={handleScan}>
             <TextField
               fullWidth
@@ -203,24 +146,6 @@ const QRScanner = ({ onHandoverConfirmed }: Props) => {
               Scan & Retrieve Details
             </Button>
           </form>
-
-          {/* Quick simulator buttons for testing */}
-          <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 2, border: "1px dashed #ccc" }}>
-            <Typography variant="caption" color="text.secondary" display="block" mb={1} fontWeight="bold">
-              SIMULATION CONTROLS (QUICK TEST)
-            </Typography>
-            <Box display="flex" gap={1} flexWrap="wrap">
-              <Button size="small" variant="outlined" onClick={() => simulateScan("BOOKING-REF: BK-1")}>
-                Simulate BK-1
-              </Button>
-              <Button size="small" variant="outlined" onClick={() => simulateScan("BOOKING-REF: BK-2")}>
-                Simulate BK-2
-              </Button>
-              <Button size="small" variant="outlined" onClick={() => simulateScan("BOOKING-REF: BK-3")}>
-                Simulate BK-3
-              </Button>
-            </Box>
-          </Box>
         </CardContent>
       </Card>
 

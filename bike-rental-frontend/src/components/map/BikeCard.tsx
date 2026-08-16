@@ -87,7 +87,9 @@ export default function BikeCard({
             </span>
           </div>
           <div className="absolute top-3 right-3 rounded-xl bg-card/90 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-foreground border border-border shadow-sm">
-            {bike.distance ? bike.distance.toFixed(1) : "1.2"} km
+            {bike.distance !== undefined && bike.distance !== null && bike.distance >= 0
+              ? `${bike.distance.toFixed(1)} km`
+              : "Distance unavailable"}
           </div>
         </div>
 
@@ -96,11 +98,11 @@ export default function BikeCard({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                {isElectric ? "electric" : "petrol"}
+                {bike.fuelType || (isElectric ? "electric" : "petrol")}
               </span>
               <div className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                <span>{bike.rating || 4.9}</span>
+                <span>{bike.rating ? bike.rating.toFixed(1) : "N/A"}</span>
               </div>
             </div>
             <h3 className="font-bold text-base text-foreground leading-tight truncate">
@@ -111,13 +113,13 @@ export default function BikeCard({
           {/* Tech Specs */}
           <div className="space-y-2 border-y border-border py-3 text-xs text-muted-foreground">
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-1.5">
-                <Battery className="h-4 w-4 text-primary shrink-0" />
-                <span>Battery: {isElectric ? "98%" : "N/A"}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 truncate">
                 <Navigation className="h-4 w-4 text-primary shrink-0" />
-                <span>Range: {isElectric ? "80 km" : "45 km/l"}</span>
+                <span className="truncate">Location: {bike.location || "Available"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 truncate">
+                <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                <span className="truncate">Owner: {bike.ownerName || "Bike Owner"}</span>
               </div>
             </div>
           </div>

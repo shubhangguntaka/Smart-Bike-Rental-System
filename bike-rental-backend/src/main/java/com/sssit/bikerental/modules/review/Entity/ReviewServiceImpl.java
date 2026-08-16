@@ -75,12 +75,23 @@ public class ReviewServiceImpl implements ReviewService {
     	   return review;
     }
 
+    private void validateReviewOwnership(Review review) {
+        com.sssit.bikerental.modules.user.User currentUser = com.sssit.bikerental.common.security.SecurityUtils.getCurrentUser();
+        if (currentUser != null && currentUser.getRole() != com.sssit.bikerental.common.enums.Role.ADMIN) {
+            if (review.getCustomerId() != null && !review.getCustomerId().equals(currentUser.getId())) {
+                throw new com.sssit.bikerental.common.exception.ResourceOwnershipException("Access denied: You can only modify or delete your own reviews");
+            }
+        }
+    }
+
     @Override
     public Review updateReview(Long reviewId, Review updatedReview) {
 
     	Review review = reviewRepository.findById(reviewId)
     	        .orElseThrow(() ->
     	            new ReviewNotFoundException("Review not found with id : " + reviewId));
+
+        validateReviewOwnership(review);
 
         review.setRating(updatedReview.getRating());
         review.setReviewMessage(updatedReview.getReviewMessage());
@@ -94,6 +105,7 @@ public class ReviewServiceImpl implements ReviewService {
     	Review review = reviewRepository.findById(reviewId)
     	        .orElseThrow(() ->
     	            new ReviewNotFoundException("Review not found with id : " + reviewId));
+        validateReviewOwnership(review);
         reviewRepository.delete(review);
     }
 
