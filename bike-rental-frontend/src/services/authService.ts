@@ -1,39 +1,34 @@
 import api from "../api/axios";
-import type { LoginRequest, RegisterRequest } from "../types/auth";
+import type {
+  LoginRequest,
+  RegisterRequest,
+  VerifyOtpRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+} from "../types/auth";
+import { storage } from "../utils/storage";
 
+export const register = (data: RegisterRequest) => {
+  return api.post("/auth/register", data);
+};
 
-export const register = (data:RegisterRequest)=>{
+export const login = (data: LoginRequest) => {
+  return api.post("/auth/login", data);
+};
 
-    return api.post("/auth/register",data);
+export const verifyOtp = (data: VerifyOtpRequest) => {
+  return api.post("/auth/verify-otp", data);
+};
 
-}
+export const forgotPassword = (data: ForgotPasswordRequest) => {
+  return api.post("/auth/forgot-password", data);
+};
 
-export const login=(data:LoginRequest)=>{
+export const resetPassword = (data: ResetPasswordRequest) => {
+  return api.post("/auth/reset-password", data);
+};
 
-    return api.post("/auth/login",data);
-
-}
-
-export const verifyOtp=(data:any)=>{
-
-    return api.post("/auth/verify-otp",data);
-
-}
-
-export const forgotPassword=(data:any)=>{
-
-    return api.post("/auth/forgot-password",data);
-
-}
-
-export const resetPassword=(data:any)=>{
-
-    return api.post("/auth/reset-password",data);
-
-}
-
-export const logout=()=>{
-
-    return api.post("/auth/logout");
-
-}
+export const logout = (refreshToken?: string) => {
+  const token = refreshToken || storage.getRefreshToken() || "";
+  return api.post("/auth/logout", { refreshToken: token });
+};

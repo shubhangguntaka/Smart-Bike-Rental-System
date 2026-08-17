@@ -510,7 +510,7 @@ export default function Bikes() {
           returnRoute: window.location.pathname,
         })
       );
-      navigate("/verification");
+      navigate("/customer/verification");
     } catch (err) {
       console.error("Verification check failed:", err);
       toast.error("Could not verify listing status. Please try again.");

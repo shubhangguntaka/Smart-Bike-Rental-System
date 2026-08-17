@@ -69,23 +69,31 @@ npm install
 
 ---
 
-## 4. Configure Environment Variables
+## 4. Frontend Environment Setup
 
-Create a `.env` file in the project root.
+### 4.1 Copy Example Configuration
 
-Example:
+Create a local environment file from the template:
 
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
 
-VITE_GOOGLE_MAPS_API_KEY=
-
-VITE_CLOUDINARY_CLOUD_NAME=
-
-VITE_RAZORPAY_KEY_ID=
+# macOS / Linux
+cp .env.example .env
 ```
 
-> **Never commit your `.env` file.**
+### 4.2 Required Environment Variables
+
+| Variable | Description | Required | Default / Example |
+| :--- | :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | Backend Spring Boot API base URL | Yes | `http://localhost:8888/api` |
+| `VITE_APP_NAME` | Application display title | No | `Bike Rental System` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Optional Google Maps API browser key | No | `your_google_maps_api_key` |
+| `VITE_RAZORPAY_KEY_ID` | Optional Razorpay client key | No | `rzp_test_...` |
+| `VITE_CLOUDINARY_CLOUD_NAME` | Optional Cloudinary cloud name | No | `your_cloud_name` |
+
+> ⚠️ **Security Reminder:** Never commit `.env` or `.env.*.local` files containing real API credentials to Git. Environment changes require restarting the Vite development server (`npm run dev`).
 
 ---
 

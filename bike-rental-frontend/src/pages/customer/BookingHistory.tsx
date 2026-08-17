@@ -37,19 +37,24 @@ const BookingHistory = () => {
         bikeService.getAllBikes()
       ]);
 
-      setBookings(historyData || []);
-      setFilteredBookings(historyData || []);
+      const historyList: Booking[] = Array.isArray(historyData) ? historyData : [];
+      setBookings(historyList);
+      setFilteredBookings(historyList);
 
       const map: Record<number, Bike> = {};
-      bikesList.forEach((b) => {
-        const id = b.bikeId || b.id;
+      (bikesList || []).forEach((b) => {
+        const id = b.bikeId ?? b.id;
         if (id !== undefined) {
           map[id] = b;
         }
       });
       setBikesMap(map);
-    } catch (err: any) {
-      setError(err.message || "Failed to load booking history.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to load booking history.");
+      }
     } finally {
       setLoading(false);
     }
@@ -70,10 +75,11 @@ const BookingHistory = () => {
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       result = result.filter((b) => {
-        const bike = bikesMap[b.bikeId] || {};
+        const bike = b.bikeId ? bikesMap[b.bikeId] : undefined;
         return (
           b.bookingReference?.toLowerCase().includes(term) ||
-          bike.bikeName?.toLowerCase().includes(term) ||
+          bike?.bikeName?.toLowerCase().includes(term) ||
+          b.bikeName?.toLowerCase().includes(term) ||
           String(b.bikeId).includes(term)
         );
       });
@@ -91,8 +97,10 @@ const BookingHistory = () => {
       setBookings((prev) =>
         prev.map((b) => (b.bookingId === bookingId ? { ...b, bookingStatus: "CANCELLED" } : b))
       );
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || "Failed to cancel booking.");
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      const message = errorObj?.response?.data?.message || (err instanceof Error ? err.message : "Failed to cancel booking.");
+      alert(message);
     } finally {
       setCancellingId(null);
     }
@@ -213,7 +221,7 @@ const BookingHistory = () => {
       ) : (
         <Grid container spacing={3}>
           {filteredBookings.map((booking) => {
-            const bike = bikesMap[booking.bikeId] || {};
+            const bike = booking.bikeId ? bikesMap[booking.bikeId] : undefined;
             const isPending = booking.bookingStatus === "PENDING" || booking.bookingStatus === "VERIFICATION_REQUIRED";
 
             return (
@@ -231,14 +239,14 @@ const BookingHistory = () => {
                   <CardMedia
                     component="img"
                     sx={{ width: { xs: "100%", md: 240 }, height: 160, objectFit: "cover" }}
-                    image={booking.bikeImage || bike.imageUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800"}
-                    alt={booking.bikeName || bike.bikeName || "Bike"}
+                    image={booking.bikeImage || bike?.imageUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800"}
+                    alt={booking.bikeName || bike?.bikeName || "Bike"}
                   />
                   <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", p: 3 }}>
                     <Box>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1} mb={1}>
                         <Typography variant="h6" fontWeight="bold">
-                          {booking.bikeName || bike.bikeName || `Bike ID: #${booking.bikeId}`}
+                          {booking.bikeName || bike?.bikeName || `Bike ID: #${booking.bikeId}`}
                         </Typography>
                         <Box display="flex" gap={1}>
                           <BookingStatusChip status={booking.bookingStatus} />

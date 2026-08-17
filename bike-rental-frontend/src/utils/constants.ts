@@ -1,9 +1,11 @@
+import env from "../config/env";
+
 // ===============================
 // API Configuration
 // ===============================
 
 export const API = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || "/api",
+  BASE_URL: env.API_BASE_URL,
   TIMEOUT: 10000,
 };
 

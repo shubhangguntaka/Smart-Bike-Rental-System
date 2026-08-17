@@ -166,7 +166,7 @@ const BookBike = () => {
           })
         );
         setTimeout(() => {
-          navigate("/verification");
+          navigate("/customer/verification");
         }, 2000);
         return;
       }

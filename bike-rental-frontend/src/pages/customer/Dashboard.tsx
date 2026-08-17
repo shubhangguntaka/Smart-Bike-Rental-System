@@ -287,7 +287,7 @@ export default function CustomerDashboard() {
         navigate("/customer/nearby-bikes");
       } else {
         toast.error("You need to complete identity verification to rent a bike.");
-        navigate("/verification");
+        navigate("/customer/verification");
       }
     } catch (err) {
       console.error("Verification check failed:", err);
@@ -467,7 +467,7 @@ export default function CustomerDashboard() {
               </Link>
 
               <Link
-                to="/verification"
+                to="/customer/verification"
                 className="flex flex-col items-center justify-center p-4 rounded-2xl border border-border bg-card hover:bg-primary/5 hover:border-primary/30 transition-all text-center group shadow-xs"
               >
                 <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform mb-2">
@@ -696,7 +696,7 @@ export default function CustomerDashboard() {
             </div>
 
             <Link
-              to="/verification/aadhaar"
+              to="/customer/verification"
               className="block w-full text-center rounded-xl border border-border py-2 text-xs font-bold text-foreground hover:bg-muted transition"
             >
               View Verification Documents

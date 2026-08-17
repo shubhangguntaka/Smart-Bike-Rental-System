@@ -1,61 +1,66 @@
 import * as BookingApi from "../api/bookingApi";
-import type { BookingRequest } from "../types/booking";
+import type { Booking, BookingRequest } from "../types/booking";
 import axios from "../api/axios";
 
 export const BookingService = {
-  createBooking: async (customerId: number, booking: BookingRequest) => {
+  createBooking: async (customerId: number, booking: BookingRequest): Promise<Booking> => {
     const response = await BookingApi.createBooking(customerId, booking);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  updateBooking: async (bookingId: number, booking: BookingRequest) => {
+  updateBooking: async (bookingId: number, booking: BookingRequest): Promise<Booking> => {
     const response = await BookingApi.updateBooking(bookingId, booking);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  getBookingById: async (bookingId: number) => {
+  getBookingById: async (bookingId: number): Promise<Booking> => {
     const response = await BookingApi.getBookingById(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  getAllBookings: async () => {
+  getAllBookings: async (): Promise<Booking[]> => {
     const response = await BookingApi.getAllBookings();
-    return response.data.data;
+    const data = response.data?.data ?? response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  getCustomerBookings: async (customerId: number) => {
+  getCustomerBookings: async (customerId: number): Promise<Booking[]> => {
     const response = await BookingApi.getCustomerBookings(customerId);
-    return response.data.data;
+    const data = response.data?.data ?? response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  getBookingsByStatus: async (status: string) => {
+  getBookingsByStatus: async (status: string): Promise<Booking[]> => {
     const response = await BookingApi.getBookingsByStatus(status);
-    return response.data.data;
+    const data = response.data?.data ?? response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  cancelBooking: async (bookingId: number) => {
+  cancelBooking: async (bookingId: number): Promise<Booking> => {
     const response = await BookingApi.cancelBooking(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  updateBookingStatus: async (bookingId: number, bookingStatus: string) => {
+  updateBookingStatus: async (bookingId: number, bookingStatus: string): Promise<Booking> => {
     const response = await BookingApi.updateBookingStatus(bookingId, bookingStatus);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  confirmBooking: async (bookingId: number) => {
+  confirmBooking: async (bookingId: number): Promise<Booking> => {
     const response = await BookingApi.confirmBooking(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  fetchBookingHistory: async (customerId: number) => {
+  fetchBookingHistory: async (customerId: number): Promise<Booking[]> => {
     const response = await BookingApi.getCustomerBookings(customerId);
-    return response.data.data;
+    const data = response.data?.data ?? response.data;
+    return Array.isArray(data) ? data : [];
   },
 
-  checkVerificationStatus: async (customerId: number) => {
+  checkVerificationStatus: async (customerId: number): Promise<boolean> => {
     const response = await BookingApi.checkVerificationStatus(customerId);
-    return response.data.data; // Returns boolean
+    const data = response.data?.data ?? response.data;
+    return Boolean(data);
   },
 
   getVerificationDetails: async (customerId: number) => {
@@ -80,33 +85,35 @@ export const BookingService = {
     }
   },
 
-  getBookingQRCode: async (bookingId: number) => {
+  getBookingQRCode: async (bookingId: number): Promise<string> => {
     const response = await BookingApi.getBookingById(bookingId);
-    return response.data.data?.qrCode || ""; // returns the QR string/dataUri stored in the booking
+    const data = response.data?.data ?? response.data;
+    return data?.qrCode || "";
   },
 
-  scanQRCode: async (qrCode: string) => {
+  scanQRCode: async (qrCode: string): Promise<Booking> => {
     const response = await BookingApi.scanQRCode(qrCode);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
   getRideTracking: async (bookingId: number) => {
     const response = await BookingApi.getRideTracking(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
   
-  checkAvailability: async (bikeId: number, startTime: string, returnTime: string) => {
+  checkAvailability: async (bikeId: number, startTime: string, returnTime: string): Promise<boolean> => {
     const response = await BookingApi.checkAvailability(bikeId, startTime, returnTime);
-    return response.data.data; // returns boolean
+    const data = response.data?.data ?? response.data;
+    return Boolean(data);
   },
 
-  handoverBooking: async (bookingId: number) => {
+  handoverBooking: async (bookingId: number): Promise<Booking> => {
     const response = await BookingApi.handoverBooking(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 
-  returnBooking: async (bookingId: number) => {
+  returnBooking: async (bookingId: number): Promise<Booking> => {
     const response = await BookingApi.returnBooking(bookingId);
-    return response.data.data;
+    return response.data?.data ?? response.data;
   },
 };

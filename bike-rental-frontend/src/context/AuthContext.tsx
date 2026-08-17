@@ -76,6 +76,7 @@ export const AuthProvider = ({ children }: Props) => {
         const initializeAuth = async () => {
             try {
                 const storedToken = storage.getToken();
+                const storedUser = storage.getUser<UserInfo>();
                 if (storedToken) {
                     if (isTokenExpired(storedToken)) {
                         storage.removeToken();
@@ -84,22 +85,26 @@ export const AuthProvider = ({ children }: Props) => {
                         storage.removeRefreshToken();
                     } else {
                         setToken(storedToken);
-                        // Fetch profile automatically
-                        const profileResponse = await getProfile();
-                        const profile = (profileResponse.data && profileResponse.data.data) ? profileResponse.data.data : profileResponse.data;
-                        const updatedUser = processUserData(profile);
-                        
-                        storage.setUser(updatedUser);
-                        storage.setRole(updatedUser.role);
-                        setUser(updatedUser);
+                        if (storedUser) {
+                            setUser(processUserData(storedUser));
+                        }
+                        // Fetch latest profile
+                        try {
+                            const profileResponse = await getProfile();
+                            const profile = (profileResponse.data && profileResponse.data.data) ? profileResponse.data.data : profileResponse.data;
+                            if (profile) {
+                                const updatedUser = processUserData(profile);
+                                storage.setUser(updatedUser);
+                                storage.setRole(updatedUser.role);
+                                setUser(updatedUser);
+                            }
+                        } catch (profileErr) {
+                            console.warn("Could not refresh profile on init, using cached user session:", profileErr);
+                        }
                     }
                 }
             } catch (error) {
                 console.error("Failed to initialize authentication", error);
-                storage.removeToken();
-                storage.removeUser();
-                storage.removeRole();
-                storage.removeRefreshToken();
             } finally {
                 setLoading(false);
             }
@@ -140,7 +145,8 @@ export const AuthProvider = ({ children }: Props) => {
 
     const logout = async () => {
         try {
-            await api.post("/auth/logout");
+            const refreshToken = storage.getRefreshToken() || "";
+            await api.post("/auth/logout", { refreshToken });
         } catch (error) {
             console.error("Failed to logout in backend", error);
         } finally {

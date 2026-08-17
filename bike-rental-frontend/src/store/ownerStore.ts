@@ -30,8 +30,7 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getDashboard();
-      const raw = res?.data;
-      const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : (raw || {});
+      const data = res.data?.data;
 
       // Map OwnerDashboardDTO properties directly to DashboardStatistics structure
       const stats: DashboardStatistics = {
@@ -44,6 +43,12 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
         completedBookings: data?.completedBookings ?? 0,
         aadhaarVerified: data?.aadhaarVerified ?? false,
         rcVerified: data?.rcVerified ?? false,
+        ownerId: data?.ownerId,
+        ownerName: data?.ownerName,
+        todayEarnings: data?.todayEarnings,
+        weeklyEarnings: data?.weeklyEarnings,
+        monthlyEarnings: data?.monthlyEarnings,
+        pendingPayments: data?.pendingPayments,
       };
 
       // Map OwnerDashboardDTO earnings properties to Earnings structure
@@ -56,9 +61,10 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
       };
 
       set({ dashboard: stats, earnings: earningsData, loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
       set({
-        error: err.response?.data?.message || err.message || "Failed to fetch dashboard statistics",
+        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch dashboard statistics"),
         loading: false,
       });
     }
@@ -70,12 +76,12 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getOwnerEarnings();
-      const raw = res?.data;
-      const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : (raw || {});
-      set({ earnings: data, loading: false });
-    } catch (err: any) {
+      const data = res.data?.data;
+      set({ earnings: data || null, loading: false });
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
       set({
-        error: err.response?.data?.message || err.message || "Failed to fetch earnings details",
+        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch earnings details"),
         loading: false,
       });
     }
@@ -87,14 +93,14 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await ownerService.getBookingRequests();
-      const raw = res?.data;
-      const rawData = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : raw;
-      const data = Array.isArray(rawData) ? rawData : [];
+      const rawData = res.data?.data;
+      const data: BookingRequest[] = Array.isArray(rawData) ? rawData : [];
 
       set({ bookingRequests: data, loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
       set({
-        error: err.response?.data?.message || err.message || "Failed to fetch booking requests",
+        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch booking requests"),
         loading: false,
       });
     }

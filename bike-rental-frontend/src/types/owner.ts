@@ -1,9 +1,15 @@
 export interface DashboardStatistics {
+  ownerId?: number;
+  ownerName?: string;
   totalBikes: number;
   availableBikes: number;
   bookedBikes: number;
   totalBookings: number;
   totalEarnings: number;
+  todayEarnings?: number;
+  weeklyEarnings?: number;
+  monthlyEarnings?: number;
+  pendingPayments?: number;
   pendingBookings: number;
   completedBookings: number;
   aadhaarVerified: boolean;

@@ -80,11 +80,12 @@ export default function CustomerBikeDetails() {
       );
 
       const isVerified = await BookingService.checkVerificationStatus(customerId);
+      const targetBikeId = bike.bikeId || bike.id || bikeId;
       if (isVerified) {
-        navigate("/customer/nearby-bikes");
+        navigate(`/customer/book/${targetBikeId}`);
       } else {
         toast.error("You need to complete identity verification to rent a bike.");
-        navigate("/verification");
+        navigate("/customer/verification");
       }
     } catch (err) {
       console.error("Verification check failed:", err);

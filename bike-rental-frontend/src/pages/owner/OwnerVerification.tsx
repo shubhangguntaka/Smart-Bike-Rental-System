@@ -20,6 +20,7 @@ import { ownerService } from "../../services/ownerService";
 import useAuth from "../../hooks/useAuth";
 import { withMinDuration } from "../../utils/scan";
 import type { AadhaarVerificationResult, BikeDocumentVerificationResult } from "../../types/verification";
+import type { DashboardStatistics } from "../../types/owner";
 
 type Step = "aadhaar" | "bikeDocument" | "insurance" | "pollution" | "done";
 
@@ -84,8 +85,7 @@ export default function OwnerVerification() {
         async function fetchVerificationStatus() {
             try {
                 const res = await ownerService.getDashboard();
-                const raw = res?.data;
-                const data = (raw && typeof raw === "object" && raw.data !== undefined) ? raw.data : raw;
+                const data = res.data?.data;
                 if (data) {
                     if (data.aadhaarVerified && data.rcVerified) {
                         setStep("done");

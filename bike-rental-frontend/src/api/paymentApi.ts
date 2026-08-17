@@ -1,6 +1,6 @@
 import axios from "./axios";
 
-const BASE_URL = "/api/payments";
+const BASE_URL = "/payments";
 
 export interface PaymentRequest {
   bookingId: number;

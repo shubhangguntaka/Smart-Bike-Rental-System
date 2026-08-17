@@ -167,6 +167,12 @@ const AppRoutes = () => {
           <Route path="notification" element={<Notifications />} />
         </Route>
 
+        {/* Route Aliases */}
+        <Route path="/verification" element={<Navigate to="/customer/verification" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/customer/dashboard" replace />} />
+        <Route path="/booking-history" element={<Navigate to="/customer/booking-history" replace />} />
+        <Route path="/ride-tracking" element={<Navigate to="/customer/ride-tracking" replace />} />
+
         {/* Error Pages */}
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="*" element={<NotFound />} />
