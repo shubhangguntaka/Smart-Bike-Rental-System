@@ -6,6 +6,7 @@ import type { ReviewDTO } from "@/types/review";
 interface ReviewFormProps {
   bookingId: number;
   bikeId: number;
+  customerId?: number;
   initialRating?: number;
   initialMessage?: string;
   isEditMode?: boolean;

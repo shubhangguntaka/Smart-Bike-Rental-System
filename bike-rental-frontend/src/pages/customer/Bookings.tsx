@@ -421,6 +421,7 @@ export default function CustomerBookings() {
             <ReviewForm
               bookingId={Number(reviewBooking.bookingId || reviewBooking.id)}
               bikeId={Number(reviewBooking.bikeId || reviewBooking.bike?.id || 1)}
+              customerId={Number(reviewBooking.userId || 1)}
               initialRating={existingReview?.rating || 5}
               initialMessage={existingReview?.reviewMessage || ""}
               isEditMode={!!existingReview}
