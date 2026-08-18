@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sssit.bikerental.modules.gps.dto.RideDTO;
+import com.sssit.bikerental.modules.gps.service.GPSService;
 import com.sssit.bikerental.modules.gps.service.RideService;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class RideController {
 
     private final RideService rideService;
+    private final GPSService gpsService;
 
     @PostMapping("/start")
     public ResponseEntity<RideDTO> startRide(
@@ -71,4 +73,13 @@ public class RideController {
                 rideService.getRideHistory(rideId)
         );
     }
+
+    @GetMapping("/{rideId}/distance")
+public ResponseEntity<Double> calculateDistance(
+        @PathVariable Long rideId) {
+
+    double distance = gpsService.calculateDistance(rideId);
+
+    return ResponseEntity.ok(distance);
+}
 }
