@@ -5,6 +5,7 @@ import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
+import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 
 import java.util.List;
 
@@ -24,7 +25,7 @@ public interface AdminService {
 
     List<BookingAdminDTO> getBookings();
 
-    List<?> getPayments();
+    List<PaymentResponse> getPayments();
 
     List<?> getActivity();
 }

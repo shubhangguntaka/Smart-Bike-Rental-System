@@ -1,9 +1,12 @@
 package com.sssit.bikerental.modules.admin.controller;
 
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
+import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
+import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
 import com.sssit.bikerental.modules.admin.service.AdminService;
+import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,11 +22,6 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    /**
-     * GET /api/admin/dashboard
-     *
-     * Dashboard aggregation will be completed during Day 4.
-     */
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardDTO> getDashboard() {
 
@@ -32,11 +30,6 @@ public class AdminController {
         );
     }
 
-    /**
-     * GET /api/admin/users
-     *
-     * Section 3 M3 user administration endpoint.
-     */
     @GetMapping("/users")
     public ResponseEntity<List<UserAdminDTO>> getUsers() {
 
@@ -45,11 +38,6 @@ public class AdminController {
         );
     }
 
-    /**
-     * PUT /api/admin/users/{id}/status
-     *
-     * Enables or disables an existing user account.
-     */
     @PutMapping("/users/{id}/status")
     public ResponseEntity<UserAdminDTO> updateUserStatus(
             @PathVariable("id") Long userId,
@@ -63,16 +51,73 @@ public class AdminController {
         );
     }
 
-    /**
-     * GET /api/admin/owners
-     *
-     * Returns existing owner records through OwnerService.
-     */
     @GetMapping("/owners")
     public ResponseEntity<List<OwnerAdminDTO>> getOwners() {
 
         return ResponseEntity.ok(
                 adminService.getOwners()
+        );
+    }
+
+    /**
+     * GET /api/admin/bikes
+     */
+    @GetMapping("/bikes")
+    public ResponseEntity<List<BikeAdminDTO>> getBikes() {
+
+        return ResponseEntity.ok(
+                adminService.getBikes()
+        );
+    }
+
+    /**
+     * PUT /api/admin/bikes/{id}/status
+     */
+    @PutMapping("/bikes/{id}/status")
+    public ResponseEntity<BikeAdminDTO> updateBikeStatus(
+            @PathVariable("id") Long bikeId,
+            @RequestParam("status") String status) {
+
+        return ResponseEntity.ok(
+                adminService.updateBikeStatus(
+                        bikeId,
+                        status
+                )
+        );
+    }
+
+    /**
+     * GET /api/admin/bookings
+     */
+    @GetMapping("/bookings")
+    public ResponseEntity<List<BookingAdminDTO>> getBookings() {
+
+        return ResponseEntity.ok(
+                adminService.getBookings()
+        );
+    }
+
+    /**
+     * GET /api/admin/payments
+     */
+    @GetMapping("/payments")
+    public ResponseEntity<List<PaymentResponse>> getPayments() {
+
+        return ResponseEntity.ok(
+                adminService.getPayments()
+        );
+    }
+
+    /**
+     * GET /api/admin/activity
+     *
+     * Activity log implementation is handled later.
+     */
+    @GetMapping("/activity")
+    public ResponseEntity<List<?>> getActivity() {
+
+        return ResponseEntity.ok(
+                adminService.getActivity()
         );
     }
 }

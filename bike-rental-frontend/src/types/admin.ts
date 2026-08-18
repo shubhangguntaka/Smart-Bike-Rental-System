@@ -52,37 +52,49 @@ export interface OwnerAdmin {
 export interface BikeAdmin {
   bikeId: number;
   bikeName?: string;
+  brand?: string;
+  model?: string;
   registrationNumber?: string;
-
   ownerId?: number;
   ownerName?: string;
-
   category?: string;
   bikeStatus?: string;
-
-  pricePerHour?: number;
+  rentalPrice?: number;
+  hourlyRate?: number;
   location?: string;
+  rcVerified?: boolean;
+  imageUrl?: string;
 }
 
 export interface BookingAdmin {
   bookingId: number;
-
   customerId?: number;
   customerName?: string;
-
   ownerId?: number;
   ownerName?: string;
-
   bikeId?: number;
   bikeName?: string;
-
+  registrationNumber?: string;
   bookingStatus?: string;
-
-  startDateTime?: string;
-  endDateTime?: string;
-
+  paymentStatus?: string;
+  startTime?: string;
+  returnTime?: string;
   actualPickupTime?: string;
   actualReturnTime?: string;
-
+  rentalAmount?: number;
   totalAmount?: number;
+  bookingReference?: string;
+  createdAt?: string;
+}
+
+export interface PaymentAdmin {
+  paymentId: number;
+
+  bookingId: number;
+
+  amount: number;
+
+  status: string;
+
+  paymentDate: string;
 }

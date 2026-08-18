@@ -1,7 +1,11 @@
 package com.sssit.bikerental.modules.admin.mapper;
 
+import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
+import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
+import com.sssit.bikerental.modules.bike.dto.BikeDTO;
+import com.sssit.bikerental.modules.booking.dto.BookingResponse;
 import com.sssit.bikerental.modules.owner.dto.OwnerDTO;
 import com.sssit.bikerental.modules.user.dto.UserResponse;
 import org.springframework.stereotype.Component;
@@ -9,10 +13,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class AdminMapper {
 
-    /**
-     * Converts the existing User module response into
-     * the Section 3 Admin user contract.
-     */
     public UserAdminDTO toUserAdminDTO(UserResponse user) {
 
         if (user == null) {
@@ -35,10 +35,6 @@ public class AdminMapper {
                 .build();
     }
 
-    /**
-     * Converts the existing Owner module response into
-     * the Section 3 Admin owner contract.
-     */
     public OwnerAdminDTO toOwnerAdminDTO(OwnerDTO owner) {
 
         if (owner == null) {
@@ -53,7 +49,63 @@ public class AdminMapper {
                 .totalBookings(owner.getTotalBookings())
                 .totalEarnings(owner.getTotalEarnings())
                 .verificationStatus(owner.getVerificationStatus())
-                .status("ACTIVE")
+                .status(
+                        Boolean.TRUE.equals(owner.getVerificationStatus())
+                                ? "VERIFIED"
+                                : "PENDING"
+                )
+                .build();
+    }
+
+    public BikeAdminDTO toBikeAdminDTO(BikeDTO bike) {
+
+        if (bike == null) {
+            return null;
+        }
+
+        return BikeAdminDTO.builder()
+                .bikeId(bike.getBikeId())
+                .bikeName(bike.getBikeName())
+                .brand(bike.getBrand())
+                .model(bike.getModel())
+                .registrationNumber(bike.getRegistrationNumber())
+                .ownerId(bike.getOwnerId())
+                .ownerName(bike.getOwnerName())
+                .bikeStatus(bike.getBikeStatus())
+                .rentalPrice(bike.getRentalPrice())
+                .hourlyRate(bike.getHourlyRate())
+                .location(bike.getLocation())
+                .rcVerified(bike.getRcVerified())
+                .imageUrl(bike.getImageUrl())
+                .build();
+    }
+
+    public BookingAdminDTO toBookingAdminDTO(
+            BookingResponse booking) {
+
+        if (booking == null) {
+            return null;
+        }
+
+        return BookingAdminDTO.builder()
+                .bookingId(booking.getBookingId())
+                .customerId(booking.getCustomerId())
+                .customerName(booking.getCustomerName())
+                .ownerId(booking.getOwnerId())
+                .ownerName(booking.getOwnerName())
+                .bikeId(booking.getBikeId())
+                .bikeName(booking.getBikeName())
+                .registrationNumber(booking.getRegistrationNumber())
+                .bookingStatus(booking.getBookingStatus())
+                .paymentStatus(booking.getPaymentStatus())
+                .startTime(booking.getStartTime())
+                .returnTime(booking.getReturnTime())
+                .actualPickupTime(booking.getActualPickupTime())
+                .actualReturnTime(booking.getActualReturnTime())
+                .rentalAmount(booking.getRentalAmount())
+                .totalAmount(booking.getTotalAmount())
+                .bookingReference(booking.getBookingReference())
+                .createdAt(booking.getCreatedAt())
                 .build();
     }
 }

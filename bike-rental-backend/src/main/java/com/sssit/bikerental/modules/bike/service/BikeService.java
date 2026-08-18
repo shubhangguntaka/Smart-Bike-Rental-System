@@ -19,6 +19,7 @@ public interface BikeService {
     BikeDTO getBikeById(Long bikeId);
 
     List<BikeDTO> getAllBikes();
+    List<BikeDTO> getAllBikesForAdmin();
 
     List<BikeDTO> getOwnerBikes(Long ownerId);
 

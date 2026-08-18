@@ -233,6 +233,15 @@ public class BikeServiceImpl implements BikeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<BikeDTO> getAllBikesForAdmin() {
+        return bikeRepository.findAll().stream()
+                .map(bikeMapper::toDTO)
+                .map(this::enrichDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public List<BikeDTO> getOwnerBikes(Long ownerId) {
         Long resolvedOwnerId = ownerId;

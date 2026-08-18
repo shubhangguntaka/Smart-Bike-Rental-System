@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional
@@ -71,6 +72,33 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         bookingRepository.save(booking);
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getId())
+                .bookingId(payment.getBookingId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .paymentDate(payment.getPaymentDate())
+                .build();
+    }
+
+    /**
+     * Read-only payment query used by the Admin module.
+     *
+     * No payment status, amount or transaction is modified.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAllPayments() {
+
+        return paymentRepository.findAll()
+                .stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    private PaymentResponse toPaymentResponse(
+            Payment payment) {
 
         return PaymentResponse.builder()
                 .paymentId(payment.getId())
