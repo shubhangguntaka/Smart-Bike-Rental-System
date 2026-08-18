@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sssit.bikerental.common.enums.OtpPurpose;
 import com.sssit.bikerental.common.enums.Role;
+import com.sssit.bikerental.common.exception.ConflictException;
 import com.sssit.bikerental.common.exception.RefreshTokenException;
 import com.sssit.bikerental.modules.auth.dto.AuthResponse;
 import com.sssit.bikerental.modules.auth.dto.ForgotPassword;
@@ -28,8 +29,14 @@ import com.sssit.bikerental.modules.user.User;
 import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.security.jwt.JwtService;
 
+import com.sssit.bikerental.common.exception.ResourceNotFoundException;
+import com.sssit.bikerental.common.exception.UnauthorizedException;
+import com.sssit.bikerental.common.exception.ValidationException;
+import com.sssit.bikerental.common.exception.ConflictException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -59,11 +66,11 @@ public class AuthServiceImpl implements AuthService {
                 String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
 
                 if (userRepository.existsByEmail(email) || userRepository.existsByEmail(request.getEmail())) {
-                        throw new RuntimeException("Email already registered.");
+                        throw new ConflictException("Email already registered.");
                 }
 
                 if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
-                        throw new RuntimeException("Phone number already registered.");
+                        throw new ConflictException("Phone number already registered.");
                 }
 
                 User user = User.builder()
@@ -88,8 +95,8 @@ public class AuthServiceImpl implements AuthService {
                         otpService.saveOtp(user, otp, OtpPurpose.EMAIL_VERIFICATION);
                         emailService.sendOtpEmail(user.getEmail(), user.getFirstName(), otp);
                 } catch (Exception ex) {
-                        System.err.println("OTP email sending skipped: " + ex.getMessage());
-                }
+    log.warn("OTP email sending skipped for user {}: {}", user.getId(), ex.getMessage());
+}
 
                 String accessToken = jwtService.generateToken(user);
                 RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
@@ -122,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
 
                 User user = userRepository.findByEmail(cleanEmail)
                                 .orElseGet(() -> userRepository.findByEmail(rawEmail)
-                                                .orElseThrow(() -> new RuntimeException("Invalid email or password.")));
+                                                .orElseThrow(() -> new UnauthorizedException("Invalid email or password.")));
 
                 try {
                         authenticationManager.authenticate(
@@ -130,7 +137,7 @@ public class AuthServiceImpl implements AuthService {
                                                         user.getEmail(),
                                                         request.getPassword()));
                 } catch (Exception ex) {
-                        throw new RuntimeException("Invalid email or password.");
+                        throw new UnauthorizedException("Invalid email or password.");
                 }
 
                 if (!Boolean.TRUE.equals(user.getEmailVerified()) || !Boolean.TRUE.equals(user.isEnabled())) {
@@ -166,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
         public String verifyOtp(VerifyOtpRequest request) {
 
                 User user = userRepository.findByEmail(request.getEmail())
-                                .orElseThrow(() -> new RuntimeException("User not found."));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
                 boolean verified = otpService.verifyOtp(
                                 user,
@@ -174,7 +181,7 @@ public class AuthServiceImpl implements AuthService {
                                 request.getPurpose());
 
                 if (!verified) {
-                        throw new RuntimeException("Invalid or expired OTP.");
+                        throw new ValidationException("Invalid or expired OTP.");
                 }
 
                 switch (request.getPurpose()) {
@@ -204,7 +211,7 @@ public class AuthServiceImpl implements AuthService {
                         }
 
                         default ->
-                                throw new RuntimeException("Unsupported OTP purpose.");
+                                throw new ValidationException("Unsupported OTP purpose.");
                 }
 
         }
@@ -216,7 +223,7 @@ public class AuthServiceImpl implements AuthService {
         public String forgotPassword(ForgotPassword request) {
 
                 User user = userRepository.findByEmail(request.getEmail())
-                                .orElseThrow(() -> new RuntimeException("User not found."));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
                 String otp = otpService.generateOtp();
 
@@ -241,7 +248,7 @@ public class AuthServiceImpl implements AuthService {
         public String resetPassword(ResetPasswordRequest request) {
 
                 User user = userRepository.findByEmail(request.getEmail())
-                                .orElseThrow(() -> new RuntimeException("User not found."));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
                 boolean verified = otpService.verifyOtp(
                                 user,
@@ -249,7 +256,7 @@ public class AuthServiceImpl implements AuthService {
                                 OtpPurpose.FORGOT_PASSWORD);
 
                 if (!verified) {
-                        throw new RuntimeException("Invalid or expired OTP.");
+                        throw new ValidationException("Invalid or expired OTP.");
                 }
 
                 user.setPassword(

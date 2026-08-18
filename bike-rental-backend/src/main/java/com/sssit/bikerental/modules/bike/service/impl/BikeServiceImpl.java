@@ -32,11 +32,13 @@ import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 
 import lombok.RequiredArgsConstructor;
-
+import lombok.extern.slf4j.Slf4j;
 /**
  * Bike Management (Member 2) — integrates with Section 1 Verification:
  * Aadhaar (once per owner) + RC (every bike) before registration.
  */
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -51,7 +53,7 @@ public class BikeServiceImpl implements BikeService {
     private final CurrentUserService currentUserService;
     private final AuthorizationService authorizationService;
     private final com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
-    private final com.sssit.bikerental.modules.review.Entity.ReviewService reviewService;
+    private final com.sssit.bikerental.modules.review.entity.ReviewService reviewService;
 
     @Override
     public BikeDTO addBike(BikeDTO bikeDTO) {
@@ -469,7 +471,7 @@ public class BikeServiceImpl implements BikeService {
             } catch (Exception e) {
 
                 // Safe fallback
-                System.err.println(
+             log.warn(
                         "Unable to load owner information: "
                                 + e.getMessage());
             }

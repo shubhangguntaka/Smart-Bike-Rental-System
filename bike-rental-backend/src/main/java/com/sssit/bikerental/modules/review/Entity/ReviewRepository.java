@@ -1,4 +1,4 @@
-package com.sssit.bikerental.modules.review.Entity;
+package com.sssit.bikerental.modules.review.entity;
 
 import java.util.List;
 

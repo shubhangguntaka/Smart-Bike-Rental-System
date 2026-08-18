@@ -6,7 +6,6 @@ import type { ReviewDTO } from "@/types/review";
 interface ReviewFormProps {
   bookingId: number;
   bikeId: number;
-  customerId: number;
   initialRating?: number;
   initialMessage?: string;
   isEditMode?: boolean;
@@ -17,7 +16,6 @@ interface ReviewFormProps {
 const ReviewForm: React.FC<ReviewFormProps> = ({
   bookingId,
   bikeId,
-  customerId,
   initialRating = 5,
   initialMessage = "",
   isEditMode = false,
@@ -54,7 +52,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       await onSubmit({
         bookingId,
         bikeId,
-        customerId,
         rating,
         reviewMessage: reviewMessage.trim(),
       });

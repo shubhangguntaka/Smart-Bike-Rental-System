@@ -28,17 +28,17 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
-        public SecurityConfig(JwtFilter jwtFilter,
-                                                  JwtAuthenticationEntryPoint authenticationEntryPoint,
-                                                  CustomAccessDeniedHandler accessDeniedHandler,
-                                                  CustomUserDetailsService userDetailsService,
-                                                  PasswordEncoder passwordEncoder) {
-                this.jwtFilter = jwtFilter;
-                this.authenticationEntryPoint = authenticationEntryPoint;
-                this.accessDeniedHandler = accessDeniedHandler;
-                this.userDetailsService = userDetailsService;
-                this.passwordEncoder = passwordEncoder;
-        }
+    public SecurityConfig(JwtFilter jwtFilter,
+            JwtAuthenticationEntryPoint authenticationEntryPoint,
+            CustomAccessDeniedHandler accessDeniedHandler,
+            CustomUserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
+        this.jwtFilter = jwtFilter;
+        this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
+        this.userDetailsService = userDetailsService;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
@@ -59,75 +59,62 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-
                 .cors(Customizer.withDefaults())
-
-                .httpBasic(Customizer.withDefaults())
-
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
+                .sessionManagement(session
+                        -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler))
-
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
                 .authenticationProvider(authenticationProvider())
-
                 .authorizeHttpRequests(auth -> auth
-
-                        // Public endpoints
-                        .requestMatchers(
-                                "/",
-                                "/error",
-                                "/api/auth/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/uploads/**"
-                        ).permitAll()
-                        .requestMatchers(
-                                org.springframework.http.HttpMethod.GET,
-                                "/api/bikes",
-                                "/api/bikes/**"
-                        ).permitAll()
-
-                        // User profile/change-password endpoints accessible by authenticated users
-                        .requestMatchers(
-                                "/api/users/profile",
-                                "/api/users/change-password",
-                                "/api/users/profile-image",
-                                "/api/bookings/**"
-                        ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
-
-                        // ADMIN
-                        .requestMatchers(
-                                "/api/admin/**",
-                                "/api/users/**",
-                                "/api/reports/**"
-                        ).hasRole("ADMIN")
-
-                        // OWNER
-                        .requestMatchers(
-                                "/api/owner/**",
-                                "/api/owner/bikes/**",
-                                "/api/owner/bookings/**"
-                        ).hasRole("OWNER")
-
-                        // CUSTOMER
-                        .requestMatchers(
-                                "/api/customer/**",
-                                "/api/cart/**",
-                                "/api/profile/**"
-                        ).hasRole("CUSTOMER")
-                        .requestMatchers(
-                                "/api/reviews/**",
-                                "/api/notifications/**"
-                        ).permitAll()
-
-                        // All other APIs require authentication
-                        .anyRequest().authenticated()
+                // Public endpoints
+                .requestMatchers(
+                        "/",
+                        "/error",
+                        "/api/auth/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",
+                        "/uploads/**"
+                ).permitAll()
+                .requestMatchers(
+                        org.springframework.http.HttpMethod.GET,
+                        "/api/bikes",
+                        "/api/bikes/**"
+                ).permitAll()
+                // User profile/change-password endpoints accessible by authenticated users
+                .requestMatchers(
+                        "/api/users/profile",
+                        "/api/users/change-password",
+                        "/api/users/profile-image",
+                        "/api/bookings/**"
+                ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
+                // ADMIN
+                .requestMatchers(
+                        "/api/admin/**",
+                        "/api/users/**",
+                        "/api/reports/**"
+                ).hasRole("ADMIN")
+                // OWNER
+                .requestMatchers(
+                        "/api/owner/**",
+                        "/api/owner/bikes/**",
+                        "/api/owner/bookings/**"
+                ).hasRole("OWNER")
+                // CUSTOMER
+                .requestMatchers(
+                        "/api/customer/**",
+                        "/api/cart/**",
+                        "/api/profile/**"
+                ).hasRole("CUSTOMER")
+                
+                .requestMatchers(
+                        "/api/reviews/**",
+                        "/api/notifications/**"
+                ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
+                // All other APIs require authentication
+                .anyRequest().authenticated()
                 )
-
                 .addFilterBefore(jwtFilter,
                         UsernamePasswordAuthenticationFilter.class);
 

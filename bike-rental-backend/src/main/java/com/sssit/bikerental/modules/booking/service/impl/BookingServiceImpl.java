@@ -10,8 +10,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sssit.bikerental.common.security.SecurityUtils;
 import com.sssit.bikerental.common.enums.Role;
+import com.sssit.bikerental.common.security.SecurityUtils;
+import com.sssit.bikerental.exception.BookingNotCompletedException;
 import com.sssit.bikerental.modules.bike.entity.Bike;
 import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 import com.sssit.bikerental.modules.bike.exception.BikeNotFoundException;
@@ -30,11 +31,11 @@ import com.sssit.bikerental.modules.booking.service.BookingService;
 import com.sssit.bikerental.modules.booking.service.QRCodeService;
 import com.sssit.bikerental.modules.booking.util.BookingCalculator;
 import com.sssit.bikerental.modules.booking.validation.BookingValidator;
+import com.sssit.bikerental.modules.notification.entity.Notification;
+import com.sssit.bikerental.modules.notification.entity.NotificationService;
 import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 import com.sssit.bikerental.modules.verification.drivinglicense.service.DrivingLicenseService;
-import com.sssit.bikerental.modules.notification.entity.NotificationService;
-import com.sssit.bikerental.modules.notification.entity.Notification;
 
 import lombok.RequiredArgsConstructor;
 
@@ -85,14 +86,14 @@ public class BookingServiceImpl implements BookingService {
 
             // Approved, Confirmed, Active, or Pending bookings block overlapping customer requests
             BookingStatus status = existing.getBookingStatus();
-            if (status == BookingStatus.APPROVED ||
-                status == BookingStatus.CONFIRMED ||
-                status == BookingStatus.ACTIVE ||
-                status == BookingStatus.PENDING) {
-                
+            if (status == BookingStatus.APPROVED
+                    || status == BookingStatus.CONFIRMED
+                    || status == BookingStatus.ACTIVE
+                    || status == BookingStatus.PENDING) {
+
                 java.time.LocalDateTime extStart = existing.getStartTime() != null ? existing.getStartTime() : existing.getPickupDate();
                 java.time.LocalDateTime extEnd = existing.getReturnTime() != null ? existing.getReturnTime() : existing.getReturnDate();
-                
+
                 if (extStart != null && extEnd != null) {
                     // Overlap condition: (Start1 < End2) AND (Start2 < End1)
                     if (startTime.isBefore(extEnd) && extStart.isBefore(endTime)) {
@@ -110,8 +111,18 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingResponse createBooking(Long customerId, BookingRequest request) {
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        Role currentRole = SecurityUtils.getCurrentRole();
+
+        if (currentRole != Role.ADMIN
+                && (currentUserId == null || !currentUserId.equals(customerId))) {
+            throw new AccessDeniedException(
+                    "You can only create bookings for yourself."
+            );
+        }
         log.info("Starting booking creation for customerId: {} and bikeId: {}", customerId, request.getBikeId());
-        
+
         bookingValidator.validateBookingRequest(request);
         userRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found."));
@@ -177,7 +188,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public BookingResponse updateBooking(Long bookingId, BookingRequest request) {
         log.info("Updating bookingId: {}", bookingId);
-        
+
         bookingValidator.validateBookingRequest(request);
         Booking booking = findBooking(bookingId);
         validateBookingAccess(booking);
@@ -186,12 +197,12 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
 
         // Check availability if bike or start/return times have changed
-        if (!booking.getBikeId().equals(request.getBikeId()) ||
-            !booking.getStartTime().equals(request.getStartTime()) ||
-            !booking.getReturnTime().equals(request.getReturnTime())) {
-            
+        if (!booking.getBikeId().equals(request.getBikeId())
+                || !booking.getStartTime().equals(request.getStartTime())
+                || !booking.getReturnTime().equals(request.getReturnTime())) {
+
             checkBikeAvailability(bike, request.getStartTime(), request.getReturnTime(), booking.getId());
-            
+
             // If bike changed, free up the old one
             if (!booking.getBikeId().equals(request.getBikeId())) {
                 bikeRepository.findById(booking.getBikeId()).ifPresent(oldBike -> {
@@ -199,7 +210,7 @@ public class BookingServiceImpl implements BookingService {
                     bikeRepository.save(oldBike);
                     log.info("Old bikeId: {} set to AVAILABLE", oldBike.getBikeId());
                 });
-                
+
                 bike.setBikeStatus(BikeStatus.BOOKED);
                 bikeRepository.save(bike);
                 log.info("New bikeId: {} set to BOOKED", bike.getBikeId());
@@ -241,13 +252,20 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponse> getCustomerBookings(Long customerId) {
-        log.info("Fetching bookings for customerId: {}", customerId);
+
         Long currentUserId = SecurityUtils.getCurrentUserId();
         Role role = SecurityUtils.getCurrentRole();
-        if (currentUserId != null && !currentUserId.equals(customerId) && role != Role.ADMIN) {
-            log.warn("Unauthorized attempt by userId: {} to view customerId: {} bookings", currentUserId, customerId);
-            throw new AccessDeniedException("Access denied to customer bookings.");
+
+        if (currentUserId == null) {
+            throw new AccessDeniedException("Authentication required.");
         }
+
+        if (role != Role.ADMIN && !currentUserId.equals(customerId)) {
+            throw new AccessDeniedException(
+                    "Access denied to customer bookings."
+            );
+        }
+        log.info("Fetching bookings for customerId: {}", customerId);
         return bookingRepository.findByCustomerId(customerId).stream().map(this::convertToResponse).toList();
     }
 
@@ -264,40 +282,73 @@ public class BookingServiceImpl implements BookingService {
         log.info("Verification check returned: {} for customerId: {}", isVerified, customerId);
         return isVerified;
     }
+@Override
+public BookingResponse confirmBooking(Long bookingId) {
+    log.info("Confirming bookingId: {}", bookingId);
 
-    @Override
-    public BookingResponse confirmBooking(Long bookingId) {
-        log.info("Confirming bookingId: {}", bookingId);
-        Booking booking = findBooking(bookingId);
-        validateBookingAccess(booking);
+    Booking booking = findBooking(bookingId);
+    validateBookingAccess(booking);
 
-        if (!checkVerificationStatus(booking.getCustomerId())) {
-            log.warn("Customer: {} not verified. Cannot confirm bookingId: {}", booking.getCustomerId(), bookingId);
-            throw new VerificationRequiredException("Customer must be verified before confirming booking.");
-        }
-
-        // Bypass payment validation check
-        booking.setPaymentStatus(PaymentStatus.SUCCESS);
-
-        booking.setBookingStatus(BookingStatus.CONFIRMED);
-
-        // Generate QR code if missing
-        if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
-            String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
-                    booking.getId(), booking.getBikeId(), booking.getCustomerId(), booking.getRentalAmount().toString());
-            String qrData = qrCodeService.generateQRCode(qrText, 250, 250);
-            booking.setQrCode(qrData);
-            log.info("QR Code generated for bookingId: {}", booking.getId());
-        }
-
-        // Mark bike as BOOKED
-        bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-            bike.setBikeStatus(BikeStatus.BOOKED);
-            bikeRepository.save(bike);
-        });
-
-        return convertToResponse(bookingRepository.save(booking));
+    // Only PENDING bookings can be approved/confirmed.
+    if (booking.getBookingStatus() != BookingStatus.PENDING) {
+        throw new IllegalStateException(
+                "Only PENDING bookings can be confirmed."
+        );
     }
+
+    // Customer must have completed Aadhaar + Driving License verification.
+    if (!checkVerificationStatus(booking.getCustomerId())) {
+        log.warn(
+                "Customer: {} not verified. Cannot confirm bookingId: {}",
+                booking.getCustomerId(),
+                bookingId
+        );
+
+        throw new VerificationRequiredException(
+                "Customer must be verified before confirming booking."
+        );
+    }
+
+    // Payment is currently simulated by the application.
+    booking.setPaymentStatus(PaymentStatus.SUCCESS);
+
+    booking.setBookingStatus(BookingStatus.CONFIRMED);
+
+    // Generate QR code if missing.
+    if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
+
+        String qrText = String.format(
+                "BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",
+                booking.getId(),
+                booking.getBikeId(),
+                booking.getCustomerId(),
+                booking.getRentalAmount().toString()
+        );
+
+        String qrData = qrCodeService.generateQRCode(
+                qrText,
+                250,
+                250
+        );
+
+        booking.setQrCode(qrData);
+
+        log.info(
+                "QR Code generated for bookingId: {}",
+                booking.getId()
+        );
+    }
+
+    // Mark bike as BOOKED.
+    bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
+        bike.setBikeStatus(BikeStatus.BOOKED);
+        bikeRepository.save(bike);
+    });
+
+    return convertToResponse(
+            bookingRepository.save(booking)
+    );
+}
 
     @Override
     @Transactional(readOnly = true)
@@ -310,7 +361,6 @@ public class BookingServiceImpl implements BookingService {
     // ==========================================
     // Backward Compatibility Implementations
     // ==========================================
-
     @Override
     @Transactional(readOnly = true)
     public BookingResponse getBookingById(Long bookingId) {
@@ -449,7 +499,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse handoverBooking(Long bookingId) {
         log.info("Processing handover for bookingId: {}", bookingId);
-        
+
         Booking booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found."));
 
@@ -461,23 +511,22 @@ public class BookingServiceImpl implements BookingService {
             throw new AccessDeniedException("You are not authorized to manage this bike.");
         }
 
-        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
-            throw new IllegalArgumentException("This booking has been cancelled.");
-        }
-        if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException("This rental has already been completed.");
-        }
-        if (booking.getBookingStatus() == BookingStatus.ACTIVE) {
-            throw new IllegalArgumentException("This booking is already active.");
-        }
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Booking is not confirmed yet.");
-        }
+       if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+    throw new IllegalArgumentException("This booking has been cancelled.");
+}
+
+if (booking.getBookingStatus() == BookingStatus.ACTIVE) {
+    throw new IllegalArgumentException("This booking is already active.");
+}
+
+if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+    throw new IllegalArgumentException("Booking must be CONFIRMED before handover.");
+}
 
         booking.setBookingStatus(BookingStatus.ACTIVE);
         booking.setActualPickupTime(LocalDateTime.now());
         Booking savedBooking = bookingRepository.save(booking);
-        
+
         bike.setBikeStatus(BikeStatus.BOOKED);
         bikeRepository.save(bike);
 
@@ -518,7 +567,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse returnBooking(Long bookingId) {
         log.info("Processing return for bookingId: {}", bookingId);
-        
+
         Booking booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found."));
 
@@ -539,6 +588,11 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getBookingStatus() != BookingStatus.ACTIVE) {
             throw new IllegalArgumentException("Booking is not active yet.");
         }
+        if (booking.getActualPickupTime() == null) {
+    throw new IllegalStateException(
+            "Cannot complete booking because actual pickup time is missing."
+    );
+}
 
         booking.setBookingStatus(BookingStatus.COMPLETED);
         booking.setActualReturnTime(LocalDateTime.now());
@@ -561,13 +615,13 @@ public class BookingServiceImpl implements BookingService {
 
             // 1. Notification to owner
             String ownerMessageContent = String.format(
-                    "Rental Completed\n\n" +
-                    "Bike: %s\n" +
-                    "Customer: %s\n" +
-                    "Booking: BK-%d\n" +
-                    "Actual Pickup: %s\n" +
-                    "Actual Return: %s\n\n" +
-                    "Rental completed successfully.",
+                    "Rental Completed\n\n"
+                    + "Bike: %s\n"
+                    + "Customer: %s\n"
+                    + "Booking: BK-%d\n"
+                    + "Actual Pickup: %s\n"
+                    + "Actual Return: %s\n\n"
+                    + "Rental completed successfully.",
                     bike.getBikeName(), customerName, savedBooking.getId(), formattedPickup, formattedReturn);
 
             Notification ownerNotif = Notification.builder()
@@ -584,10 +638,10 @@ public class BookingServiceImpl implements BookingService {
 
             // 2. Notification to customer
             String custMessageContent = String.format(
-                    "Bike return confirmed.\n\n" +
-                    "Booking: BK-%d\n" +
-                    "Actual Return: %s\n" +
-                    "Status: COMPLETED",
+                    "Bike return confirmed.\n\n"
+                    + "Booking: BK-%d\n"
+                    + "Actual Return: %s\n"
+                    + "Status: COMPLETED",
                     savedBooking.getId(), formattedReturn);
 
             Notification custNotif = Notification.builder()
@@ -637,13 +691,14 @@ public class BookingServiceImpl implements BookingService {
     }
 
     /**
-     * Enforce strict role-based access checks to prevent unauthorized reads/writes.
+     * Enforce strict role-based access checks to prevent unauthorized
+     * reads/writes.
      */
     private void validateBookingAccess(Booking booking) {
         Long currentUserId = SecurityUtils.getCurrentUserId();
         if (currentUserId == null) {
             // Allows fallback under unit testing/anonymous context if not fully integrated
-            return;
+            throw new AccessDeniedException("Authentication required.");
         }
 
         Role role = SecurityUtils.getCurrentRole();

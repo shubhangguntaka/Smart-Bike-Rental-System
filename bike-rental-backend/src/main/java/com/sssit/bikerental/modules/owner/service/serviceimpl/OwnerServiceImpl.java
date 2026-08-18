@@ -24,6 +24,7 @@ import com.sssit.bikerental.modules.user.User;
 import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
@@ -245,40 +246,69 @@ public class OwnerServiceImpl implements OwnerService {
         }
     }
 
-    @Transactional
-    @Override
-    public void approveBooking(Long bookingId) {
-        validateBookingOwnerPermission(bookingId);
-        bookingService.confirmBooking(bookingId);
-        
-        // Notify customer via Member 5 Notification module
-        try {
-            Booking booking = bookingRepository.findById(bookingId).orElse(null);
-            if (booking != null && booking.getCustomerId() != null) {
-                notificationService.bookingConfirmed(booking.getCustomerId());
-            }
-        } catch (Exception e) {
-            log.error("Failed to send booking approval notification for bookingId: {}", bookingId, e);
-        }
+  @Transactional
+@Override
+public void approveBooking(Long bookingId) {
+    validateBookingOwnerPermission(bookingId);
+
+    Booking booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Booking not found with ID: " + bookingId));
+
+    if (booking.getBookingStatus() != BookingStatus.PENDING) {
+        throw new IllegalStateException(
+                "Only PENDING bookings can be approved.");
     }
 
-    @Transactional
-    @Override
-    public void rejectBooking(Long bookingId) {
-        validateBookingOwnerPermission(bookingId);
-        bookingService.cancelBooking(bookingId);
-        
-        // Notify customer via Member 5 Notification module
-        try {
-            Booking booking = bookingRepository.findById(bookingId).orElse(null);
-            if (booking != null && booking.getCustomerId() != null) {
-                notificationService.bookingCancelled(booking.getCustomerId());
-            }
-        } catch (Exception e) {
-            log.error("Failed to send booking rejection notification for bookingId: {}", bookingId, e);
+    booking.setBookingStatus(BookingStatus.APPROVED);
+    bookingRepository.save(booking);
+
+    // Notify customer that the owner approved the booking
+    try {
+        if (booking.getCustomerId() != null) {
+            notificationService.bookingApproved(booking.getCustomerId());
         }
+    } catch (Exception e) {
+        log.error(
+                "Failed to send booking approval notification for bookingId: {}",
+                bookingId,
+                e
+        );
+    }
+}
+
+    @Transactional
+@Override
+public void rejectBooking(Long bookingId) {
+    validateBookingOwnerPermission(bookingId);
+
+    Booking booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Booking not found with ID: " + bookingId));
+
+    if (booking.getBookingStatus() != BookingStatus.PENDING) {
+        throw new IllegalStateException(
+                "Only PENDING bookings can be rejected.");
     }
 
+    booking.setBookingStatus(BookingStatus.REJECTED);
+    bookingRepository.save(booking);
+
+    // Notify customer that the owner rejected the booking
+    try {
+        if (booking.getCustomerId() != null) {
+           notificationService.bookingRejected(booking.getCustomerId());
+        }
+    } catch (Exception e) {
+        log.error(
+                "Failed to send booking rejection notification for bookingId: {}",
+                bookingId,
+                e
+        );
+    }
+}
     private boolean checkAadhaarVerified(Long ownerId) {
         try {
             return aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent();

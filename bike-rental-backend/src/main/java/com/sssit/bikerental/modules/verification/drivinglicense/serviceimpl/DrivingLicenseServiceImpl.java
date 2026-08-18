@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.sssit.bikerental.common.exception.ResourceNotFoundException;
 import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.common.constants.VerificationConstants;
@@ -359,7 +360,9 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
     @Override
     public DrivingLicense getById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Driving License not found with id: " + id));
+                .orElseThrow(() ->
+        new ResourceNotFoundException(
+                "Driving License not found with id: " + id));
     }
 
     @Override

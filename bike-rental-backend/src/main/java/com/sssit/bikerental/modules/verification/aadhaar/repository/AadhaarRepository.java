@@ -18,10 +18,11 @@ public interface AadhaarRepository extends JpaRepository<AadhaarVerification, Lo
     Optional<AadhaarVerification> findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
             Long customerId, String status);
 
-    // Used for the customerId-free DL<->Aadhaar name match: pull every
-    // APPROVED Aadhaar so the Driving License name can be checked
-    // against all of them, without needing a customerId to narrow the
-    // lookup down to one specific record first.
-    List<AadhaarVerification> findByStatus(String status);
+    Optional<AadhaarVerification> findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
+            Long customerId, String status);
 
+    Optional<AadhaarVerification> findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+            Long customerId, String status);
+
+    List<AadhaarVerification> findByStatus(String status);
 }

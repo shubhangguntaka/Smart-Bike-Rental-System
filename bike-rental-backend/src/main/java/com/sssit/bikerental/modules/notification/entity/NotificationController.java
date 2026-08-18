@@ -55,17 +55,29 @@ public class NotificationController {
     }
 
     // Mark Notification As Read
-    @PutMapping("/read/{notificationId}")
-    public Notification markAsRead(@PathVariable Long notificationId) {
-        return notificationService.markAsRead(notificationId);
-    }
+   @PutMapping("/read/{notificationId}")
+public Notification markAsRead(@PathVariable Long notificationId) {
 
+    Notification notification =
+            notificationService.getNotificationById(notificationId);
+
+    validateUserOwnership(notification.getUserId());
+
+    return notificationService.markAsRead(notificationId);
+}
     // Delete Notification
-    @DeleteMapping("/{notificationId}")
-    public String deleteNotification(@PathVariable Long notificationId) {
-        notificationService.deleteNotification(notificationId);
-        return "Notification deleted successfully.";
-    }
+   @DeleteMapping("/{notificationId}")
+public String deleteNotification(@PathVariable Long notificationId) {
+
+    Notification notification =
+            notificationService.getNotificationById(notificationId);
+
+    validateUserOwnership(notification.getUserId());
+
+    notificationService.deleteNotification(notificationId);
+
+    return "Notification deleted successfully.";
+}
     @GetMapping("/user/{userId}/count")
     public ResponseEntity<Long> getUnreadCount(@PathVariable Long userId) {
         validateUserOwnership(userId);

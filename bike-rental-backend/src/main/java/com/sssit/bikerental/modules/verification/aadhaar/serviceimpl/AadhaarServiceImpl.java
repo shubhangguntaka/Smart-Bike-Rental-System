@@ -690,25 +690,37 @@ public class AadhaarServiceImpl implements AadhaarService {
     //-----------------------------------
 
     @Override
-    public AadhaarVerification getApprovedAadhaar(Long customerId, String purpose) {
+public AadhaarVerification getApprovedAadhaar(Long customerId, String purpose) {
 
-        if (customerId == null) {
-            return null;
-        }
-
-        AadhaarVerification res = repository
-                .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
-                        customerId, VerificationConstants.STATUS_APPROVED)
-                .or(() -> repository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
-                        customerId, "VERIFIED"))
-                .orElse(null);
-        if (res == null) {
-            res = repository
-                    .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
-                            customerId, "VERIFIED")
-                    .orElse(null);
-        }
-        return res;
+    if (customerId == null) {
+        return null;
     }
+
+    boolean isBikeOwnerPurpose =
+            VerificationConstants.PURPOSE_BIKE_OWNER.equalsIgnoreCase(
+                    purpose == null ? "" : purpose.trim());
+
+    if (isBikeOwnerPurpose) {
+        return repository
+                .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                        customerId,
+                        VerificationConstants.STATUS_APPROVED)
+                .or(() -> repository
+                        .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                                customerId,
+                                "VERIFIED"))
+                .orElse(null);
+    }
+
+    return repository
+            .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
+                    customerId,
+                    VerificationConstants.STATUS_APPROVED)
+            .or(() -> repository
+                    .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
+                            customerId,
+                            "VERIFIED"))
+            .orElse(null);
+}
 
 }

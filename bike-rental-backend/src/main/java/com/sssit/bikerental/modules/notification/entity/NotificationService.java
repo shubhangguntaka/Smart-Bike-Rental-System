@@ -23,6 +23,10 @@ public interface NotificationService {
 
     Notification bookingCancelled(Long userId);
 
+    Notification bookingApproved(Long userId);
+
+Notification bookingRejected(Long userId);
+
     Notification paymentSuccessful(Long userId);
 
     Notification rideCompleted(Long userId);

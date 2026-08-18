@@ -13,7 +13,6 @@ export interface Review {
 export interface ReviewDTO {
   reviewId?: number;
   bookingId: number;
-  customerId: number;
   bikeId: number;
   rating: number;
   reviewMessage: string;

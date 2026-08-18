@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import com.sssit.bikerental.modules.auth.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
@@ -23,7 +25,7 @@ public class EmailServiceImpl implements EmailService {
             message.setText(buildOtpMessage(name, otp));
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Email notification send skipped/failed: " + e.getMessage());
+            log.warn("Email notification send skipped/failed: {}", e.getMessage());
         }
     }
 

@@ -1,17 +1,24 @@
-package com.sssit.bikerental.modules.review.Entity;
+package com.sssit.bikerental.modules.review.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import com.sssit.bikerental.common.enums.Role;
+import com.sssit.bikerental.common.security.SecurityUtils;
 import com.sssit.bikerental.exception.BookingNotCompletedException;
 import com.sssit.bikerental.exception.DuplicateReviewException;
 import com.sssit.bikerental.exception.ReviewNotFoundException;
 import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.exception.BookingNotFoundException;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.user.User;
+import com.sssit.bikerental.common.exception.ValidationException;
 
 @Service
 public class ReviewServiceImpl implements ReviewService {
@@ -24,24 +31,34 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     public Review addReview(Review review) {
 
+        // Authenticate the current user
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        if (currentUser == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            review.setCustomerId(currentUser.getId());
+        }
         // 1. Booking ID validation
         if (review.getBookingId() == null) {
-            throw new RuntimeException("Booking ID is required.");
+            throw new ValidationException("Booking ID is required.");
         }
 
         // 2. Rating validation
-        if (review.getRating() == null ||
-            review.getRating() < 1 ||
-            review.getRating() > 5) {
+        if (review.getRating() == null
+                || review.getRating() < 1
+                || review.getRating() > 5) {
 
-            throw new RuntimeException("Rating must be between 1 and 5.");
+            throw new ValidationException("Rating must be between 1 and 5.");
         }
 
         // 3. Review message validation
-        if (review.getReviewMessage() == null ||
-            review.getReviewMessage().trim().isEmpty()) {
+        if (review.getReviewMessage() == null
+                || review.getReviewMessage().trim().isEmpty()) {
 
-            throw new RuntimeException("Review message cannot be empty.");
+            throw new ValidationException("Review message cannot be empty.");
         }
 
         if (reviewRepository.existsByBookingId(review.getBookingId())) {
@@ -50,10 +67,21 @@ public class ReviewServiceImpl implements ReviewService {
 
         // 5. Ride completion validation
         Booking booking = bookingRepository.findById(review.getBookingId())
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() ->
+        new BookingNotFoundException("Booking not found"));
 
-        if (!"COMPLETED".equalsIgnoreCase(booking.getStatus())) {
-            throw new BookingNotCompletedException("You can review only after ride completion.");
+        if (currentUser.getRole() != Role.ADMIN
+                && !booking.getCustomerId().equals(currentUser.getId())) {
+
+            throw new AccessDeniedException(
+                    "You can only review your own booking."
+            );
+        }
+
+        if (booking.getBookingStatus() != BookingStatus.COMPLETED) {
+            throw new BookingNotCompletedException(
+                    "You can review only after ride completion."
+            );
         }
         // 6. Set dates
         review.setReviewDate(LocalDate.now());
@@ -62,6 +90,7 @@ public class ReviewServiceImpl implements ReviewService {
         // 7. Save review
         return reviewRepository.save(review);
     }
+
     @Override
     public List<Review> getAllReviews() {
         return reviewRepository.findAll();
@@ -69,27 +98,40 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public Review getReviewById(Long reviewId) {
-    	Review review = reviewRepository.findById(reviewId)
-    	        .orElseThrow(() ->
-    	            new ReviewNotFoundException("Review not found with id : " + reviewId));
-    	   return review;
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(()
+                        -> new ReviewNotFoundException("Review not found with id : " + reviewId));
+        return review;
     }
 
     private void validateReviewOwnership(Review review) {
-        com.sssit.bikerental.modules.user.User currentUser = com.sssit.bikerental.common.security.SecurityUtils.getCurrentUser();
-        if (currentUser != null && currentUser.getRole() != com.sssit.bikerental.common.enums.Role.ADMIN) {
-            if (review.getCustomerId() != null && !review.getCustomerId().equals(currentUser.getId())) {
-                throw new com.sssit.bikerental.common.exception.ResourceOwnershipException("Access denied: You can only modify or delete your own reviews");
-            }
+
+        User currentUser
+                = SecurityUtils.getCurrentUser();
+
+        if (currentUser == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+
+        if (currentUser.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (review.getCustomerId() == null
+                || !review.getCustomerId().equals(currentUser.getId())) {
+
+            throw new AccessDeniedException(
+                    "Access denied: You can only modify or delete your own reviews."
+            );
         }
     }
 
     @Override
     public Review updateReview(Long reviewId, Review updatedReview) {
 
-    	Review review = reviewRepository.findById(reviewId)
-    	        .orElseThrow(() ->
-    	            new ReviewNotFoundException("Review not found with id : " + reviewId));
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(()
+                        -> new ReviewNotFoundException("Review not found with id : " + reviewId));
 
         validateReviewOwnership(review);
 
@@ -102,9 +144,9 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public void deleteReview(Long reviewId) {
-    	Review review = reviewRepository.findById(reviewId)
-    	        .orElseThrow(() ->
-    	            new ReviewNotFoundException("Review not found with id : " + reviewId));
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(()
+                        -> new ReviewNotFoundException("Review not found with id : " + reviewId));
         validateReviewOwnership(review);
         reviewRepository.delete(review);
     }
@@ -120,6 +162,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         return reviewRepository.findByCustomerId(customerId);
     }
+
     @Override
     public Double getAverageRating(Long bikeId) {
 

@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.sssit.bikerental.exception.NotificationNotFoundException;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -34,7 +35,8 @@ public class NotificationServiceImpl implements NotificationService {
 
         return notificationRepository.findById(notificationId)
                 .orElseThrow(() ->
-                        new RuntimeException("Notification not found with id: " + notificationId));
+                       new NotificationNotFoundException(
+        "Notification not found with id: " + notificationId));
     }
 
     // Get Notifications By User (Latest -> Oldest)
@@ -55,7 +57,8 @@ public class NotificationServiceImpl implements NotificationService {
 
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() ->
-                        new RuntimeException("Notification not found with id: " + notificationId));
+                       new NotificationNotFoundException(
+        "Notification not found with id: " + notificationId));
 
         notification.setIsRead(true);
 
@@ -68,7 +71,8 @@ public class NotificationServiceImpl implements NotificationService {
 
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() ->
-                        new RuntimeException("Notification not found with id: " + notificationId));
+                       new NotificationNotFoundException(
+        "Notification not found with id: " + notificationId));
 
         notificationRepository.delete(notification);
     }
@@ -104,6 +108,34 @@ public class NotificationServiceImpl implements NotificationService {
 
         return notificationRepository.save(notification);
     }
+
+    @Override
+public Notification bookingApproved(Long userId) {
+
+    Notification notification = new Notification();
+    notification.setUserId(userId);
+    notification.setTitle("Booking Approved");
+    notification.setMessage("Your booking has been approved by the bike owner. Please confirm your booking to continue.");
+    notification.setNotificationType("BOOKING");
+    notification.setIsRead(false);
+    notification.setCreatedAt(LocalDateTime.now());
+
+    return notificationRepository.save(notification);
+}
+
+@Override
+public Notification bookingRejected(Long userId) {
+
+    Notification notification = new Notification();
+    notification.setUserId(userId);
+    notification.setTitle("Booking Rejected");
+    notification.setMessage("Your booking request has been rejected by the bike owner.");
+    notification.setNotificationType("BOOKING");
+    notification.setIsRead(false);
+    notification.setCreatedAt(LocalDateTime.now());
+
+    return notificationRepository.save(notification);
+}
 
     @Override
     public Notification paymentSuccessful(Long userId) {

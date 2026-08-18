@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.sssit.bikerental.common.exception.ResourceNotFoundException;
 import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.dto.BikeDocumentResponseDTO;
@@ -479,7 +480,9 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
     @Override
     public BikeDocument getById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Bike Document not found with id: " + id));
+                .orElseThrow(() ->
+        new ResourceNotFoundException(
+                "Bike Document not found with id: " + id));
     }
 
     @Override

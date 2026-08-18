@@ -1,4 +1,4 @@
-package com.sssit.bikerental.modules.review.Entity;
+package com.sssit.bikerental.modules.review.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import com.sssit.bikerental.common.enums.OtpPurpose;
 import com.sssit.bikerental.modules.user.User;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -17,6 +18,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 
 @Entity
 @Table(name = "reviews")
@@ -31,12 +33,14 @@ import lombok.Setter;
 	    @Id
 	    @GeneratedValue(strategy = GenerationType.IDENTITY)
 	    private Long reviewId;
+@Column(name = "booking_id", nullable = false)
+private Long bookingId;
 
-	    private Long bookingId;
+@Column(name = "customer_id", nullable = false)
+private Long customerId;
 
-	    private Long customerId;
-
-	    private Long bikeId;
+@Column(name = "bike_id", nullable = false)
+private Long bikeId;
 
 	    private Integer rating;
 
