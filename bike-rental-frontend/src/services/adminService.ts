@@ -9,7 +9,10 @@ import type {
 } from "../types/admin";
 
 export const adminService = {
-  getDashboard: async (): Promise<AdminDashboard> => {
+  /**
+   * Admin dashboard.
+   */
+  async getDashboard(): Promise<AdminDashboard> {
     const response = await api.get<AdminDashboard>(
       "/admin/dashboard"
     );
@@ -17,7 +20,10 @@ export const adminService = {
     return response.data;
   },
 
-  getUsers: async (): Promise<UserAdmin[]> => {
+  /**
+   * Get all users available to the administrator.
+   */
+  async getUsers(): Promise<UserAdmin[]> {
     const response = await api.get<UserAdmin[]>(
       "/admin/users"
     );
@@ -25,10 +31,17 @@ export const adminService = {
     return response.data;
   },
 
-  updateUserStatus: async (
+  /**
+   * Enable or disable a user account.
+   */
+  async updateUserStatus(
     userId: number,
     enabled: boolean
-  ): Promise<UserAdmin> => {
+  ): Promise<UserAdmin> {
+    if (!userId) {
+      throw new Error("User ID is required.");
+    }
+
     const response = await api.put<UserAdmin>(
       `/admin/users/${userId}/status`,
       null,
@@ -42,7 +55,10 @@ export const adminService = {
     return response.data;
   },
 
-  getOwners: async (): Promise<OwnerAdmin[]> => {
+  /**
+   * Get all bike owners.
+   */
+  async getOwners(): Promise<OwnerAdmin[]> {
     const response = await api.get<OwnerAdmin[]>(
       "/admin/owners"
     );
@@ -50,7 +66,10 @@ export const adminService = {
     return response.data;
   },
 
-  getBikes: async (): Promise<BikeAdmin[]> => {
+  /**
+   * Reserved for Day 3.
+   */
+  async getBikes(): Promise<BikeAdmin[]> {
     const response = await api.get<BikeAdmin[]>(
       "/admin/bikes"
     );
@@ -58,10 +77,21 @@ export const adminService = {
     return response.data;
   },
 
-  updateBikeStatus: async (
+  /**
+   * Reserved for Day 3.
+   */
+  async updateBikeStatus(
     bikeId: number,
     status: string
-  ): Promise<BikeAdmin> => {
+  ): Promise<BikeAdmin> {
+    if (!bikeId) {
+      throw new Error("Bike ID is required.");
+    }
+
+    if (!status?.trim()) {
+      throw new Error("Bike status is required.");
+    }
+
     const response = await api.put<BikeAdmin>(
       `/admin/bikes/${bikeId}/status`,
       null,
@@ -75,7 +105,10 @@ export const adminService = {
     return response.data;
   },
 
-  getBookings: async (): Promise<BookingAdmin[]> => {
+  /**
+   * Reserved for Day 3.
+   */
+  async getBookings(): Promise<BookingAdmin[]> {
     const response = await api.get<BookingAdmin[]>(
       "/admin/bookings"
     );
@@ -83,7 +116,10 @@ export const adminService = {
     return response.data;
   },
 
-  getPayments: async (): Promise<unknown[]> => {
+  /**
+   * Reserved for Day 3.
+   */
+  async getPayments(): Promise<unknown[]> {
     const response = await api.get<unknown[]>(
       "/admin/payments"
     );
@@ -91,7 +127,10 @@ export const adminService = {
     return response.data;
   },
 
-  getActivity: async (): Promise<unknown[]> => {
+  /**
+   * Reserved for later activity-log implementation.
+   */
+  async getActivity(): Promise<unknown[]> {
     const response = await api.get<unknown[]>(
       "/admin/activity"
     );

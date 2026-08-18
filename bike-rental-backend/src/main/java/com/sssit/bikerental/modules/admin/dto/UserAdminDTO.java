@@ -20,4 +20,5 @@ public class UserAdminDTO {
     private String role;
     private Boolean enabled;
     private String status;
+    private String profileImage;
 }

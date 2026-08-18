@@ -9,12 +9,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/admin/legacy/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
 
     private final UserService userService;
+
+    /**
+     * Legacy administrative user endpoints retained for
+     * backward compatibility.
+     *
+     * Section 3 M3 uses AdminController for the new
+     * /api/admin/users contract.
+     */
 
     @GetMapping
     public ResponseEntity<?> getAllUsers(){

@@ -35,6 +35,7 @@ export interface UserAdmin {
   role: string;
   enabled: boolean;
   status?: string;
+  profileImage?: string;
 }
 
 export interface OwnerAdmin {
@@ -43,6 +44,7 @@ export interface OwnerAdmin {
   email: string;
   totalBikes?: number;
   totalBookings?: number;
+  totalEarnings?: number;
   verificationStatus?: boolean;
   status?: string;
 }
