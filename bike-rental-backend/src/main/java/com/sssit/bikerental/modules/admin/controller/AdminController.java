@@ -1,8 +1,10 @@
 package com.sssit.bikerental.modules.admin.controller;
 
+import com.sssit.bikerental.common.response.ApiResponse;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
+import com.sssit.bikerental.modules.admin.dto.CustomerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
 import com.sssit.bikerental.modules.admin.service.AdminService;
@@ -20,104 +22,103 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
-    private final AdminService adminService;
+        private final AdminService adminService;
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<AdminDashboardDTO> getDashboard() {
+        @GetMapping("/dashboard")
+        public ResponseEntity<AdminDashboardDTO> getDashboard() {
 
-        return ResponseEntity.ok(
-                adminService.getDashboard()
+                return ResponseEntity.ok(
+                                adminService.getDashboard());
+        }
+
+        @GetMapping("/users")
+        public ResponseEntity<List<UserAdminDTO>> getUsers() {
+
+                return ResponseEntity.ok(
+                                adminService.getUsers());
+        }
+
+        @PutMapping("/users/{id}/status")
+        public ResponseEntity<UserAdminDTO> updateUserStatus(
+                        @PathVariable("id") Long userId,
+                        @RequestParam("enabled") Boolean enabled) {
+
+                return ResponseEntity.ok(
+                                adminService.updateUserStatus(
+                                                userId,
+                                                enabled));
+        }
+
+        @GetMapping("/customers")
+        public ResponseEntity<ApiResponse<List<CustomerAdminDTO>>> getCustomers() {
+            return ResponseEntity.ok(
+                    ApiResponse.success(
+                            "Customers retrieved successfully",
+                            adminService.getCustomers()
+                    )
         );
-    }
+        }
 
-    @GetMapping("/users")
-    public ResponseEntity<List<UserAdminDTO>> getUsers() {
+        @GetMapping("/owners")
+        public ResponseEntity<List<OwnerAdminDTO>> getOwners() {
 
-        return ResponseEntity.ok(
-                adminService.getUsers()
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.getOwners());
+        }
 
-    @PutMapping("/users/{id}/status")
-    public ResponseEntity<UserAdminDTO> updateUserStatus(
-            @PathVariable("id") Long userId,
-            @RequestParam("enabled") Boolean enabled) {
+        /**
+         * GET /api/admin/bikes
+         */
+        @GetMapping("/bikes")
+        public ResponseEntity<List<BikeAdminDTO>> getBikes() {
 
-        return ResponseEntity.ok(
-                adminService.updateUserStatus(
-                        userId,
-                        enabled
-                )
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.getBikes());
+        }
 
-    @GetMapping("/owners")
-    public ResponseEntity<List<OwnerAdminDTO>> getOwners() {
+        /**
+         * PUT /api/admin/bikes/{id}/status
+         */
+        @PutMapping("/bikes/{id}/status")
+        public ResponseEntity<BikeAdminDTO> updateBikeStatus(
+                        @PathVariable("id") Long bikeId,
+                        @RequestParam("status") String status) {
 
-        return ResponseEntity.ok(
-                adminService.getOwners()
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.updateBikeStatus(
+                                                bikeId,
+                                                status));
+        }
 
-    /**
-     * GET /api/admin/bikes
-     */
-    @GetMapping("/bikes")
-    public ResponseEntity<List<BikeAdminDTO>> getBikes() {
+        /**
+         * GET /api/admin/bookings
+         */
+        @GetMapping("/bookings")
+        public ResponseEntity<List<BookingAdminDTO>> getBookings() {
 
-        return ResponseEntity.ok(
-                adminService.getBikes()
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.getBookings());
+        }
 
-    /**
-     * PUT /api/admin/bikes/{id}/status
-     */
-    @PutMapping("/bikes/{id}/status")
-    public ResponseEntity<BikeAdminDTO> updateBikeStatus(
-            @PathVariable("id") Long bikeId,
-            @RequestParam("status") String status) {
+        /**
+         * GET /api/admin/payments
+         */
+        @GetMapping("/payments")
+        public ResponseEntity<List<PaymentResponse>> getPayments() {
 
-        return ResponseEntity.ok(
-                adminService.updateBikeStatus(
-                        bikeId,
-                        status
-                )
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.getPayments());
+        }
 
-    /**
-     * GET /api/admin/bookings
-     */
-    @GetMapping("/bookings")
-    public ResponseEntity<List<BookingAdminDTO>> getBookings() {
+        /**
+         * GET /api/admin/activity
+         *
+         * Activity log implementation is handled later.
+         */
+        @GetMapping("/activity")
+        public ResponseEntity<List<?>> getActivity() {
 
-        return ResponseEntity.ok(
-                adminService.getBookings()
-        );
-    }
-
-    /**
-     * GET /api/admin/payments
-     */
-    @GetMapping("/payments")
-    public ResponseEntity<List<PaymentResponse>> getPayments() {
-
-        return ResponseEntity.ok(
-                adminService.getPayments()
-        );
-    }
-
-    /**
-     * GET /api/admin/activity
-     *
-     * Activity log implementation is handled later.
-     */
-    @GetMapping("/activity")
-    public ResponseEntity<List<?>> getActivity() {
-
-        return ResponseEntity.ok(
-                adminService.getActivity()
-        );
-    }
+                return ResponseEntity.ok(
+                                adminService.getActivity());
+        }
 }

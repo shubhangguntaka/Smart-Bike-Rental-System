@@ -4,6 +4,7 @@ import type {
   AdminDashboard,
   BikeAdmin,
   BookingAdmin,
+  CustomerAdmin,
   OwnerAdmin,
   PaymentAdmin,
   UserAdmin,
@@ -54,6 +55,14 @@ export const adminService = {
       );
 
     return response.data;
+  },
+
+  async getCustomers(): Promise<CustomerAdmin[]> {
+    const response = await api.get("/admin/customers");
+
+    const data = response.data?.data ?? response.data;
+
+    return Array.isArray(data) ? data : [];
   },
 
   async getOwners(): Promise<OwnerAdmin[]> {
