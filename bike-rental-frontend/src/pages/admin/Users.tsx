@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from "react";
-import { SearchBar } from "@/components/common/SearchBar";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { FilterBar } from "@/components/common/FilterBar";
 import type { FilterField } from "@/components/common/FilterBar";
 import { Pagination } from "@/components/common/Pagination";
-import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { ShieldAlert, UserX, UserCheck, Mail, ShieldCheck } from "lucide-react";
+import { SearchBar } from "@/components/common/SearchBar";
 import toast from "react-hot-toast";
-import api from "@/api/axios";
+
+import UserTable from "@/components/admin/UserTable";
+import StatusActionModal from "@/components/admin/StatusActionModal";
+
+import adminService from "@/services/adminService";
+import type { UserAdmin } from "@/types/admin";
+
+const PAGE_SIZE = 5;
 
 const FILTER_CONFIGS: FilterField[] = [
   {
@@ -15,225 +25,267 @@ const FILTER_CONFIGS: FilterField[] = [
     type: "select",
     options: [
       { label: "Customer", value: "CUSTOMER" },
-      { label: "Bike Owner", value: "OWNER" },
+      { label: "Owner", value: "OWNER" },
       { label: "Admin", value: "ADMIN" },
     ],
   },
   {
     id: "status",
     label: "Status",
-    type: "radio",
+    type: "select",
     options: [
-      { label: "Active", value: "Active" },
-      { label: "Blocked", value: "Blocked" },
+      { label: "Active", value: "ACTIVE" },
+      { label: "Inactive", value: "INACTIVE" },
     ],
   },
 ];
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserAdmin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] =
+    useState(false);
+
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [filters, setFilters] = useState<Record<string, any>>(
+    {}
+  );
   const [page, setPage] = useState(1);
-  const [actionUser, setActionUser] = useState<any | null>(null);
+  const [actionUser, setActionUser] =
+    useState<UserAdmin | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get("/users");
-        const list = Array.isArray(res.data) ? res.data : [];
-        setUsers(list.map((u: any) => ({
-          id: u.userId || u.id,
-          name: u.fullName || u.name || u.email?.split("@")[0] || "User",
-          email: u.email || "",
-          role: (u.role || "CUSTOMER").toUpperCase(),
-          status: u.status || (u.active !== false ? "Active" : "Blocked"),
-        })));
-      } catch (err) {
-        console.error("Could not fetch users:", err);
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUsers();
-  }, []);
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
 
-  const handleBlockUser = async () => {
-    if (!actionUser) return;
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    setUsers(users.map((u) => {
-      if (u.id === actionUser.id) {
-        return { ...u, status: u.status === "Active" ? "Blocked" : "Active" };
-      }
-      return u;
-    }));
-    
-    toast.success(`User ${actionUser.name} status updated successfully.`);
-    setLoading(false);
-    setActionUser(null);
+      const data = await adminService.getUsers();
+
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(
+        "Failed to load admin users:",
+        error
+      );
+
+      setUsers([]);
+      toast.error("Unable to load users.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filtered = users.filter((u) => {
-    if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) {
-      return false;
-    }
-    if (filters.role && u.role !== filters.role) {
-      return false;
-    }
-    if (filters.status && u.status !== filters.status) {
-      return false;
-    }
-    return true;
-  });
+  useEffect(() => {
+    void loadUsers();
+  }, []);
 
-  const paginated = filtered.slice((page - 1) * 5, page * 5);
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return users.filter((user) => {
+      if (query) {
+        const searchable = [
+          user.fullName,
+          user.email,
+          user.phoneNumber,
+          user.role,
+          user.status,
+          String(user.userId),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (!searchable.includes(query)) {
+          return false;
+        }
+      }
+
+      if (
+        filters.role &&
+        user.role?.toUpperCase() !==
+          String(filters.role).toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (filters.status) {
+        const active =
+          user.enabled ||
+          user.status?.toUpperCase() === "ACTIVE";
+
+        const expected =
+          String(filters.status).toUpperCase() ===
+          "ACTIVE";
+
+        if (active !== expected) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [users, search, filters]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUsers.length / PAGE_SIZE)
+  );
+
+  const paginatedUsers = filteredUsers.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const handleStatusAction = async () => {
+    if (!actionUser) {
+      return;
+    }
+
+    if (
+      actionUser.role?.toUpperCase() === "ADMIN"
+    ) {
+      toast.error(
+        "Admin accounts cannot be deactivated."
+      );
+      setActionUser(null);
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      const isCurrentlyActive =
+        actionUser.enabled ||
+        actionUser.status?.toUpperCase() === "ACTIVE";
+
+      const updatedUser =
+        await adminService.updateUserStatus(
+          actionUser.userId,
+          !isCurrentlyActive
+        );
+
+      setUsers((current) =>
+        current.map((user) =>
+          user.userId === updatedUser.userId
+            ? updatedUser
+            : user
+        )
+      );
+
+      toast.success(
+        !isCurrentlyActive
+          ? "User activated successfully."
+          : "User deactivated successfully."
+      );
+
+      setActionUser(null);
+    } catch (error) {
+      console.error(
+        "Failed to update user status:",
+        error
+      );
+
+      toast.error("Unable to update user status.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const userIsActive =
+    actionUser?.enabled ||
+    actionUser?.status?.toUpperCase() === "ACTIVE";
 
   return (
-    <div className="space-y-6 bg-background text-foreground min-h-screen">
-      {/* Title */}
-      <div className="bg-card border border-border p-6 rounded-2xl">
-        <h2 className="text-xl font-bold text-foreground">User Management</h2>
-        <p className="text-xs text-muted-foreground mt-1">Manage platform accounts, security block status, and role privileges.</p>
+    <div className="min-h-screen space-y-6 text-foreground">
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="text-xl font-bold">
+          User Management
+        </h2>
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          Manage customer, owner and administrative
+          accounts.
+        </p>
       </div>
 
-      {/* Controls */}
       <div className="flex flex-col gap-4">
         <SearchBar
           value={search}
-          onChange={setSearch}
-          placeholder="Search by name, email..."
+          onChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          placeholder="Search name, email, role..."
           width="max-w-md w-full"
         />
+
         <FilterBar
           filters={FILTER_CONFIGS}
           value={filters}
-          onChange={setFilters}
-          onClearAll={() => setFilters({})}
+          onChange={(value) => {
+            setFilters(value);
+            setPage(1);
+          }}
+          onClearAll={() => {
+            setFilters({});
+            setPage(1);
+          }}
         />
       </div>
 
-      {/* Table / List */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-muted/20 text-muted-foreground font-semibold">
-                <th className="p-4">Name</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length > 0 ? (
-                paginated.map((user) => (
-                  <tr key={user.id} className="border-b border-border hover:bg-muted/10 last:border-0">
-                    <td className="p-4 font-bold text-foreground">{user.name}</td>
-                    <td className="p-4 text-muted-foreground font-mono">{user.email}</td>
-                    <td className="p-4">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                          user.status === "Active"
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setActionUser(user)}
-                        className={`p-2 rounded-xl border border-border cursor-pointer transition focus:outline-none ${
-                          user.status === "Active"
-                            ? "text-destructive hover:bg-destructive/5 hover:border-destructive"
-                            : "text-green-500 hover:bg-green-500/5 hover:border-green-500"
-                        }`}
-                        title={user.status === "Active" ? "Block account" : "Unblock account"}
-                      >
-                        {user.status === "Active" ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                    No users matching criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <UserTable
+        users={paginatedUsers}
+        loading={loading}
+        onStatusAction={setActionUser}
+      />
 
-      {/* Pagination */}
-      {filtered.length > 5 && (
+      {filteredUsers.length > PAGE_SIZE && (
         <Pagination
           currentPage={page}
-          totalPages={Math.ceil(filtered.length / 5)}
+          totalPages={totalPages}
           onPageChange={setPage}
           showJumpToPage={false}
         />
       )}
 
-      {/* Confirmation Modal */}
-      <Modal isOpen={!!actionUser} onClose={() => !loading && setActionUser(null)} size="sm">
-        <ModalHeader onClose={() => !loading && setActionUser(null)}>
-          {actionUser?.status === "Active" ? "Block User Account" : "Unblock User Account"}
-        </ModalHeader>
-        <ModalBody>
-          {actionUser && (
-            <div className="space-y-3.5 text-center py-4">
-              <div className={`inline-flex h-12 w-12 items-center justify-center rounded-full mb-2 ${
-                actionUser.status === "Active" ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-500"
-              }`}>
-                <ShieldAlert className="h-6 w-6" />
-              </div>
-              <p className="text-sm font-semibold">Are you absolutely sure?</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {actionUser.status === "Active"
-                  ? `This action will immediately disable login credentials for ${actionUser.name} and block any active booking sessions.`
-                  : `This action will restore login access to the platform for ${actionUser.name}.`}
-              </p>
-            </div>
-          )}
-        </ModalBody>
-        <ModalFooter align="justify-center">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => setActionUser(null)}
-            className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-xl border border-border hover:bg-muted text-foreground transition-all cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={handleBlockUser}
-            className={`w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-xl text-white transition-all cursor-pointer shadow-sm hover:shadow flex items-center justify-center gap-1.5 ${
-              actionUser?.status === "Active" ? "bg-destructive hover:opacity-90" : "bg-green-500 hover:opacity-90"
-            }`}
-          >
-            {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-            <span>{actionUser?.status === "Active" ? "Yes, Block Account" : "Yes, Restore Account"}</span>
-          </button>
-        </ModalFooter>
-      </Modal>
+      <StatusActionModal
+        isOpen={!!actionUser}
+        title={
+          userIsActive
+            ? "Deactivate User"
+            : "Activate User"
+        }
+        description={
+          actionUser
+            ? userIsActive
+              ? `This will deactivate ${
+                  actionUser.fullName
+                }'s account.`
+              : `This will activate ${
+                  actionUser.fullName
+                }'s account.`
+            : ""
+        }
+        actionLabel={
+          userIsActive
+            ? "Yes, Deactivate"
+            : "Yes, Activate"
+        }
+        actionType={
+          userIsActive ? "danger" : "success"
+        }
+        loading={actionLoading}
+        onClose={() => setActionUser(null)}
+        onConfirm={() => {
+          void handleStatusAction();
+        }}
+      />
     </div>
   );
 }

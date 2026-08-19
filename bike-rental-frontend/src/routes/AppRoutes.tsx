@@ -62,6 +62,8 @@ import NotFound from "../pages/errors/NotFound";
 
 // Static Info Pages
 import { PricingPage, FAQPage, HelpPage, PrivacyPolicyPage, TermsPage } from "@/pages/StaticPages";
+import AdminOwners from "@/pages/admin/Owners";
+import AdminBookings from "@/pages/admin/Bookings";
 
 const AppRoutes = () => {
   return (
@@ -163,8 +165,9 @@ const AppRoutes = () => {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="profile" element={<AdminProfile />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="owners" element={<AdminOwners />} />
+          <Route path="bookings" element={<AdminBookings />} />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Route Aliases */}

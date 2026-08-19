@@ -179,9 +179,19 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         icon: Users,
       },
       {
+        label: "Owners",
+        path: "/admin/owners",
+        icon: Users,
+      },
+      {
         label: "Bikes",
         path: "/admin/bikes",
         icon: Bike,
+      },
+      {
+        label: "Bookings",
+        path: "/admin/bookings",
+        icon: CalendarDays,
       },
       {
         label: "Payments",
@@ -195,7 +205,7 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
       },
       {
         label: "Notifications",
-        path: "/admin/notification",
+        path: "/admin/notifications",
         icon: Bell,
       },
     ],

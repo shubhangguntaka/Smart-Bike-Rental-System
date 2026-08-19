@@ -133,7 +133,7 @@ export default function AdminVerification() {
   };
 
   return (
-    <div className="space-y-6 bg-background text-foreground min-h-screen pb-12">
+    <div className="space-y-6 text-foreground min-h-screen pb-12">
       {/* Title & Header */}
       <div className="bg-card border border-border p-6 rounded-3xl shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

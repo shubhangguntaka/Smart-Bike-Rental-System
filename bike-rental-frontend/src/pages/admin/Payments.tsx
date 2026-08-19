@@ -1,138 +1,123 @@
-import React, { useState, useEffect } from "react";
-import { SearchBar } from "@/components/common/SearchBar";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { Pagination } from "@/components/common/Pagination";
-import { CreditCard, TrendingUp, DollarSign, Wallet } from "lucide-react";
-import api from "@/api/axios";
+import { SearchBar } from "@/components/common/SearchBar";
+import toast from "react-hot-toast";
+
+import PaymentTable from "@/components/admin/PaymentTable";
+
+import adminService from "@/services/adminService";
+import type { PaymentAdmin } from "@/types/admin";
+
+const PAGE_SIZE = 5;
 
 export default function AdminPayments() {
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<
+    PaymentAdmin[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const fetchPayments = async () => {
+    const loadPayments = async () => {
       try {
         setLoading(true);
-        const res = await api.get("/bookings");
-        const list = Array.isArray(res.data) ? res.data : [];
-        setPayments(list.map((b: any, idx: number) => ({
-          id: `TX-${b.bookingId || b.id || (4000 + idx)}`,
-          date: b.createdAt ? b.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
-          user: b.customerName || b.user?.fullName || "Customer",
-          bike: b.bikeName || "Bike Rental",
-          amount: b.totalPrice || b.amount || 350,
-          method: b.paymentMethod || "Razorpay / UPI",
-          status: b.bookingStatus === "CANCELLED" ? "Failed" : "Successful",
-        })));
-      } catch (err) {
-        console.error("Could not fetch payments:", err);
+
+        const data =
+          await adminService.getPayments();
+
+        setPayments(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(
+          "Failed to load admin payments:",
+          error
+        );
+
         setPayments([]);
+        toast.error("Unable to load payments.");
       } finally {
         setLoading(false);
       }
     };
-    fetchPayments();
+
+    void loadPayments();
   }, []);
 
-  const filtered = payments.filter((r) =>
-    (r.id || "").toLowerCase().includes(search.toLowerCase()) ||
-    (r.user || "").toLowerCase().includes(search.toLowerCase())
+  const filteredPayments = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return payments;
+    }
+
+    return payments.filter((payment) =>
+      [
+        String(payment.paymentId),
+        String(payment.bookingId),
+        payment.status,
+        payment.paymentDate,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [payments, search]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredPayments.length / PAGE_SIZE
+    )
   );
 
-  const paginated = filtered.slice((page - 1) * 5, page * 5);
+  const paginatedPayments = filteredPayments.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   return (
-    <div className="space-y-6 bg-background text-foreground min-h-screen">
-      {/* Title */}
-      <div className="bg-card border border-border p-6 rounded-2xl">
-        <h2 className="text-xl font-bold text-foreground">Global Ledger Transactions</h2>
-        <p className="text-xs text-muted-foreground mt-1">Review system billing records, commission earnings, and payouts history.</p>
+    <div className="min-h-screen space-y-6 text-foreground">
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="text-xl font-bold">
+          Payment Management
+        </h2>
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          Review payment records and transaction status.
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Overall Gross Revenue</span>
-            <DollarSign className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground">₹28,450</p>
-          <span className="text-[10px] text-green-500 font-bold flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" /> +12.3% weekly hike
-          </span>
-        </div>
+      <SearchBar
+        value={search}
+        onChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        placeholder="Search payment ID, booking ID, status..."
+        width="max-w-md w-full"
+      />
 
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Commission Earned (10%)</span>
-            <Wallet className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground">₹2,845</p>
-          <span className="text-[10px] text-muted-foreground">Admin income pool</span>
-        </div>
+      <PaymentTable
+        payments={paginatedPayments}
+        loading={loading}
+      />
 
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Pending Owner Payouts</span>
-            <CreditCard className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground">₹960</p>
-          <span className="text-[10px] text-muted-foreground">Automatic weekly payout cycle</span>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex gap-4">
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-          placeholder="Search by transaction ID, customer name..."
-          width="max-w-md w-full"
-        />
-      </div>
-
-      {/* Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-muted/20 text-muted-foreground font-semibold">
-                <th className="p-4">Transaction ID</th>
-                <th className="p-4">Renter Customer</th>
-                <th className="p-4">Bicycle Item</th>
-                <th className="p-4">Payment Method</th>
-                <th className="p-4 text-right">Paid Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length > 0 ? (
-                paginated.map((tx) => (
-                  <tr key={tx.id} className="border-b border-border hover:bg-muted/10 last:border-0">
-                    <td className="p-4 font-bold text-foreground font-mono">{tx.id}</td>
-                    <td className="p-4 text-muted-foreground font-medium">{tx.user}</td>
-                    <td className="p-4 text-muted-foreground font-medium">{tx.bike}</td>
-                    <td className="p-4 text-muted-foreground font-medium">{tx.method}</td>
-                    <td className="p-4 text-right font-black text-foreground">₹{tx.amount}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                    No transactions registered.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {filtered.length > 5 && (
+      {filteredPayments.length > PAGE_SIZE && (
         <Pagination
           currentPage={page}
-          totalPages={Math.ceil(filtered.length / 5)}
+          totalPages={totalPages}
           onPageChange={setPage}
           showJumpToPage={false}
         />

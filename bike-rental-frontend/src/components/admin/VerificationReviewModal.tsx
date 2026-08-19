@@ -64,7 +64,14 @@ export default function VerificationReviewModal({
       api
         .get(`/admin/verifications/${verification.id}/image`, { responseType: "blob" })
         .then((res) => {
-          const blob = new Blob([res.data], { type: res.headers["content-type"] || "image/png" });
+          const contentType =
+            typeof res.headers["content-type"] === "string"
+              ? res.headers["content-type"]
+              : "image/png";
+
+          const blob = new Blob([res.data], {
+            type: contentType,
+          });
           setImageUrl(URL.createObjectURL(blob));
         })
         .catch((err) => {
@@ -260,26 +267,24 @@ export default function VerificationReviewModal({
 
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Automatic Verification:</span>
-                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-black uppercase ${
-                      verification.automaticStatus === "VERIFIED"
+                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-black uppercase ${verification.automaticStatus === "VERIFIED"
                         ? "bg-emerald-500/10 text-emerald-500"
                         : "bg-amber-500/10 text-amber-500"
-                    }`}>
+                      }`}>
                       {verification.automaticStatus}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Admin Review Status:</span>
-                    <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase ${
-                      verification.adminStatus === "APPROVED"
+                    <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase ${verification.adminStatus === "APPROVED"
                         ? "bg-emerald-500/10 text-emerald-500"
                         : verification.adminStatus === "REJECTED"
-                        ? "bg-destructive/10 text-destructive"
-                        : verification.adminStatus === "REUPLOAD_REQUIRED"
-                        ? "bg-orange-500/10 text-orange-500"
-                        : "bg-amber-500/10 text-amber-500"
-                    }`}>
+                          ? "bg-destructive/10 text-destructive"
+                          : verification.adminStatus === "REUPLOAD_REQUIRED"
+                            ? "bg-orange-500/10 text-orange-500"
+                            : "bg-amber-500/10 text-amber-500"
+                      }`}>
                       {verification.adminStatus}
                     </span>
                   </div>
@@ -456,12 +461,11 @@ export default function VerificationReviewModal({
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-foreground">{log.performedBy}</span>
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
-                          log.action === "APPROVED" ? "bg-emerald-500/10 text-emerald-500" :
-                          log.action === "REJECTED" ? "bg-destructive/10 text-destructive" :
-                          log.action === "REUPLOAD_REQUIRED" ? "bg-orange-500/10 text-orange-500" :
-                          "bg-primary/10 text-primary"
-                        }`}>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${log.action === "APPROVED" ? "bg-emerald-500/10 text-emerald-500" :
+                            log.action === "REJECTED" ? "bg-destructive/10 text-destructive" :
+                              log.action === "REUPLOAD_REQUIRED" ? "bg-orange-500/10 text-orange-500" :
+                                "bg-primary/10 text-primary"
+                          }`}>
                           {log.action}
                         </span>
                       </div>
