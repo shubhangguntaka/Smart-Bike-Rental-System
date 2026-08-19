@@ -9,8 +9,8 @@ import com.sssit.bikerental.modules.gps.entity.GPSLocation;
 import com.sssit.bikerental.modules.gps.entity.Ride;
 import com.sssit.bikerental.modules.gps.entity.RideStatus;
 import com.sssit.bikerental.modules.gps.repository.GPSRepository;
-import com.sssit.bikerental.modules.gps.service.GPSService;
 import com.sssit.bikerental.modules.gps.repository.RideRepository;
+import com.sssit.bikerental.modules.gps.service.GPSService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,14 +27,14 @@ public class GPSServiceImpl implements GPSService {
             GPSLocationDTO locationDTO) {
 
         Ride ride = rideRepository.findById(rideId)
-        .orElseThrow(() ->
-                new RuntimeException("Ride not found: " + rideId));
+                .orElseThrow(()
+                        -> new RuntimeException("Ride not found: " + rideId));
 
-if (ride.getStatus() != RideStatus.ACTIVE) {
-    throw new RuntimeException(
-            "GPS tracking is not active for ride: " + rideId
-    );
-}
+        if (ride.getStatus() != RideStatus.ACTIVE) {
+            throw new RuntimeException(
+                    "GPS tracking is not active for ride: " + rideId
+            );
+        }
 
         GPSLocation location = new GPSLocation();
 
@@ -45,6 +45,17 @@ if (ride.getStatus() != RideStatus.ACTIVE) {
         location.setAccuracy(locationDTO.getAccuracy());
 
         GPSLocation savedLocation = gpsRepository.save(location);
+
+// Set the first GPS point as the ride's starting location
+        List<GPSLocation> locations
+                = gpsRepository.findByRideIdOrderByTimestampAsc(rideId);
+
+        if (locations.size() == 1) {
+            ride.setStartLatitude(savedLocation.getLatitude());
+            ride.setStartLongitude(savedLocation.getLongitude());
+
+            rideRepository.save(ride);
+        }
 
         return new GPSLocationDTO(
                 savedLocation.getRideId(),
