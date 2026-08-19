@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.sssit.bikerental.common.security.AuthorizationService;
 import com.sssit.bikerental.modules.gps.dto.GPSLocationDTO;
 import com.sssit.bikerental.modules.gps.entity.GPSLocation;
 import com.sssit.bikerental.modules.gps.entity.Ride;
@@ -20,6 +21,7 @@ public class GPSServiceImpl implements GPSService {
 
     private final GPSRepository gpsRepository;
     private final RideRepository rideRepository;
+    private final AuthorizationService authorizationService;
 
     @Override
     public GPSLocationDTO saveLocation(
@@ -29,6 +31,8 @@ public class GPSServiceImpl implements GPSService {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(()
                         -> new RuntimeException("Ride not found: " + rideId));
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
 
         if (ride.getStatus() != RideStatus.ACTIVE) {
             throw new RuntimeException(
@@ -69,6 +73,12 @@ public class GPSServiceImpl implements GPSService {
     @Override
     public List<GPSLocationDTO> getLocations(Long rideId) {
 
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(()
+                        -> new RuntimeException("Ride not found: " + rideId));
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
+
         List<GPSLocation> locations
                 = gpsRepository.findByRideIdOrderByTimestampAsc(rideId);
 
@@ -85,6 +95,11 @@ public class GPSServiceImpl implements GPSService {
 
     @Override
     public double calculateDistance(Long rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(()
+                        -> new RuntimeException("Ride not found: " + rideId));
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
 
         List<GPSLocation> locations
                 = gpsRepository.findByRideIdOrderByTimestampAsc(rideId);
