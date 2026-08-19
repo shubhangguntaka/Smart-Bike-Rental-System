@@ -3,6 +3,7 @@ package com.sssit.bikerental.modules.admin.service.serviceimpl;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
+import com.sssit.bikerental.modules.admin.dto.CustomerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
 import com.sssit.bikerental.modules.admin.mapper.AdminMapper;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -29,191 +31,188 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AdminServiceImpl implements AdminService {
 
-    private final UserService userService;
-    private final OwnerService ownerService;
-    private final BikeService bikeService;
-    private final BookingService bookingService;
-    private final PaymentService paymentService;
-    private final AdminMapper adminMapper;
+        private final UserService userService;
+        private final OwnerService ownerService;
+        private final BikeService bikeService;
+        private final BookingService bookingService;
+        private final PaymentService paymentService;
+        private final AdminMapper adminMapper;
 
-    @Override
-    public AdminDashboardDTO getDashboard() {
-
-        /*
-         * Dashboard aggregation belongs to Day 4.
-         */
-        return AdminDashboardDTO.builder()
-                .totalUsers(0)
-                .totalOwners(0)
-                .totalBikes(0)
-                .totalBookings(0)
-                .totalPayments(0)
-                .activeUsers(0)
-                .activeBikes(0)
-                .activeBookings(0)
-                .pendingBookings(0)
-                .completedBookings(0)
-                .cancelledBookings(0)
-                .build();
-    }
-
-    @Override
-    public List<UserAdminDTO> getUsers() {
-
-        List<UserResponse> users =
-                userService.getAllUsers();
-
-        return users.stream()
-                .map(adminMapper::toUserAdminDTO)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public UserAdminDTO updateUserStatus(
-            Long userId,
-            Boolean enabled) {
-
-        if (userId == null) {
-            throw new IllegalArgumentException(
-                    "User ID is required."
-            );
+        @Override
+        public AdminDashboardDTO getDashboard() {
+                return AdminDashboardDTO.builder()
+                                .totalUsers(0)
+                                .totalOwners(0)
+                                .totalBikes(0)
+                                .totalBookings(0)
+                                .totalPayments(0)
+                                .activeUsers(0)
+                                .activeBikes(0)
+                                .activeBookings(0)
+                                .pendingBookings(0)
+                                .completedBookings(0)
+                                .cancelledBookings(0)
+                                .build();
         }
 
-        if (enabled == null) {
-            throw new IllegalArgumentException(
-                    "Enabled status is required."
-            );
+        @Override
+        public List<UserAdminDTO> getUsers() {
+                List<UserResponse> users = userService.getAllUsers();
+                return users.stream()
+                                .map(adminMapper::toUserAdminDTO)
+                                .toList();
         }
 
-        UserResponse updatedUser =
-                userService.changeUserStatus(
-                        userId,
-                        enabled
-                );
-
-        return adminMapper.toUserAdminDTO(
-                updatedUser
-        );
-    }
-
-    @Override
-    @Transactional
-    public UserAdminDTO lockUser(Long userId, Boolean locked) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required.");
-        }
-        UserResponse updatedUser = userService.lockUser(userId, locked);
-        return adminMapper.toUserAdminDTO(updatedUser);
-    }
-
-    @Override
-    @Transactional
-    public void deleteUser(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required.");
-        }
-        userService.deleteUser(userId);
-    }
-
-    @Override
-    public List<OwnerAdminDTO> getOwners() {
-
-        List<OwnerDTO> owners =
-                ownerService.getAllOwners();
-
-        return owners.stream()
-                .map(adminMapper::toOwnerAdminDTO)
-                .toList();
-    }
-
-    @Override
-    public List<BikeAdminDTO> getBikes() {
-
-        List<BikeDTO> bikes =
-                bikeService.getAllBikesForAdmin();
-
-        return bikes.stream()
-                .map(adminMapper::toBikeAdminDTO)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public BikeAdminDTO updateBikeStatus(
-            Long bikeId,
-            String status) {
-
-        if (bikeId == null) {
-            throw new IllegalArgumentException(
-                    "Bike ID is required."
-            );
+        @Override
+        @Transactional
+        public UserAdminDTO updateUserStatus(Long userId, Boolean enabled) {
+                if (userId == null) {
+                        throw new IllegalArgumentException("User ID is required.");
+                }
+                if (enabled == null) {
+                        throw new IllegalArgumentException("Enabled status is required.");
+                }
+                UserResponse updatedUser = userService.changeUserStatus(userId, enabled);
+                return adminMapper.toUserAdminDTO(updatedUser);
         }
 
-        if (status == null || status.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Bike status is required."
-            );
+        @Override
+        @Transactional(readOnly = true)
+        public List<CustomerAdminDTO> getCustomers() {
+                List<UserResponse> users = userService.getAllUsers();
+                List<BookingResponse> allBookings = bookingService.getAllBookings();
+
+                return users.stream()
+                                .filter(user -> user.getRole() != null)
+                                .filter(user -> "CUSTOMER".equalsIgnoreCase(user.getRole()))
+                                .map(user -> toCustomerAdminDTO(user, allBookings))
+                                .toList();
         }
 
-        BikeStatus bikeStatus;
+        private CustomerAdminDTO toCustomerAdminDTO(UserResponse user, List<BookingResponse> allBookings) {
+                Long customerId = user.getId();
+                List<BookingResponse> customerBookings = allBookings.stream()
+                                .filter(booking -> booking.getCustomerId() != null
+                                                && booking.getCustomerId().equals(customerId))
+                                .toList();
 
-        try {
-            bikeStatus = BikeStatus.from(status);
-        } catch (Exception ex) {
-            throw new IllegalArgumentException(
-                    "Invalid bike status: " + status
-            );
+                int totalBookings = customerBookings.size();
+
+                int completedBookings = (int) customerBookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null
+                                                && "COMPLETED".equalsIgnoreCase(booking.getBookingStatus().name()))
+                                .count();
+
+                int cancelledBookings = (int) customerBookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null
+                                                && "CANCELLED".equalsIgnoreCase(booking.getBookingStatus().name()))
+                                .count();
+
+                BigDecimal totalRentalAmount = customerBookings.stream()
+                                .map(booking -> {
+                                        BigDecimal amount = booking.getRentalAmount();
+                                        if (amount == null) {
+                                                amount = booking.getTotalAmount();
+                                        }
+                                        return amount != null ? amount : BigDecimal.ZERO;
+                                })
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                boolean verificationStatus = bookingService.checkVerificationStatus(customerId);
+                String status = Boolean.TRUE.equals(user.getEnabled()) ? "ACTIVE" : "INACTIVE";
+
+                return CustomerAdminDTO.builder()
+                                .customerId(customerId)
+                                .customerName(user.getFullName())
+                                .email(user.getEmail())
+                                .phoneNumber(user.getPhoneNumber())
+                                .status(status)
+                                .verificationStatus(verificationStatus)
+                                .totalBookings(totalBookings)
+                                .completedBookings(completedBookings)
+                                .cancelledBookings(cancelledBookings)
+                                .totalRentalAmount(totalRentalAmount)
+                                .profileImage(user.getProfileImage())
+                                .build();
         }
 
-        BikeDTO updateRequest = BikeDTO.builder()
-                .bikeId(bikeId)
-                .bikeStatus(bikeStatus)
-                .build();
+        @Override
+        @Transactional(readOnly = true)
+        public List<OwnerAdminDTO> getOwners() {
+                List<OwnerDTO> owners = ownerService.getAllOwners();
+                List<UserResponse> users = userService.getAllUsers();
 
-        BikeDTO updatedBike =
-                bikeService.updateBike(
-                        bikeId,
-                        updateRequest
-                );
+                return owners.stream()
+                                .map(owner -> {
+                                        UserResponse ownerUser = users.stream()
+                                                        .filter(user -> user.getId() != null
+                                                                        && user.getId().equals(owner.getOwnerId()))
+                                                        .findFirst()
+                                                        .orElse(null);
 
-        return adminMapper.toBikeAdminDTO(
-                updatedBike
-        );
-    }
-
-    @Override
-    @Transactional
-    public void deleteBike(Long bikeId) {
-        if (bikeId == null) {
-            throw new IllegalArgumentException("Bike ID is required.");
+                                        return adminMapper.toOwnerAdminDTO(owner, ownerUser);
+                                })
+                                .toList();
         }
-        bikeService.deleteBike(bikeId);
-    }
 
-    @Override
-    public List<BookingAdminDTO> getBookings() {
+        @Override
+        public List<BikeAdminDTO> getBikes() {
+                List<BikeDTO> bikes = bikeService.getAllBikesForAdmin();
+                return bikes.stream()
+                                .map(adminMapper::toBikeAdminDTO)
+                                .toList();
+        }
 
-        List<BookingResponse> bookings =
-                bookingService.getAllBookings();
+        @Override
+        @Transactional
+        public BikeAdminDTO updateBikeStatus(Long bikeId, String status) {
+                if (bikeId == null) {
+                        throw new IllegalArgumentException("Bike ID is required.");
+                }
+                if (status == null || status.isBlank()) {
+                        throw new IllegalArgumentException("Bike status is required.");
+                }
 
-        return bookings.stream()
-                .map(adminMapper::toBookingAdminDTO)
-                .toList();
-    }
+                BikeStatus bikeStatus;
+                try {
+                        bikeStatus = BikeStatus.from(status);
+                } catch (Exception ex) {
+                        throw new IllegalArgumentException("Invalid bike status: " + status);
+                }
 
-    @Override
-    public List<PaymentResponse> getPayments() {
+                BikeDTO updateRequest = BikeDTO.builder()
+                                .bikeId(bikeId)
+                                .bikeStatus(bikeStatus)
+                                .build();
 
-        return paymentService.getAllPayments();
-    }
+                BikeDTO updatedBike = bikeService.updateBike(bikeId, updateRequest);
+                return adminMapper.toBikeAdminDTO(updatedBike);
+        }
 
-    @Override
-    public List<?> getActivity() {
+        @Override
+        @Transactional
+        public void deleteBike(Long bikeId) {
+                if (bikeId == null) {
+                        throw new IllegalArgumentException("Bike ID is required.");
+                }
+                bikeService.deleteBike(bikeId);
+        }
 
-        /*
-         * Activity logging is part of the later Admin workflow.
-         */
-        return List.of();
-    }
+        @Override
+        public List<BookingAdminDTO> getBookings() {
+                List<BookingResponse> bookings = bookingService.getAllBookings();
+                return bookings.stream()
+                                .map(adminMapper::toBookingAdminDTO)
+                                .toList();
+        }
+
+        @Override
+        public List<PaymentResponse> getPayments() {
+                return paymentService.getAllPayments();
+        }
+
+        @Override
+        public List<?> getActivity() {
+                return List.of();
+        }
 }

@@ -35,25 +35,47 @@ public class AdminMapper {
                 .build();
     }
 
-    public OwnerAdminDTO toOwnerAdminDTO(OwnerDTO owner) {
+    public OwnerAdminDTO toOwnerAdminDTO(
+            OwnerDTO owner,
+            UserResponse user) {
 
         if (owner == null) {
             return null;
+        }
+
+        String status = "INACTIVE";
+
+        String phoneNumber = null;
+
+        String profileImage = null;
+
+        if (user != null) {
+
+            status = Boolean.TRUE.equals(
+                    user.getEnabled())
+                            ? "ACTIVE"
+                            : "INACTIVE";
+
+            phoneNumber = user.getPhoneNumber();
+
+            profileImage = user.getProfileImage();
         }
 
         return OwnerAdminDTO.builder()
                 .ownerId(owner.getOwnerId())
                 .ownerName(owner.getOwnerName())
                 .email(owner.getEmail())
-                .totalBikes(owner.getTotalBikes())
-                .totalBookings(owner.getTotalBookings())
-                .totalEarnings(owner.getTotalEarnings())
-                .verificationStatus(owner.getVerificationStatus())
-                .status(
-                        Boolean.TRUE.equals(owner.getVerificationStatus())
-                                ? "VERIFIED"
-                                : "PENDING"
-                )
+                .phoneNumber(phoneNumber)
+                .status(status)
+                .verificationStatus(
+                        owner.getVerificationStatus())
+                .totalBikes(
+                        owner.getTotalBikes())
+                .totalBookings(
+                        owner.getTotalBookings())
+                .totalEarnings(
+                        owner.getTotalEarnings())
+                .profileImage(profileImage)
                 .build();
     }
 

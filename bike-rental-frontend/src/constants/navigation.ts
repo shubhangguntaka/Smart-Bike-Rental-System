@@ -30,10 +30,10 @@ export const PUBLIC_NAVIGATION = [
     icon: Home,
   },
   {
-        label: "Nearby Bikes",
-        path: "/nearby-bikes",
-        icon: Bike,
-      },
+    label: "Nearby Bikes",
+    path: "/nearby-bikes",
+    icon: Bike,
+  },
   {
     label: "Explore Map",
     path: "/maps",
@@ -176,6 +176,11 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
       {
         label: "Users",
         path: "/admin/users",
+        icon: Users,
+      },
+      {
+        label: "Customers",
+        path: "/admin/customers",
         icon: Users,
       },
       {

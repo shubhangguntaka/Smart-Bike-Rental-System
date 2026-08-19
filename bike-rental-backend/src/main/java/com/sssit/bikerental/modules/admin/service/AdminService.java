@@ -3,6 +3,7 @@ package com.sssit.bikerental.modules.admin.service;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
+import com.sssit.bikerental.modules.admin.dto.CustomerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
@@ -17,9 +18,7 @@ public interface AdminService {
 
     UserAdminDTO updateUserStatus(Long userId, Boolean enabled);
 
-    UserAdminDTO lockUser(Long userId, Boolean locked);
-
-    void deleteUser(Long userId);
+    List<CustomerAdminDTO> getCustomers();
 
     List<OwnerAdminDTO> getOwners();
 

@@ -38,15 +38,45 @@ export interface UserAdmin {
   profileImage?: string;
 }
 
+export interface CustomerAdmin {
+  customerId: number;
+  customerName: string;
+  email: string;
+  phoneNumber?: string;
+  status?: string;
+
+  aadhaarVerified?: boolean;
+  drivingLicenseVerified?: boolean;
+  verificationStatus?: boolean;
+
+  totalBookings?: number;
+  completedBookings?: number;
+  cancelledBookings?: number;
+  totalRentalAmount?: number;
+
+  profileImage?: string;
+}
+
 export interface OwnerAdmin {
   ownerId: number;
+
   ownerName: string;
+
   email: string;
-  totalBikes?: number;
-  totalBookings?: number;
-  totalEarnings?: number;
-  verificationStatus?: boolean;
+
+  phoneNumber?: string;
+
   status?: string;
+
+  verificationStatus?: boolean;
+
+  totalBikes?: number;
+
+  totalBookings?: number;
+
+  totalEarnings?: number;
+
+  profileImage?: string;
 }
 
 export interface BikeAdmin {

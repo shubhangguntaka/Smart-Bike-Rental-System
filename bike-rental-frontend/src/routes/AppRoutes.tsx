@@ -64,6 +64,7 @@ import NotFound from "../pages/errors/NotFound";
 import { PricingPage, FAQPage, HelpPage, PrivacyPolicyPage, TermsPage } from "@/pages/StaticPages";
 import AdminOwners from "@/pages/admin/Owners";
 import AdminBookings from "@/pages/admin/Bookings";
+import AdminCustomers from "@/pages/admin/Customers";
 
 const AppRoutes = () => {
   return (
@@ -167,6 +168,7 @@ const AppRoutes = () => {
           <Route path="reports" element={<AdminReports />} />
           <Route path="owners" element={<AdminOwners />} />
           <Route path="bookings" element={<AdminBookings />} />
+          <Route path="customers" element={<AdminCustomers />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>
 
