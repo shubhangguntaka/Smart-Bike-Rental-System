@@ -36,6 +36,8 @@ public class BikeDocumentResponseDTO {
 
     private boolean qrVerified;
 
+    private String aadhaarOwnerName;
+
     // Whether the RC owner name was cross-checked against the
     // owner's verified Aadhaar name (true only when both were
     // compared)
@@ -183,6 +185,14 @@ public class BikeDocumentResponseDTO {
 
     public void setOwnerAadhaarNameMatched(boolean ownerAadhaarNameMatched) {
         this.ownerAadhaarNameMatched = ownerAadhaarNameMatched;
+    }
+
+    public String getAadhaarOwnerName() {
+        return aadhaarOwnerName;
+    }
+
+    public void setAadhaarOwnerName(String aadhaarOwnerName) {
+        this.aadhaarOwnerName = aadhaarOwnerName;
     }
 
     public String getStampLabel() {

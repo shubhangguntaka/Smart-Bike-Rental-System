@@ -55,6 +55,7 @@ export interface BikeDocumentVerificationResult {
   status: string; // e.g. "APPROVED" | "REJECTED"
   message: string;
   ownerName: string;
+  aadhaarOwnerName?: string;
   registrationNumber: string;
   chassisNumber: string | null;
   engineNumber: string | null;

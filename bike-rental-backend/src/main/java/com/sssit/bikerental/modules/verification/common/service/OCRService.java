@@ -1,10 +1,12 @@
 package com.sssit.bikerental.modules.verification.common.service;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,7 +32,17 @@ public class OCRService {
 
         try {
 
-            tempFile = File.createTempFile("ocr_", ".png");
+            String originalFilename = file.getOriginalFilename();
+            String extension = ".tmp";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+            } else if (file.getContentType() != null && file.getContentType().contains("jpeg")) {
+                extension = ".jpg";
+            } else if (file.getContentType() != null && file.getContentType().contains("png")) {
+                extension = ".png";
+            }
+
+            tempFile = File.createTempFile("ocr_", extension);
 
             Files.copy(
                     file.getInputStream(),
@@ -38,13 +50,29 @@ public class OCRService {
                     StandardCopyOption.REPLACE_EXISTING
             );
 
-            optimized = ImageUtil.optimizeImage(tempFile);
-
-            // A new Tesseract instance per call, not a shared
-            // singleton - see OCRConfig for why.
             Tesseract tesseract = ocrConfig.newTesseract();
 
-            String text = tesseract.doOCR(optimized);
+            // Perform OCR using ImageIO BufferedImage first to avoid extension/header format mismatches
+            String text = null;
+            try {
+                BufferedImage img = ImageIO.read(tempFile);
+                if (img != null) {
+                    text = tesseract.doOCR(img);
+                }
+            } catch (Exception ignored) {
+            }
+
+            if (text == null || text.isBlank()) {
+                text = tesseract.doOCR(tempFile);
+            }
+
+            if (text == null || text.trim().length() < 30) {
+                optimized = ImageUtil.optimizeImage(tempFile);
+                String optimizedText = tesseract.doOCR(optimized);
+                if (optimizedText != null && (text == null || optimizedText.length() > text.length())) {
+                    text = optimizedText;
+                }
+            }
 
             OCRData data = new OCRData();
             data.setRawText(text);

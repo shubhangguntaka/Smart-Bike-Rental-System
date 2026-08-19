@@ -223,26 +223,25 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
                   message={result.message}
                 />
 
-                {result.verified && (
-                  <div className="mt-5 space-y-4 border-t border-border/60 pt-5">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Info title="RC Owner Name" value={result.ownerName} />
-                      <Info title="Registration Number" value={result.registrationNumber} mono />
-                      <Info title="Maker & Model" value={[result.makerName, result.model].filter(Boolean).join(" · ") || null} />
-                      <Info title="Vehicle Class" value={result.vehicleClass} />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <MatchBadge label="QR Verified" ok={result.qrVerified} />
-                      {ownerId !== undefined && (
-                        <MatchBadge
-                          label="Aadhaar Name Match ≥ 80%"
-                          ok={result.ownerAadhaarNameMatched}
-                        />
-                      )}
-                    </div>
+                <div className="mt-5 space-y-4 border-t border-border/60 pt-5">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Info title="RC Owner Name" value={result.ownerName || "Not Detected"} />
+                    <Info title="Aadhaar Verified Name" value={result.aadhaarOwnerName || "N/A"} />
+                    <Info title="Registration Number" value={result.registrationNumber} mono />
+                    <Info title="Maker & Model" value={[result.makerName, result.model].filter(Boolean).join(" · ") || null} />
+                    <Info title="Vehicle Class" value={result.vehicleClass} />
                   </div>
-                )}
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <MatchBadge label="QR Verified" ok={result.qrVerified} />
+                    {ownerId !== undefined && (
+                      <MatchBadge
+                        label="Aadhaar Name Match ≥ 80%"
+                        ok={result.ownerAadhaarNameMatched}
+                      />
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

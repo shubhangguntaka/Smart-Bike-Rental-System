@@ -8,4 +8,10 @@ public interface EmailService {
             String otp
     );
 
+    void sendAdminMessageEmail(
+            String to,
+            String name,
+            String subject,
+            String message
+    );
 }

@@ -35,7 +35,7 @@ public class RCExtractor {
             Pattern.compile("\\b[A-Z0-9]{5,20}\\b");
 
     private static final Pattern OWNER_LABEL_PATTERN =
-            Pattern.compile("(?i)(reg[a-z]*\\.?[\\s:-]*owner|registered[\\s:-]*owner|owner['s\\s]*name|owner)[\\s:-]*");
+            Pattern.compile("(?i)(reg[a-z0-9]*\\.?[\\s:-]*(owner|0wner|qwner|owne|owner['s]?)|registered[\\s:-]*(owner|0wner|qwner)|owner['s\\s]*name|owner|0wner|qwner|regd[\\s:-]*owner)[\\s:-]*");
 
     private static final String[] NAME_JUNK_MARKERS = {
             "son/daughter", "s/o", "d/o", "w/o", "address", "signature", "h.no", "hno"
@@ -159,12 +159,16 @@ public class RCExtractor {
 
     private void extractOwnerName(String[] lines, RCData data) {
 
+        // Pass 1: Label matching via OWNER_LABEL_PATTERN
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
 
             Matcher m = OWNER_LABEL_PATTERN.matcher(line);
             if (m.find()) {
                 String value = line.substring(m.end()).trim();
+                while (value.startsWith(":") || value.startsWith("-") || value.startsWith(".")) {
+                    value = value.substring(1).trim();
+                }
 
                 if ((value.isBlank() || !isPlausibleName(value)) && i + 1 < lines.length) {
                     i++;
@@ -176,12 +180,20 @@ public class RCExtractor {
                 if (isPlausibleName(value)) {
                     StringBuilder fullOwnerName = new StringBuilder(value);
 
-                    if (i + 1 < lines.length) {
-                        String nextLine = lines[i + 1].trim();
+                    // Check up to next 2 lines for surname or multi-line name (e.g., Line 1: K LATHA, Line 2: PRAKASH)
+                    int nextIdx = i + 1;
+                    while (nextIdx < lines.length && nextIdx <= i + 2) {
+                        String nextLine = lines[nextIdx].trim();
+                        while (nextLine.startsWith(":") || nextLine.startsWith("-")) {
+                            nextLine = nextLine.substring(1).trim();
+                        }
                         String nextLower = nextLine.toLowerCase();
 
                         if (isPlausibleName(nextLine) && !isKnownLabelOrAddress(nextLower)) {
-                            fullOwnerName.append(" ").append(nextLine);
+                            fullOwnerName.append(" ").append(cleanText(nextLine));
+                            nextIdx++;
+                        } else {
+                            break;
                         }
                     }
 
@@ -191,11 +203,49 @@ public class RCExtractor {
             }
         }
 
-        // Fallback: Check 1-3 lines immediately above "Address" label if label parsing was garbled
+        // Pass 2: Positional extraction (lines located between "Regn. Number" and "Address")
+        int regnIdx = -1;
+        int addressIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+            String lower = lines[i].toLowerCase();
+            if (regnIdx == -1 && (lower.contains("regn") || lower.contains("registration") || lower.contains("reg."))) {
+                regnIdx = i;
+            }
+            if (addressIdx == -1 && lower.contains("address")) {
+                addressIdx = i;
+            }
+        }
+
+        if (regnIdx != -1 && addressIdx > regnIdx) {
+            StringBuilder nameBetween = new StringBuilder();
+            for (int i = regnIdx + 1; i < addressIdx; i++) {
+                String candidate = lines[i].trim();
+                // Strip labels like Regd. Owner :
+                candidate = candidate.replaceAll("(?i)reg[a-z0-9]*\\.?", "")
+                        .replaceAll("(?i)owner[s]?", "")
+                        .replaceAll("^[\\s:-]+", "").trim();
+
+                candidate = truncateAtJunk(candidate);
+                if (isPlausibleName(candidate) && !isKnownLabelOrAddress(candidate.toLowerCase())) {
+                    if (nameBetween.length() > 0) nameBetween.append(" ");
+                    nameBetween.append(cleanText(candidate));
+                }
+            }
+            if (nameBetween.length() >= 2) {
+                data.setOwnerName(nameBetween.toString());
+                return;
+            }
+        }
+
+        // Pass 3: Check 1-3 lines immediately above "Address" label if label parsing was garbled
         for (int i = 0; i < lines.length; i++) {
             if (lines[i].toLowerCase().contains("address")) {
                 for (int j = i - 1; j >= 0 && j >= i - 3; j--) {
-                    String candidate = truncateAtJunk(lines[j].trim());
+                    String candidate = lines[j].trim();
+                    candidate = candidate.replaceAll("(?i)reg[a-z0-9]*\\.?", "")
+                            .replaceAll("(?i)owner[s]?", "")
+                            .replaceAll("^[\\s:-]+", "").trim();
+                    candidate = truncateAtJunk(candidate);
                     if (isPlausibleName(candidate) && !isKnownLabelOrAddress(candidate.toLowerCase())) {
                         data.setOwnerName(cleanText(candidate));
                         return;
@@ -253,14 +303,9 @@ public class RCExtractor {
     private boolean isPlausibleName(String value) {
         if (value == null || value.isBlank()) return false;
 
-        String lower = value.toLowerCase();
-        for (String junk : JUNK_LABEL_WORDS) {
-            if (lower.contains(junk)) {
-                return false;
-            }
-        }
+        String cleaned = value.replaceAll("(?i)\\b(owner|regd|registered|address|number|transport|department|certificate|registration|h\\.no|hno|signature|vehicle|maker|model|class|fuel|body)\\b", "").trim();
 
-        return value.replaceAll("[^A-Za-z]", "").length() >= 2;
+        return cleaned.replaceAll("[^A-Za-z]", "").length() >= 2;
     }
 
     //-------------------------------------------------------
@@ -311,6 +356,8 @@ public class RCExtractor {
                 int colonIndex = line.indexOf(':');
                 String value = colonIndex >= 0 ? line.substring(colonIndex + 1).trim() : null;
                 if (value != null && !value.isBlank()) {
+                    // Clean quote marks or extra noise
+                    value = value.replaceAll("[\"']", "").trim();
                     data.setMakerName(cleanText(value));
                     return;
                 }
@@ -336,10 +383,11 @@ public class RCExtractor {
 
         for (String line : lines) {
             String lower = line.toLowerCase().trim();
-            if (lower.contains("vehicle class")) {
-                String value = valueAfterLabel(line, "vehicle class");
+            if (lower.contains("vehicle class") || lower.contains("vehicle")) {
+                int colonIndex = line.indexOf(':');
+                String value = colonIndex >= 0 ? line.substring(colonIndex + 1).trim() : valueAfterLabel(line, "vehicle class");
                 if (value != null && !value.isBlank()) {
-                    data.setVehicleClass(value.trim());
+                    data.setVehicleClass(cleanText(value));
                     return;
                 }
             }

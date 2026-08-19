@@ -23,8 +23,7 @@ public class RCValidator {
         if (data == null)
             return "Unable to extract Registration Certificate details.";
 
-        if (isBlank(data.getOwnerName()))
-            return "Owner name not found.";
+        // Owner name validation is performed in Step 9 via Aadhaar cross-check / fuzzy matching
 
         if (isBlank(data.getRegistrationNumber()))
             return "Registration number not found.";

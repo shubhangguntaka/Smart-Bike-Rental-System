@@ -10,30 +10,40 @@ export default function AdminBikes() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const loadBikes = async () => {
+    try {
+      setLoading(true);
+      const res = await bikeService.getAllBikes();
+      const data = Array.isArray(res) ? res : (res as any)?.data || [];
+      setBikes(data.map((b: any) => ({
+        id: b.bikeId || b.id,
+        name: b.bikeName || b.name || `${b.brand || ''} ${b.model || ''}`.trim() || "Bike",
+        type: b.fuelType || b.type || "PETROL",
+        price: b.hourlyRate || b.price || (b.rentalPrice ? Math.round(Number(b.rentalPrice) / 8) : 80),
+        location: b.location || "Central Hub",
+        owner: b.ownerName || b.owner?.ownerName || (b.ownerId ? `Owner #${b.ownerId}` : "Registered Owner"),
+        battery: (b.fuelType || b.type || "").toLowerCase() === "electric" ? "95%" : "N/A",
+        range: b.range || b.mileage || "45 km/l",
+      })));
+    } catch (err) {
+      console.error("Failed to load admin bikes:", err);
+      setBikes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadBikes = async () => {
-      try {
-        setLoading(true);
-        const res = await bikeService.getAllBikes();
-        const data = Array.isArray(res) ? res : (res as any)?.data || [];
-        setBikes(data.map((b: any) => ({
-          id: b.bikeId || b.id,
-          name: b.bikeName || b.name || `${b.brand} ${b.model}`,
-          type: b.fuelType || b.type || "PETROL",
-          price: b.hourlyRate || b.price || (b.rentalPrice ? Math.round(Number(b.rentalPrice) / 8) : 100),
-          location: b.location || "Central Hub",
-          owner: b.ownerName || b.owner?.ownerName || "Registered Owner",
-          battery: b.type === "electric" ? "95%" : "N/A",
-          range: b.range || b.mileage || "45 km/l",
-        })));
-      } catch (err) {
-        console.error("Failed to load admin bikes:", err);
-        setBikes([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadBikes();
+    const handleUpdate = () => loadBikes();
+    window.addEventListener("custom_bikes_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    const timer = setInterval(loadBikes, 5000);
+    return () => {
+      window.removeEventListener("custom_bikes_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      clearInterval(timer);
+    };
   }, []);
 
   const filtered = bikes.filter((b) =>

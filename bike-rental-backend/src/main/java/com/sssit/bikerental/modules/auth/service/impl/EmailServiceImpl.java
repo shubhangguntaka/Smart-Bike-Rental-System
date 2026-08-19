@@ -29,6 +29,30 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendAdminMessageEmail(String to, String name, String subject, String messageText) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject(subject != null && !subject.isBlank() ? subject : "Bike Rental System - Document Verification Update");
+            
+            String body = """
+                    Dear %s,
+
+                    %s
+
+                    Regards,
+                    Smart Bike Rental Compliance & Verification Team
+                    """.formatted(name != null ? name : "User", messageText);
+            
+            message.setText(body);
+            mailSender.send(message);
+            log.info("Admin verification email sent successfully to {}", to);
+        } catch (Exception e) {
+            log.warn("Admin verification email send skipped/failed for {}: {}", to, e.getMessage());
+        }
+    }
+
     /**
      * Builds the email body.
      */
