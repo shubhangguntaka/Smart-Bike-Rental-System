@@ -6,7 +6,7 @@ import type { BikeAdmin } from "@/types/admin";
 interface BikeTableProps {
   bikes: BikeAdmin[];
   loading?: boolean;
-  onStatusAction?: (bike: BikeAdmin) => void;
+  onStatusAction: (bike: BikeAdmin) => void;
 }
 
 export default function BikeTable({
@@ -43,9 +43,13 @@ export default function BikeTable({
           <tbody>
             {bikes.length > 0 ? (
               bikes.map((bike) => {
-                const active =
-                  bike.bikeStatus?.toUpperCase() === "ACTIVE" ||
-                  bike.bikeStatus?.toUpperCase() === "AVAILABLE";
+                const status =
+                  bike.bikeStatus?.toUpperCase() ?? "UNKNOWN";
+
+                const canDeactivate = status === "AVAILABLE";
+                const canActivate = status === "NOT_AVAILABLE";
+                const canChangeStatus =
+                  canDeactivate || canActivate;
 
                 return (
                   <tr
@@ -55,12 +59,12 @@ export default function BikeTable({
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <Bike className="h-4 w-4 text-primary" />
+
                         <div>
                           <p className="font-bold">
                             {bike.bikeName ||
-                              `${bike.brand || ""} ${
-                                bike.model || ""
-                              }`.trim() ||
+                              `${bike.brand || ""} ${bike.model || ""
+                                }`.trim() ||
                               `Bike #${bike.bikeId}`}
                           </p>
 
@@ -89,28 +93,46 @@ export default function BikeTable({
 
                     <td className="p-4">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
-                          active
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${status === "AVAILABLE"
+                          ? "bg-green-500/10 text-green-500"
+                          : "bg-destructive/10 text-destructive"
+                          }`}
                       >
-                        {bike.bikeStatus || "UNKNOWN"}
+                        {status}
                       </span>
                     </td>
 
                     <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onStatusAction?.(bike)}
-                        className={`rounded-xl border border-border px-3 py-2 text-[10px] font-semibold transition ${
-                          active
-                            ? "text-destructive hover:border-destructive"
-                            : "text-green-500 hover:border-green-500"
-                        }`}
-                      >
-                        {active ? "Deactivate" : "Activate"}
-                      </button>
+                      {canChangeStatus ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            console.log(
+                              "[Admin Bikes] Status action clicked:",
+                              {
+                                bikeId: bike.bikeId,
+                                status,
+                              }
+                            );
+
+                            onStatusAction(bike);
+                          }}
+                          className={`rounded-xl border border-border px-3 py-2 text-[10px] font-semibold transition ${canDeactivate
+                              ? "text-destructive hover:border-destructive"
+                              : "text-green-500 hover:border-green-500"
+                            }`}
+                        >
+                          {canDeactivate ? "Deactivate" : "Activate"}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">
+                          {status === "BOOKED"
+                            ? "Currently Booked"
+                            : status === "UNDER_MAINTENANCE"
+                              ? "Maintenance"
+                              : "No Action"}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

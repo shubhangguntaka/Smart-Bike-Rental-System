@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.sssit.bikerental.common.security.AuthorizationService;
 import com.sssit.bikerental.modules.gps.dto.RideDTO;
 import com.sssit.bikerental.modules.gps.entity.GPSLocation;
 import com.sssit.bikerental.modules.gps.entity.Ride;
@@ -24,6 +25,7 @@ public class RideServiceImpl implements RideService {
     private final RideRepository rideRepository;
     private final GPSRepository gpsRepository;
     private final RideHistoryRepository rideHistoryRepository;
+    private final AuthorizationService authorizationService;
 
     @Override
     public RideDTO startRide(
@@ -58,16 +60,18 @@ public class RideServiceImpl implements RideService {
         return convertToRideDTO(savedRide);
     }
 
-    @Override
-    public RideDTO getRide(Long rideId) {
+   @Override
+public RideDTO getRide(Long rideId) {
 
-        Ride ride = rideRepository.findById(rideId)
-                .orElseThrow(()
-                        -> new RuntimeException("Ride not found with id: " + rideId)
-                );
+    Ride ride = rideRepository.findById(rideId)
+            .orElseThrow(() ->
+                    new RuntimeException("Ride not found with id: " + rideId)
+            );
 
-        return convertToRideDTO(ride);
-    }
+    authorizationService.validateCurrentUser(ride.getCustomerId());
+
+    return convertToRideDTO(ride);
+}
 
     @Override
     public RideDTO endRide(Long rideId) {
@@ -78,6 +82,8 @@ public class RideServiceImpl implements RideService {
                         "Ride not found with id: " + rideId
                 )
                 );
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
 
         if (ride.getStatus() != RideStatus.ACTIVE) {
             throw new RuntimeException(
@@ -208,6 +214,8 @@ private void saveRideHistory(Ride ride) {
    @Override
 public List<RideDTO> getCustomerRides(Long customerId) {
 
+    authorizationService.validateCurrentUser(customerId);
+
     List<Ride> rides =
             rideRepository.findByCustomerIdOrderByStartedAtDesc(customerId);
 
@@ -227,6 +235,7 @@ public RideDTO getRideHistory(Long rideId) {
                                     "Ride history not found for ride: " + rideId
                             )
                     );
+        authorizationService.validateCurrentUser(history.getCustomerId());
 
     return new RideDTO(
             history.getRideId(),

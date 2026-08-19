@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -16,40 +17,57 @@ import type { PaymentAdmin } from "@/types/admin";
 const PAGE_SIZE = 5;
 
 export default function AdminPayments() {
-  const [payments, setPayments] = useState<
-    PaymentAdmin[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [payments, setPayments] =
+    useState<PaymentAdmin[]>([]);
 
-  useEffect(() => {
-    const loadPayments = async () => {
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [page, setPage] =
+    useState(1);
+
+  const loadPayments = useCallback(
+    async () => {
       try {
         setLoading(true);
 
         const data =
           await adminService.getPayments();
 
-        setPayments(Array.isArray(data) ? data : []);
-      } catch (error) {
+        setPayments(
+          Array.isArray(data)
+            ? data
+            : []
+        );
+      } catch (error: any) {
         console.error(
           "Failed to load admin payments:",
           error
         );
 
         setPayments([]);
-        toast.error("Unable to load payments.");
+
+        toast.error(
+          error?.response?.data?.message ||
+            "Unable to load payments."
+        );
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
+  useEffect(() => {
     void loadPayments();
-  }, []);
+  }, [loadPayments]);
 
   const filteredPayments = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
     if (!query) {
       return payments;
@@ -72,14 +90,16 @@ export default function AdminPayments() {
   const totalPages = Math.max(
     1,
     Math.ceil(
-      filteredPayments.length / PAGE_SIZE
+      filteredPayments.length /
+        PAGE_SIZE
     )
   );
 
-  const paginatedPayments = filteredPayments.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  const paginatedPayments =
+    filteredPayments.slice(
+      (page - 1) * PAGE_SIZE,
+      page * PAGE_SIZE
+    );
 
   useEffect(() => {
     if (page > totalPages) {
@@ -95,7 +115,8 @@ export default function AdminPayments() {
         </h2>
 
         <p className="mt-1 text-xs text-muted-foreground">
-          Review payment records and transaction status.
+          Review payment records and transaction
+          status.
         </p>
       </div>
 
@@ -114,7 +135,8 @@ export default function AdminPayments() {
         loading={loading}
       />
 
-      {filteredPayments.length > PAGE_SIZE && (
+      {filteredPayments.length >
+        PAGE_SIZE && (
         <Pagination
           currentPage={page}
           totalPages={totalPages}

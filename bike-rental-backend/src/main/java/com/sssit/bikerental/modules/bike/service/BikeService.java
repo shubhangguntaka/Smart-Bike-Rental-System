@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.sssit.bikerental.modules.bike.dto.ApprovedRcDTO;
 import com.sssit.bikerental.modules.bike.dto.BikeDTO;
+import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 import com.sssit.bikerental.modules.verification.bikedocument.dto.BikeDocumentResponseDTO;
 
 public interface BikeService {
@@ -41,4 +42,6 @@ public interface BikeService {
     List<BikeDTO> searchBikes(String location, String brand, String bikeStatus);
 
     List<BikeDTO> searchBikes(String location, String brand, String category, String bikeStatus, java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice);
+
+    BikeDTO updateBikeStatus(Long bikeId, BikeStatus status);
 }

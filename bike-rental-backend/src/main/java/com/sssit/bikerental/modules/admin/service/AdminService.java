@@ -1,5 +1,6 @@
 package com.sssit.bikerental.modules.admin.service;
 
+import com.sssit.bikerental.modules.admin.dto.AdminActivityDTO;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
@@ -32,5 +33,5 @@ public interface AdminService {
 
     List<PaymentResponse> getPayments();
 
-    List<?> getActivity();
+    List<AdminActivityDTO> getActivity();
 }

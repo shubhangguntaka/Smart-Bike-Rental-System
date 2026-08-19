@@ -16,6 +16,7 @@ import {
   Compass,
   QrCode,
   Bell,
+  Activity,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
@@ -207,6 +208,11 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         label: "Verification",
         path: "/admin/verification",
         icon: ShieldCheck,
+      },
+      {
+        label: "Activity Log",
+        path: "/admin/activity",
+        icon: Activity,
       },
       {
         label: "Notifications",

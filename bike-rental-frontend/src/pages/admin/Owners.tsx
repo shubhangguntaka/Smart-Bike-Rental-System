@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -16,37 +17,57 @@ import type { OwnerAdmin } from "@/types/admin";
 const PAGE_SIZE = 5;
 
 export default function AdminOwners() {
-  const [owners, setOwners] = useState<OwnerAdmin[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [owners, setOwners] =
+    useState<OwnerAdmin[]>([]);
 
-  useEffect(() => {
-    const loadOwners = async () => {
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [page, setPage] =
+    useState(1);
+
+  const loadOwners = useCallback(
+    async () => {
       try {
         setLoading(true);
 
-        const data = await adminService.getOwners();
+        const data =
+          await adminService.getOwners();
 
-        setOwners(Array.isArray(data) ? data : []);
-      } catch (error) {
+        setOwners(
+          Array.isArray(data)
+            ? data
+            : []
+        );
+      } catch (error: any) {
         console.error(
           "Failed to load admin owners:",
           error
         );
 
         setOwners([]);
-        toast.error("Unable to load owners.");
+
+        toast.error(
+          error?.response?.data?.message ||
+            "Unable to load owners."
+        );
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
+  useEffect(() => {
     void loadOwners();
-  }, []);
+  }, [loadOwners]);
 
   const filteredOwners = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
     if (!query) {
       return owners;
@@ -56,7 +77,9 @@ export default function AdminOwners() {
       [
         owner.ownerName,
         owner.email,
+        owner.phoneNumber,
         owner.status,
+        owner.verificationStatus,
         String(owner.ownerId),
       ]
         .filter(Boolean)
@@ -68,13 +91,17 @@ export default function AdminOwners() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredOwners.length / PAGE_SIZE)
+    Math.ceil(
+      filteredOwners.length /
+        PAGE_SIZE
+    )
   );
 
-  const paginatedOwners = filteredOwners.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  const paginatedOwners =
+    filteredOwners.slice(
+      (page - 1) * PAGE_SIZE,
+      page * PAGE_SIZE
+    );
 
   useEffect(() => {
     if (page > totalPages) {
@@ -101,7 +128,7 @@ export default function AdminOwners() {
           setSearch(value);
           setPage(1);
         }}
-        placeholder="Search owner name, email..."
+        placeholder="Search owner name, email, phone..."
         width="max-w-md w-full"
       />
 
@@ -110,7 +137,8 @@ export default function AdminOwners() {
         loading={loading}
       />
 
-      {filteredOwners.length > PAGE_SIZE && (
+      {filteredOwners.length >
+        PAGE_SIZE && (
         <Pagination
           currentPage={page}
           totalPages={totalPages}

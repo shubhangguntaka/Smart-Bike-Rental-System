@@ -1,30 +1,38 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
+
 import type { AdminDashboard } from "@/types/admin";
 import adminService from "@/services/adminService";
 import DashboardCards from "@/components/admin/DashboardCards";
 
 export default function Dashboard() {
-    const [stats, setStats] = useState<AdminDashboard | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [stats, setStats] =
+        useState<AdminDashboard | null>(null);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [refreshing, setRefreshing] =
+        useState(false);
+
+    const [error, setError] =
+        useState<string | null>(null);
 
     const loadDashboard = useCallback(
         async (isRefresh = false) => {
             try {
-                setError(null);
-
                 if (isRefresh) {
                     setRefreshing(true);
                 } else {
                     setLoading(true);
                 }
 
-                const dashboard =
+                setError(null);
+
+                const data =
                     await adminService.getDashboard();
 
-                setStats(dashboard);
+                setStats(data);
             } catch (err) {
                 console.error(
                     "Failed to load admin dashboard:",
@@ -32,11 +40,14 @@ export default function Dashboard() {
                 );
 
                 setError(
-                    "Unable to load dashboard statistics. Please try again."
+                    "Unable to load dashboard data."
                 );
             } finally {
-                setLoading(false);
-                setRefreshing(false);
+                if (isRefresh) {
+                    setRefreshing(false);
+                } else {
+                    setLoading(false);
+                }
             }
         },
         []
@@ -52,25 +63,30 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <main className="space-y-6 text-foreground min-h-screen">
-                <header className="bg-card border border-border p-6 rounded-2xl">
+            <main className="min-h-screen space-y-6 text-foreground">
+                <header className="rounded-2xl border border-border bg-card p-6">
                     <div className="h-7 w-48 animate-pulse rounded-md bg-muted" />
+
                     <div className="mt-2 h-4 w-72 animate-pulse rounded-md bg-muted/60" />
                 </header>
 
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {Array.from({ length: 8 }).map((_, index) => (
-                        <div
-                            key={index}
-                            className="h-32 animate-pulse rounded-2xl border border-border bg-card shadow-xs"
-                        >
-                            <div className="p-5 space-y-3">
-                                <div className="h-4 w-24 rounded bg-muted" />
-                                <div className="h-7 w-16 rounded bg-muted" />
-                                <div className="h-3 w-32 rounded bg-muted/60" />
+                    {Array.from({ length: 8 }).map(
+                        (_, index) => (
+                            <div
+                                key={index}
+                                className="h-32 animate-pulse rounded-2xl border border-border bg-card shadow-xs"
+                            >
+                                <div className="space-y-3 p-5">
+                                    <div className="h-4 w-24 rounded bg-muted" />
+
+                                    <div className="h-7 w-16 rounded bg-muted" />
+
+                                    <div className="h-3 w-32 rounded bg-muted/60" />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    )}
                 </section>
             </main>
         );
@@ -95,8 +111,10 @@ export default function Dashboard() {
 
                     <button
                         type="button"
-                        onClick={() => void loadDashboard()}
-                        className="mt-5 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 cursor-pointer"
+                        onClick={() =>
+                            void loadDashboard()
+                        }
+                        className="mt-5 inline-flex cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90"
                     >
                         Try again
                     </button>
@@ -106,15 +124,17 @@ export default function Dashboard() {
     }
 
     return (
-        <main className="space-y-6 text-foreground min-h-screen">
-            <header className="bg-card border border-border p-6 rounded-2xl flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <main className="min-h-screen space-y-6 text-foreground">
+            <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold tracking-tight text-foreground">
                         Admin Dashboard
                     </h1>
 
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Monitor users, owners, bikes, bookings and payments across the platform.
+                        Monitor users, owners, bikes,
+                        bookings and payments across the
+                        platform.
                     </p>
                 </div>
 
@@ -122,14 +142,19 @@ export default function Dashboard() {
                     type="button"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer shadow-2xs"
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground shadow-2xs transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <RefreshCw
-                        className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""
-                            }`}
+                        className={`h-3.5 w-3.5 ${
+                            refreshing
+                                ? "animate-spin"
+                                : ""
+                        }`}
                     />
 
-                    {refreshing ? "Refreshing..." : "Refresh"}
+                    {refreshing
+                        ? "Refreshing..."
+                        : "Refresh"}
                 </button>
             </header>
 

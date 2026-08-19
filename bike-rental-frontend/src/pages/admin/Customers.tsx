@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -35,37 +36,40 @@ export default function AdminCustomers() {
   const [actionCustomer, setActionCustomer] =
     useState<CustomerAdmin | null>(null);
 
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
+  const loadCustomers = useCallback(
+    async () => {
+      try {
+        setLoading(true);
 
-      const data =
-        await adminService.getCustomers();
+        const data =
+          await adminService.getCustomers();
 
-      setCustomers(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load customers:",
-        error
-      );
+        setCustomers(
+          Array.isArray(data)
+            ? data
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load customers:",
+          error
+        );
 
-      setCustomers([]);
+        setCustomers([]);
 
-      toast.error(
-        "Unable to load customers."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        toast.error(
+          "Unable to load customers."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     void loadCustomers();
-  }, []);
+  }, [loadCustomers]);
 
   const filteredCustomers = useMemo(() => {
     const query =
@@ -117,32 +121,33 @@ export default function AdminCustomers() {
         return;
       }
 
+      const customerId =
+        actionCustomer.customerId;
+
+      if (!Number.isFinite(customerId)) {
+        toast.error(
+          "Invalid customer ID."
+        );
+
+        setActionCustomer(null);
+        return;
+      }
+
+      const isActive =
+        actionCustomer.status?.toUpperCase() ===
+        "ACTIVE";
+
       try {
         setActionLoading(true);
 
-        const isActive =
-          actionCustomer.status?.toUpperCase() ===
-          "ACTIVE";
-
-        const updatedUser =
-          await adminService.updateUserStatus(
-            actionCustomer.customerId,
-            !isActive
-          );
-
-        setCustomers((current) =>
-          current.map((customer) =>
-            customer.customerId ===
-            actionCustomer.customerId
-              ? {
-                  ...customer,
-                  status:
-                    !isActive
-                      ? "ACTIVE"
-                      : "INACTIVE",
-                }
-              : customer
-          )
+        /*
+         * Customer accounts are user accounts.
+         * Therefore the existing Admin user-status
+         * endpoint is used.
+         */
+        await adminService.updateUserStatus(
+          customerId,
+          !isActive
         );
 
         toast.success(
@@ -154,21 +159,23 @@ export default function AdminCustomers() {
         setActionCustomer(null);
 
         /*
-         * Reload from backend so the page reflects
-         * the actual persisted status.
+         * Reload from backend after the update.
+         * This guarantees the table displays the
+         * persisted database state.
          */
         await loadCustomers();
-
-        void updatedUser;
-      } catch (error) {
+      } catch (error: any) {
         console.error(
           "Failed to update customer status:",
           error
         );
 
-        toast.error(
-          "Unable to update customer status."
-        );
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unable to update customer status.";
+
+        toast.error(message);
       } finally {
         setActionLoading(false);
       }
@@ -246,9 +253,11 @@ export default function AdminCustomers() {
             : "success"
         }
         loading={actionLoading}
-        onClose={() =>
-          setActionCustomer(null)
-        }
+        onClose={() => {
+          if (!actionLoading) {
+            setActionCustomer(null);
+          }
+        }}
         onConfirm={() => {
           void handleStatusAction();
         }}
