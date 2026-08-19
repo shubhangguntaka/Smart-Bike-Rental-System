@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sssit.bikerental.modules.gps.dto.RideDTO;
 import com.sssit.bikerental.modules.gps.service.GPSService;
 import com.sssit.bikerental.modules.gps.service.RideService;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +28,7 @@ public class RideController {
 
     @PostMapping("/start")
     public ResponseEntity<RideDTO> startRide(
-            @RequestBody RideDTO rideDTO) {
+            @Valid @RequestBody RideDTO rideDTO) {
 
         RideDTO ride = rideService.startRide(
                 rideDTO.getBookingId(),

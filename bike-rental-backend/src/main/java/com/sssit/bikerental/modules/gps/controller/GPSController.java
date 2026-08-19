@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sssit.bikerental.modules.gps.dto.GPSLocationDTO;
 import com.sssit.bikerental.modules.gps.service.GPSService;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +26,7 @@ public class GPSController {
     @PostMapping("/{rideId}/location")
     public ResponseEntity<GPSLocationDTO> saveLocation(
             @PathVariable Long rideId,
-            @RequestBody GPSLocationDTO locationDTO) {
+            @Valid @RequestBody GPSLocationDTO locationDTO) {
 
         GPSLocationDTO savedLocation =
                 gpsService.saveLocation(rideId, locationDTO);

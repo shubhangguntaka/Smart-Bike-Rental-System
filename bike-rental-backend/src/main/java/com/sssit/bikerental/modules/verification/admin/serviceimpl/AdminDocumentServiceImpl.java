@@ -334,7 +334,7 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
                         doc.setStatus("APPROVED");
                         doc.setRegistrationDate(java.time.LocalDate.now().minusYears(2));
                         doc.setInsuranceValidUpto(java.time.LocalDate.now().plusYears(1));
-                        doc.setUploadedFile("rc_" + b.getRegistrationNumber() + ".png");
+                        doc.setDocumentPath("rc_" + b.getRegistrationNumber() + ".png");
                         doc.setUploadedAt(LocalDateTime.now());
                         bikeDocumentRepository.save(doc);
                     }

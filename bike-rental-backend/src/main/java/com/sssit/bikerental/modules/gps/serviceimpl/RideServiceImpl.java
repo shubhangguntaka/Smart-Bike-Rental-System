@@ -31,6 +31,15 @@ public class RideServiceImpl implements RideService {
             Long bikeId,
             Long customerId) {
 
+        if (rideRepository.existsByCustomerIdAndStatus(
+        customerId,
+        RideStatus.ACTIVE)) {
+
+    throw new RuntimeException(
+            "Customer already has an active ride"
+    );
+}
+
         Ride ride = new Ride();
 
         ride.setBookingId(bookingId);

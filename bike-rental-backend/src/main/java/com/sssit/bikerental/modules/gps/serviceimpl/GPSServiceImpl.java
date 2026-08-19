@@ -6,8 +6,11 @@ import org.springframework.stereotype.Service;
 
 import com.sssit.bikerental.modules.gps.dto.GPSLocationDTO;
 import com.sssit.bikerental.modules.gps.entity.GPSLocation;
+import com.sssit.bikerental.modules.gps.entity.Ride;
+import com.sssit.bikerental.modules.gps.entity.RideStatus;
 import com.sssit.bikerental.modules.gps.repository.GPSRepository;
 import com.sssit.bikerental.modules.gps.service.GPSService;
+import com.sssit.bikerental.modules.gps.repository.RideRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,11 +19,22 @@ import lombok.RequiredArgsConstructor;
 public class GPSServiceImpl implements GPSService {
 
     private final GPSRepository gpsRepository;
+    private final RideRepository rideRepository;
 
     @Override
     public GPSLocationDTO saveLocation(
             Long rideId,
             GPSLocationDTO locationDTO) {
+
+        Ride ride = rideRepository.findById(rideId)
+        .orElseThrow(() ->
+                new RuntimeException("Ride not found: " + rideId));
+
+if (ride.getStatus() != RideStatus.ACTIVE) {
+    throw new RuntimeException(
+            "GPS tracking is not active for ride: " + rideId
+    );
+}
 
         GPSLocation location = new GPSLocation();
 

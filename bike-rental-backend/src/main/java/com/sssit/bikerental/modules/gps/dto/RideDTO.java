@@ -3,6 +3,7 @@ package com.sssit.bikerental.modules.gps.dto;
 import java.time.LocalDateTime;
 
 import com.sssit.bikerental.modules.gps.entity.RideStatus;
+import jakarta.validation.constraints.NotNull;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,11 +18,14 @@ public class RideDTO {
 
     private Long rideId;
 
-    private Long bookingId;
+   @NotNull(message = "Booking ID is required")
+private Long bookingId;
 
-    private Long bikeId;
+@NotNull(message = "Bike ID is required")
+private Long bikeId;
 
-    private Long customerId;
+@NotNull(message = "Customer ID is required")
+private Long customerId;
 
     private RideStatus status;
 
