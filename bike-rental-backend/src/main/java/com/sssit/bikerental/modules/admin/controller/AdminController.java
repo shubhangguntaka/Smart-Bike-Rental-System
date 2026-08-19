@@ -1,6 +1,7 @@
 package com.sssit.bikerental.modules.admin.controller;
 
 import com.sssit.bikerental.common.response.ApiResponse;
+import com.sssit.bikerental.modules.admin.dto.AdminActivityDTO;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
@@ -112,11 +113,9 @@ public class AdminController {
 
         /**
          * GET /api/admin/activity
-         *
-         * Activity log implementation is handled later.
          */
         @GetMapping("/activity")
-        public ResponseEntity<List<?>> getActivity() {
+        public ResponseEntity<List<AdminActivityDTO>> getActivity() {
 
                 return ResponseEntity.ok(
                                 adminService.getActivity());

@@ -1,5 +1,6 @@
 package com.sssit.bikerental.modules.admin.service.serviceimpl;
 
+import com.sssit.bikerental.modules.admin.dto.AdminActivityDTO;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.BookingAdminDTO;
@@ -18,13 +19,20 @@ import com.sssit.bikerental.modules.owner.service.OwnerService;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 import com.sssit.bikerental.modules.payment.service.PaymentService;
 import com.sssit.bikerental.modules.user.dto.UserResponse;
+import com.sssit.bikerental.modules.user.service.CurrentUserService;
 import com.sssit.bikerental.modules.user.service.UserService;
+import com.sssit.bikerental.modules.verification.admin.entity.VerificationAudit;
+import com.sssit.bikerental.modules.verification.admin.repository.VerificationAuditRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +44,12 @@ public class AdminServiceImpl implements AdminService {
         private final BikeService bikeService;
         private final BookingService bookingService;
         private final PaymentService paymentService;
+        private final CurrentUserService currentUserService;
+        private final VerificationAuditRepository verificationAuditRepository;
         private final AdminMapper adminMapper;
+
+        private final List<AdminActivityDTO> recordedActivities = new CopyOnWriteArrayList<>();
+        private final AtomicLong activityIdCounter = new AtomicLong(1000);
 
         @Override
         public AdminDashboardDTO getDashboard() {
@@ -160,6 +173,13 @@ public class AdminServiceImpl implements AdminService {
                 UserResponse updatedUser = userService.changeUserStatus(
                                 userId,
                                 enabled);
+
+                String action = Boolean.TRUE.equals(enabled) ? "USER_ACTIVATED" : "USER_DEACTIVATED";
+                String details = String.format("User %s (ID: %d) status changed to %s",
+                                updatedUser.getFullName() != null ? updatedUser.getFullName() : "Account",
+                                userId,
+                                Boolean.TRUE.equals(enabled) ? "ACTIVE" : "INACTIVE");
+                recordActivity(action, details);
 
                 return adminMapper.toUserAdminDTO(
                                 updatedUser);
@@ -337,6 +357,15 @@ public class AdminServiceImpl implements AdminService {
                                 bikeId,
                                 bikeStatus);
 
+                String action = (bikeStatus == BikeStatus.AVAILABLE)
+                                ? "BIKE_ACTIVATED"
+                                : (bikeStatus == BikeStatus.NOT_AVAILABLE ? "BIKE_DEACTIVATED" : "BIKE_STATUS_CHANGED");
+                String details = String.format("Bike '%s' (ID: %d) status updated to %s",
+                                updatedBike.getBikeName() != null ? updatedBike.getBikeName() : ("Bike #" + bikeId),
+                                bikeId,
+                                bikeStatus.name());
+                recordActivity(action, details);
+
                 return adminMapper.toBikeAdminDTO(
                                 updatedBike);
         }
@@ -358,11 +387,58 @@ public class AdminServiceImpl implements AdminService {
         }
 
         @Override
-        public List<?> getActivity() {
+        public List<AdminActivityDTO> getActivity() {
 
-                /*
-                 * Activity logging is part of the later Admin workflow.
-                 */
-                return List.of();
+                List<AdminActivityDTO> all = new ArrayList<>(recordedActivities);
+
+                if (verificationAuditRepository != null) {
+                        try {
+                                List<VerificationAudit> audits = verificationAuditRepository.findAll();
+                                for (VerificationAudit audit : audits) {
+                                        all.add(AdminActivityDTO.builder()
+                                                        .id(audit.getId())
+                                                        .action("VERIFICATION_" + (audit.getAction() != null ? audit.getAction() : "AUDIT"))
+                                                        .performedBy(audit.getPerformedBy() != null ? audit.getPerformedBy() : "ADMIN")
+                                                        .timestamp(audit.getPerformedAt() != null ? audit.getPerformedAt() : LocalDateTime.now())
+                                                        .details(audit.getReason() != null ? audit.getReason() : ("Verification document review #" + audit.getDocumentReviewId()))
+                                                        .status("SUCCESS")
+                                                        .build());
+                                }
+                        } catch (Exception ignored) {
+                        }
+                }
+
+                all.sort((a, b) -> {
+                        if (a.getTimestamp() == null || b.getTimestamp() == null) return 0;
+                        return b.getTimestamp().compareTo(a.getTimestamp());
+                });
+
+                return all;
+        }
+
+        private void recordActivity(String action, String details) {
+                String performedBy = getAuthenticatedAdmin();
+                AdminActivityDTO activity = AdminActivityDTO.builder()
+                                .id(activityIdCounter.getAndIncrement())
+                                .action(action)
+                                .performedBy(performedBy)
+                                .timestamp(LocalDateTime.now())
+                                .details(details)
+                                .status("SUCCESS")
+                                .build();
+                recordedActivities.add(0, activity);
+        }
+
+        private String getAuthenticatedAdmin() {
+                try {
+                        if (currentUserService != null) {
+                                String email = currentUserService.getCurrentUserEmail();
+                                if (email != null && !email.isBlank()) {
+                                        return email;
+                                }
+                        }
+                } catch (Exception ignored) {
+                }
+                return "ADMIN";
         }
 }

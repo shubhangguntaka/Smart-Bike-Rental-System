@@ -65,6 +65,7 @@ import { PricingPage, FAQPage, HelpPage, PrivacyPolicyPage, TermsPage } from "@/
 import AdminOwners from "@/pages/admin/Owners";
 import AdminBookings from "@/pages/admin/Bookings";
 import AdminCustomers from "@/pages/admin/Customers";
+import AdminActivity from "@/pages/admin/Activity";
 
 const AppRoutes = () => {
   return (
@@ -169,6 +170,7 @@ const AppRoutes = () => {
           <Route path="owners" element={<AdminOwners />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="activity" element={<AdminActivity />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>
 

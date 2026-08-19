@@ -1,6 +1,7 @@
 import api from "@/api/axios";
 
 import type {
+  AdminActivity,
   AdminDashboard,
   BikeAdmin,
   BookingAdmin,
@@ -157,11 +158,11 @@ export const adminService = {
     return Array.isArray(data) ? data : [];
   },
 
-  async getActivity(): Promise<unknown[]> {
+  async getActivity(): Promise<AdminActivity[]> {
     const response =
       await api.get("/admin/activity");
 
-    const data = unwrapData<unknown[]>(
+    const data = unwrapData<AdminActivity[]>(
       response.data
     );
 

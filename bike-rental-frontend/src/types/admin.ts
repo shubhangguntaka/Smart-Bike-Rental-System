@@ -134,3 +134,12 @@ export interface PaymentAdmin {
   status: string;
   paymentDate: string;
 }
+
+export interface AdminActivity {
+  id?: number | string;
+  action?: string;
+  performedBy?: string;
+  timestamp?: string;
+  details?: string;
+  status?: string;
+}
