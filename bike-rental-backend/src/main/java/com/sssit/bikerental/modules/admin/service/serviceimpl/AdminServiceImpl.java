@@ -261,14 +261,9 @@ public class AdminServiceImpl implements AdminService {
                                         "Invalid bike status: " + status);
                 }
 
-                BikeDTO updateRequest = BikeDTO.builder()
-                                .bikeId(bikeId)
-                                .bikeStatus(bikeStatus)
-                                .build();
-
-                BikeDTO updatedBike = bikeService.updateBike(
+                BikeDTO updatedBike = bikeService.updateBikeStatus(
                                 bikeId,
-                                updateRequest);
+                                bikeStatus);
 
                 return adminMapper.toBikeAdminDTO(
                                 updatedBike);

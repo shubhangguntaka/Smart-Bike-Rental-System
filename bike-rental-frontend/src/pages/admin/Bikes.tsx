@@ -22,11 +22,16 @@ const FILTER_CONFIGS: FilterField[] = [
     label: "Status",
     type: "select",
     options: [
-      { label: "Active", value: "ACTIVE" },
       { label: "Available", value: "AVAILABLE" },
-      { label: "Inactive", value: "INACTIVE" },
-      { label: "Unavailable", value: "UNAVAILABLE" },
-      { label: "Maintenance", value: "MAINTENANCE" },
+      { label: "Booked", value: "BOOKED" },
+      {
+        label: "Under Maintenance",
+        value: "UNDER_MAINTENANCE",
+      },
+      {
+        label: "Not Available",
+        value: "NOT_AVAILABLE",
+      },
     ],
   },
 ];
@@ -91,7 +96,7 @@ export default function AdminBikes() {
       if (
         filters.status &&
         bike.bikeStatus?.toUpperCase() !==
-          String(filters.status).toUpperCase()
+        String(filters.status).toUpperCase()
       ) {
         return false;
       }
@@ -121,53 +126,74 @@ export default function AdminBikes() {
       return;
     }
 
+    const bikeId = actionBike.bikeId;
+
+    const currentStatus =
+      actionBike.bikeStatus?.toUpperCase();
+
+    let nextStatus: AdminBikeStatus;
+
+    if (currentStatus === "AVAILABLE") {
+      nextStatus = "NOT_AVAILABLE";
+    } else if (currentStatus === "NOT_AVAILABLE") {
+      nextStatus = "AVAILABLE";
+    } else {
+      throw new Error(
+        `Bike with status ${currentStatus} cannot be activated or deactivated.`
+      );
+    }
+
     try {
       setActionLoading(true);
 
-      const currentStatus =
-        actionBike.bikeStatus?.toUpperCase();
+      console.log("[Admin Bikes] Sending status update:", {
+        bikeId,
+        currentStatus,
+        nextStatus,
+      });
 
-      const nextStatus: AdminBikeStatus =
-        currentStatus === "ACTIVE" ||
-        currentStatus === "AVAILABLE"
-          ? "INACTIVE"
-          : "ACTIVE";
-
-      const updatedBike =
-        await adminService.updateBikeStatus(
-          actionBike.bikeId,
-          nextStatus
-        );
-
-      setBikes((current) =>
-        current.map((bike) =>
-          bike.bikeId === updatedBike.bikeId
-            ? updatedBike
-            : bike
-        )
+      await adminService.updateBikeStatus(
+        bikeId,
+        nextStatus
       );
 
+      console.log(
+        "[Admin Bikes] Status update API succeeded."
+      );
+
+      /*
+       * IMPORTANT:
+       * Don't manually change the row.
+       * Reload from the backend so the UI represents
+       * the value actually persisted in MySQL.
+       */
+      await loadBikes();
+
       toast.success(
-        nextStatus === "ACTIVE"
+        nextStatus === "AVAILABLE"
           ? "Bike activated successfully."
           : "Bike deactivated successfully."
       );
 
       setActionBike(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error(
-        "Failed to update bike status:",
+        "[Admin Bikes] Status update failed:",
         error
       );
 
-      toast.error("Unable to update bike status.");
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to update bike status.";
+
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const bikeIsActive =
-    actionBike?.bikeStatus?.toUpperCase() === "ACTIVE" ||
+  const bikeIsAvailable =
     actionBike?.bikeStatus?.toUpperCase() === "AVAILABLE";
 
   return (
@@ -226,30 +252,30 @@ export default function AdminBikes() {
       <StatusActionModal
         isOpen={!!actionBike}
         title={
-          bikeIsActive
+          bikeIsAvailable
             ? "Deactivate Bike"
             : "Activate Bike"
         }
         description={
           actionBike
-            ? bikeIsActive
-              ? `This will change ${
-                  actionBike.bikeName ||
-                  `Bike #${actionBike.bikeId}`
-                } to inactive.`
-              : `This will activate ${
-                  actionBike.bikeName ||
-                  `Bike #${actionBike.bikeId}`
-                }.`
+            ? bikeIsAvailable
+              ? `This will change ${actionBike.bikeName ||
+              `Bike #${actionBike.bikeId}`
+              } to inactive.`
+              : `This will activate ${actionBike.bikeName ||
+              `Bike #${actionBike.bikeId}`
+              }.`
             : ""
         }
         actionLabel={
-          bikeIsActive
-            ? "Yes, Deactivate"
-            : "Yes, Activate"
+          bikeIsAvailable
+            ? "Yes, Make Unavailable"
+            : "Yes, Make Available"
         }
         actionType={
-          bikeIsActive ? "danger" : "success"
+          bikeIsAvailable
+            ? "danger"
+            : "success"
         }
         loading={actionLoading}
         onClose={() => setActionBike(null)}

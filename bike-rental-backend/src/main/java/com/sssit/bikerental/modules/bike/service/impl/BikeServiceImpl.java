@@ -33,6 +33,7 @@ import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 /**
  * Bike Management (Member 2) — integrates with Section 1 Verification:
  * Aadhaar (once per owner) + RC (every bike) before registration.
@@ -104,18 +105,22 @@ public class BikeServiceImpl implements BikeService {
             bikeDTO.setHourlyRate(java.math.BigDecimal.valueOf(80));
         }
 
-        // Verify that an actually APPROVED RC document exists for this owner and registration number
+        // Verify that an actually APPROVED RC document exists for this owner and
+        // registration number
         BikeDocument approvedRc = bikeDocumentRepository
                 .findByRegistrationNumber(registration)
                 .orElse(null);
 
         boolean isRcApproved = approvedRc != null &&
-                (VerificationConstants.STATUS_APPROVED.equals(approvedRc.getStatus()) || "VERIFIED".equals(approvedRc.getStatus())) &&
+                (VerificationConstants.STATUS_APPROVED.equals(approvedRc.getStatus())
+                        || "VERIFIED".equals(approvedRc.getStatus()))
+                &&
                 approvedRc.getOwnerId() != null &&
                 approvedRc.getOwnerId().equals(ownerId);
 
         if (!isRcApproved) {
-            throw new ValidationException("Vehicle RC document must be uploaded and approved before registering the bike.");
+            throw new ValidationException(
+                    "Vehicle RC document must be uploaded and approved before registering the bike.");
         }
 
         Bike bike = bikeMapper.toEntity(bikeDTO);
@@ -157,6 +162,38 @@ public class BikeServiceImpl implements BikeService {
             bike.setAvailableDate(java.time.LocalDate.now());
         }
         return enrichDTO(bikeMapper.toDTO(bikeRepository.save(bike)));
+    }
+
+    @Override
+    @Transactional
+    public BikeDTO updateBikeStatus(Long bikeId, BikeStatus status) {
+
+        if (bikeId == null) {
+            throw new ValidationException("Bike ID is required.");
+        }
+
+        if (status == null) {
+            throw new ValidationException("Bike status is required.");
+        }
+
+        Bike bike = getBikeEntity(bikeId);
+
+        /*
+         * This method is intentionally separate from updateBike().
+         *
+         * updateBike() is an owner-oriented operation and validates
+         * ownership. Admin status management must not be restricted
+         * by the bike owner relationship.
+         *
+         * AdminController/AdminService already enforce ADMIN role.
+         */
+
+        bike.setBikeStatus(status);
+
+        Bike savedBike = bikeRepository.save(bike);
+
+        return enrichDTO(
+                bikeMapper.toDTO(savedBike));
     }
 
     @Override
@@ -480,7 +517,7 @@ public class BikeServiceImpl implements BikeService {
             } catch (Exception e) {
 
                 // Safe fallback
-             log.warn(
+                log.warn(
                         "Unable to load owner information: "
                                 + e.getMessage());
             }

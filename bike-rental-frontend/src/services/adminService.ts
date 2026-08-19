@@ -89,18 +89,30 @@ export const adminService = {
     bikeId: number,
     status: string
   ): Promise<BikeAdmin> {
+    if (!Number.isFinite(bikeId)) {
+      throw new Error("Valid Bike ID is required.");
+    }
 
-    if (!bikeId) {
+    const normalizedStatus =
+      status.trim().toUpperCase();
+
+    const allowedStatuses = [
+      "AVAILABLE",
+      "BOOKED",
+      "UNDER_MAINTENANCE",
+      "NOT_AVAILABLE",
+    ];
+
+    if (!allowedStatuses.includes(normalizedStatus)) {
       throw new Error(
-        "Bike ID is required."
+        `Invalid bike status: ${normalizedStatus}`
       );
     }
 
-    if (!status?.trim()) {
-      throw new Error(
-        "Bike status is required."
-      );
-    }
+    console.log("[Admin Bike Status] Request:", {
+      bikeId,
+      status: normalizedStatus,
+    });
 
     const response =
       await api.put<BikeAdmin>(
@@ -108,10 +120,15 @@ export const adminService = {
         null,
         {
           params: {
-            status,
+            status: normalizedStatus,
           },
         }
       );
+
+    console.log(
+      "[Admin Bike Status] Response:",
+      response.data
+    );
 
     return response.data;
   },

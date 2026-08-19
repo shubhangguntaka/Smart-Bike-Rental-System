@@ -6,10 +6,9 @@ export type AdminUserStatus =
 
 export type AdminBikeStatus =
   | "AVAILABLE"
-  | "UNAVAILABLE"
-  | "ACTIVE"
-  | "INACTIVE"
-  | "MAINTENANCE";
+  | "BOOKED"
+  | "UNDER_MAINTENANCE"
+  | "NOT_AVAILABLE";
 
 export interface AdminDashboard {
   totalUsers: number;
