@@ -1,5 +1,5 @@
 import React from "react";
-import { UserCheck, UserRound, UserX } from "lucide-react";
+import { Eye, UserCheck, UserRound, UserX } from "lucide-react";
 
 import type { UserAdmin } from "@/types/admin";
 
@@ -7,12 +7,14 @@ interface UserTableProps {
   users: UserAdmin[];
   loading?: boolean;
   onStatusAction?: (user: UserAdmin) => void;
+  onViewDetails?: (user: UserAdmin) => void;
 }
 
 export default function UserTable({
   users,
   loading = false,
   onStatusAction,
+  onViewDetails,
 }: UserTableProps) {
   if (loading) {
     return (
@@ -35,7 +37,7 @@ export default function UserTable({
               <th className="p-4">Email</th>
               <th className="p-4">Role</th>
               <th className="p-4">Status</th>
-              <th className="p-4 text-right">Action</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
 
@@ -52,12 +54,20 @@ export default function UserTable({
                 return (
                   <tr
                     key={user.userId}
-                    className="border-b border-border last:border-0 hover:bg-muted/10"
+                    className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          <UserRound className="h-4 w-4" />
+                        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary shrink-0">
+                          {user.profileImage ? (
+                            <img
+                              src={user.profileImage}
+                              alt={user.fullName || "User"}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <UserRound className="h-4 w-4" />
+                          )}
                         </div>
 
                         <div>
@@ -72,7 +82,7 @@ export default function UserTable({
                       </div>
                     </td>
 
-                    <td className="p-4 text-muted-foreground">
+                    <td className="p-4 text-muted-foreground font-mono">
                       {user.email || "—"}
                     </td>
 
@@ -95,32 +105,45 @@ export default function UserTable({
                     </td>
 
                     <td className="p-4 text-right">
-                      {isAdmin ? (
-                        <span className="text-[10px] font-medium text-muted-foreground">
-                          Protected
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onStatusAction?.(user)}
-                          className={`rounded-xl border border-border p-2 transition ${
-                            isActive
-                              ? "text-destructive hover:border-destructive hover:bg-destructive/5"
-                              : "text-green-500 hover:border-green-500 hover:bg-green-500/5"
-                          }`}
-                          title={
-                            isActive
-                              ? "Deactivate account"
-                              : "Activate account"
-                          }
-                        >
-                          {isActive ? (
-                            <UserX className="h-4 w-4" />
-                          ) : (
-                            <UserCheck className="h-4 w-4" />
-                          )}
-                        </button>
-                      )}
+                      <div className="inline-flex items-center gap-1.5">
+                        {onViewDetails && (
+                          <button
+                            type="button"
+                            onClick={() => onViewDetails(user)}
+                            className="rounded-xl border border-border p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition cursor-pointer"
+                            title="View user details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+
+                        {isAdmin ? (
+                          <span className="text-[10px] font-medium text-muted-foreground px-2 py-1 bg-muted/40 rounded-lg">
+                            Protected
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onStatusAction?.(user)}
+                            className={`rounded-xl border border-border p-2 transition cursor-pointer ${
+                              isActive
+                                ? "text-destructive hover:border-destructive hover:bg-destructive/5"
+                                : "text-green-500 hover:border-green-500 hover:bg-green-500/5"
+                            }`}
+                            title={
+                              isActive
+                                ? "Deactivate account"
+                                : "Activate account"
+                            }
+                          >
+                            {isActive ? (
+                              <UserX className="h-4 w-4" />
+                            ) : (
+                              <UserCheck className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -3,6 +3,8 @@ import {
   Bike,
   CalendarDays,
   Users,
+  UserRound,
+  UserRoundCog,
   CreditCard,
   Settings,
   UserCircle,
@@ -17,6 +19,7 @@ import {
   QrCode,
   Bell,
   Activity,
+  BarChart3,
 } from "lucide-react";
 import type { SidebarSection } from "./layout";
 
@@ -38,15 +41,20 @@ export const PUBLIC_NAVIGATION = [
   {
     label: "Explore Map",
     path: "/maps",
+    icon: Compass,
+  },
+  {
+    label: "Pricing & Plans",
+    path: "/pricing",
+    icon: FileText,
+  },
+  {
+    label: "Find Hubs",
+    path: "/stations",
     icon: MapPin,
   },
   {
-    label: "About",
-    path: "/about",
-    icon: Info,
-  },
-  {
-    label: "Contact",
+    label: "Contact Support",
     path: "/contact",
     icon: Phone,
   },
@@ -58,8 +66,8 @@ export const PUBLIC_NAVIGATION = [
 
 export const CUSTOMER_SIDEBAR: SidebarSection[] = [
   {
-    id: "general",
-    title: "General",
+    id: "main",
+    title: "Main",
     items: [
       {
         label: "Dashboard",
@@ -67,40 +75,45 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
         icon: LayoutDashboard,
       },
       {
-        label: "Nearby Bikes",
-        path: "/customer/nearby-bikes",
-        icon: Compass,
-      },
-      {
-        label: "Explore Map",
-        path: "/customer/maps",
-        icon: MapPin,
-      },
-      {
         label: "Bookings",
         path: "/customer/bookings",
         icon: CalendarDays,
       },
       {
-        label: "Notifications",
-        path: "/customer/notification",
-        icon: Bell,
+        label: "Explore Bikes",
+        path: "/customer/explore",
+        icon: Bike,
+      },
+      {
+        label: "Nearby Stations",
+        path: "/customer/stations",
+        icon: MapPin,
+      },
+      {
+        label: "Scan QR",
+        path: "/customer/scan-qr",
+        icon: QrCode,
       },
     ],
   },
   {
-    id: "account",
-    title: "Account",
+    id: "finance",
+    title: "Finance & Alerts",
     items: [
       {
-        label: "Profile",
-        path: "/customer/profile",
-        icon: UserCircle,
+        label: "Payments",
+        path: "/customer/payments",
+        icon: CreditCard,
       },
       {
-        label: "Settings",
-        path: "/customer/settings",
-        icon: Settings,
+        label: "Verification",
+        path: "/customer/verification",
+        icon: ShieldCheck,
+      },
+      {
+        label: "Notifications",
+        path: "/customer/notification",
+        icon: Bell,
       },
     ],
   },
@@ -112,8 +125,8 @@ export const CUSTOMER_SIDEBAR: SidebarSection[] = [
 
 export const OWNER_SIDEBAR: SidebarSection[] = [
   {
-    id: "general",
-    title: "General",
+    id: "main",
+    title: "Main",
     items: [
       {
         label: "Dashboard",
@@ -126,35 +139,30 @@ export const OWNER_SIDEBAR: SidebarSection[] = [
         icon: Bike,
       },
       {
-        label: "Booking Requests",
+        label: "Bookings",
         path: "/owner/bookings",
         icon: CalendarDays,
       },
+    ],
+  },
+  {
+    id: "finance",
+    title: "Finance & Alerts",
+    items: [
       {
         label: "Earnings",
-        path: "/owner/payments",
+        path: "/owner/earnings",
         icon: CreditCard,
+      },
+      {
+        label: "Verification",
+        path: "/owner/verification",
+        icon: ShieldCheck,
       },
       {
         label: "Notifications",
         path: "/owner/notification",
         icon: Bell,
-      },
-    ],
-  },
-  {
-    id: "account",
-    title: "Account",
-    items: [
-      {
-        label: "Profile",
-        path: "/owner/profile",
-        icon: UserCircle,
-      },
-      {
-        label: "Settings",
-        path: "/owner/settings",
-        icon: Settings,
       },
     ],
   },
@@ -178,16 +186,23 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         label: "Users",
         path: "/admin/users",
         icon: Users,
-      },
-      {
-        label: "Customers",
-        path: "/admin/customers",
-        icon: Users,
-      },
-      {
-        label: "Owners",
-        path: "/admin/owners",
-        icon: Users,
+        children: [
+          {
+            label: "All Users",
+            path: "/admin/users",
+            icon: Users,
+          },
+          {
+            label: "Customers",
+            path: "/admin/customers",
+            icon: UserRound,
+          },
+          {
+            label: "Owners",
+            path: "/admin/owners",
+            icon: UserRoundCog,
+          },
+        ],
       },
       {
         label: "Bikes",
@@ -210,6 +225,11 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         icon: ShieldCheck,
       },
       {
+        label: "Reports",
+        path: "/admin/reports",
+        icon: BarChart3,
+      },
+      {
         label: "Activity Log",
         path: "/admin/activity",
         icon: Activity,
@@ -229,6 +249,11 @@ export const ADMIN_SIDEBAR: SidebarSection[] = [
         label: "Profile",
         path: "/admin/profile",
         icon: UserCircle,
+      },
+      {
+        label: "Settings",
+        path: "/admin/settings",
+        icon: Settings,
       },
     ],
   },

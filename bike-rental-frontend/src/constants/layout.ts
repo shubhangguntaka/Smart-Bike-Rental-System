@@ -15,10 +15,17 @@ export interface NavigationItem {
    Sidebar
 =========================== */
 
+export interface SidebarSubItem {
+  label: string;
+  path: string;
+  icon?: LucideIcon;
+}
+
 export interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  children?: SidebarSubItem[];
 }
 
 export interface SidebarSection {

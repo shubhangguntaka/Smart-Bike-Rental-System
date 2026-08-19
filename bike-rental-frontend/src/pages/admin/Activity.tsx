@@ -1,13 +1,72 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Clock, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  BadgeCheck,
+  Bike,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Filter,
+  Layers,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  XCircle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Pagination } from "@/components/common/Pagination";
-import { SearchBar } from "@/components/common/SearchBar";
+import AdminDetailModal from "@/components/admin/AdminDetailModal";
 import adminService from "@/services/adminService";
 import type { AdminActivity } from "@/types/admin";
 
 const PAGE_SIZE = 10;
+
+interface SummaryCardProps {
+  title: string;
+  count: number | string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  badgeClass?: string;
+}
+
+const SummaryCard = ({
+  title,
+  count,
+  active,
+  onClick,
+  icon,
+  badgeClass,
+}: SummaryCardProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 ${
+      active
+        ? "border-primary bg-primary/5 shadow-sm"
+        : "border-border bg-card hover:bg-muted/40"
+    }`}
+  >
+    <div className="flex items-center justify-between">
+      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+        {title}
+      </span>
+      {icon}
+    </div>
+    <div className="flex items-baseline justify-between">
+      <span className="text-2xl font-extrabold text-foreground">{count}</span>
+      {badgeClass && (
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${badgeClass}`}>
+          {title}
+        </span>
+      )}
+    </div>
+  </button>
+);
 
 export default function AdminActivityPage() {
   const [activities, setActivities] = useState<AdminActivity[]>([]);
@@ -16,6 +75,12 @@ export default function AdminActivityPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters & Tabs state
+  const [activeTab, setActiveTab] = useState<string>("ALL");
+  const [actionFilter, setActionFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [detailActivity, setDetailActivity] = useState<AdminActivity | null>(null);
 
   const loadActivities = useCallback(async (isRefresh = false) => {
     try {
@@ -42,28 +107,83 @@ export default function AdminActivityPage() {
     void loadActivities();
   }, [loadActivities]);
 
+  // Compute counts
+  const counts = useMemo(() => {
+    const total = activities.length;
+    const userActions = activities.filter((a) =>
+      (a.action || "").toUpperCase().includes("USER") || (a.targetType || "").toUpperCase() === "USER"
+    ).length;
+    const fleetActions = activities.filter((a) =>
+      (a.action || "").toUpperCase().includes("BIKE") || (a.targetType || "").toUpperCase() === "BIKE"
+    ).length;
+    const verificationActions = activities.filter((a) =>
+      (a.action || "").toUpperCase().includes("VERIF") || (a.targetType || "").toUpperCase().includes("DOCUMENT")
+    ).length;
+    const successLogs = activities.filter(
+      (a) => (a.status || "").toUpperCase() === "SUCCESS"
+    ).length;
+
+    return { total, userActions, fleetActions, verificationActions, successLogs };
+  }, [activities]);
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setPage(1);
+
+    if (tabId !== "ALL") {
+      setActionFilter(tabId);
+    } else {
+      setActionFilter("ALL");
+    }
+  };
+
   const filteredActivities = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) {
-      return activities;
-    }
 
     return activities.filter((item) => {
-      const searchable = [
-        item.id != null ? String(item.id) : "",
-        item.action ?? "",
-        item.performedBy ?? "",
-        item.details ?? "",
-        item.status ?? "",
-        item.timestamp ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+      const actionUpper = (item.action || "").toUpperCase();
+      const targetUpper = (item.targetType || "").toUpperCase();
+      const statusUpper = (item.status || "").toUpperCase();
 
-      return searchable.includes(query);
+      // Tab filter
+      if (activeTab === "USER" && !actionUpper.includes("USER") && targetUpper !== "USER") return false;
+      if (activeTab === "BIKE" && !actionUpper.includes("BIKE") && targetUpper !== "BIKE") return false;
+      if (activeTab === "VERIFICATION" && !actionUpper.includes("VERIF") && !targetUpper.includes("DOCUMENT")) return false;
+
+      // Dropdown Action Filter
+      if (actionFilter === "USER" && !actionUpper.includes("USER") && targetUpper !== "USER") return false;
+      if (actionFilter === "BIKE" && !actionUpper.includes("BIKE") && targetUpper !== "BIKE") return false;
+      if (actionFilter === "VERIFICATION" && !actionUpper.includes("VERIF") && !targetUpper.includes("DOCUMENT")) return false;
+      if (actionFilter === "USER_ACTIVATED" && !actionUpper.includes("USER_ACTIVATED")) return false;
+      if (actionFilter === "USER_DEACTIVATED" && !actionUpper.includes("USER_DEACTIVATED")) return false;
+      if (actionFilter === "BIKE_STATUS_CHANGED" && !actionUpper.includes("BIKE")) return false;
+
+      // Dropdown Status Filter
+      if (statusFilter !== "ALL" && statusUpper !== statusFilter) return false;
+
+      if (query) {
+        const searchable = [
+          item.id != null ? String(item.id) : "",
+          item.action ?? "",
+          item.performedBy ?? "",
+          item.details ?? "",
+          item.targetType ?? "",
+          item.targetId != null ? String(item.targetId) : "",
+          item.status ?? "",
+          item.timestamp ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (!searchable.includes(query)) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [activities, search]);
+  }, [activities, search, activeTab, actionFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredActivities.length / PAGE_SIZE));
   const paginatedActivities = filteredActivities.slice(
@@ -78,16 +198,18 @@ export default function AdminActivityPage() {
   }, [page, totalPages]);
 
   return (
-    <div className="min-h-screen space-y-6 text-foreground">
-      {/* Header */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 text-foreground min-h-screen pb-12">
+      {/* Title & Header */}
+      <div className="bg-card border border-border p-6 rounded-3xl shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight">Admin Activity Log</h2>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Audit trail of administrative actions, platform modifications, and security events.
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+            Member 3 — Audit Trail & Governance
+          </span>
+          <h2 className="text-2xl font-serif font-bold text-foreground mt-0.5">
+            Admin Activity & Audit Trail
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Real-time audit records of administrative operations, fleet modifications, verification reviews, and user status toggles.
           </p>
         </div>
 
@@ -95,27 +217,139 @@ export default function AdminActivityPage() {
           type="button"
           onClick={() => void loadActivities(true)}
           disabled={refreshing || loading}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer shadow-2xs"
+          className="px-4 py-2 text-xs font-bold rounded-xl border border-border bg-card hover:bg-muted text-foreground transition cursor-pointer flex items-center gap-1.5 disabled:opacity-60 shadow-2xs"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Refreshing..." : "Refresh"}
+          <RotateCcw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          <span>{refreshing ? "Refreshing..." : "Refresh Data"}</span>
         </button>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col gap-4">
-        <SearchBar
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          placeholder="Search activity, action, actor, details..."
-          width="max-w-md w-full"
+      {/* Summary Cards Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <SummaryCard
+          title="Total Audit Logs"
+          count={counts.total}
+          active={activeTab === "ALL"}
+          onClick={() => handleTabChange("ALL")}
+          icon={<ShieldCheck className="h-4 w-4 text-primary" />}
+        />
+        <SummaryCard
+          title="User Governance"
+          count={counts.userActions}
+          active={activeTab === "USER"}
+          onClick={() => handleTabChange("USER")}
+          icon={<UserCheck className="h-4 w-4 text-blue-500" />}
+          badgeClass="bg-blue-500/10 text-blue-500"
+        />
+        <SummaryCard
+          title="Fleet Operations"
+          count={counts.fleetActions}
+          active={activeTab === "BIKE"}
+          onClick={() => handleTabChange("BIKE")}
+          icon={<Bike className="h-4 w-4 text-emerald-500" />}
+          badgeClass="bg-emerald-500/10 text-emerald-500"
+        />
+        <SummaryCard
+          title="Verification Reviews"
+          count={counts.verificationActions}
+          active={activeTab === "VERIFICATION"}
+          onClick={() => handleTabChange("VERIFICATION")}
+          icon={<BadgeCheck className="h-4 w-4 text-amber-500" />}
+          badgeClass="bg-amber-500/10 text-amber-500"
+        />
+        <SummaryCard
+          title="Success / Logged"
+          count={counts.successLogs}
+          active={false}
+          onClick={() => {}}
+          icon={<CheckCircle2 className="h-4 w-4 text-purple-500" />}
+          badgeClass="bg-purple-500/10 text-purple-500"
         />
       </div>
 
-      {/* Content */}
+      {/* Navigation Tabs & Filter Bar */}
+      <div className="bg-card border border-border p-4 rounded-2xl space-y-4">
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+          {[
+            { id: "ALL", label: `All Events (${counts.total})` },
+            { id: "USER", label: `User Actions (${counts.userActions})` },
+            { id: "BIKE", label: `Fleet Operations (${counts.fleetActions})` },
+            { id: "VERIFICATION", label: `Verification Reviews (${counts.verificationActions})` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => handleTabChange(tab.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === tab.id
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Select Filters */}
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search action, actor, target ID, details..."
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
+              <Filter className="h-3.5 w-3.5" />
+              <span>Filters:</span>
+            </div>
+
+            {/* Action Scope Dropdown */}
+            <select
+              value={actionFilter}
+              onChange={(e) => {
+                setActionFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+            >
+              <option value="ALL">Category: All</option>
+              <option value="USER">User Operations</option>
+              <option value="BIKE">Fleet Operations</option>
+              <option value="VERIFICATION">Verification Reviews</option>
+              <option value="USER_ACTIVATED">User Activated</option>
+              <option value="USER_DEACTIVATED">User Deactivated</option>
+              <option value="BIKE_STATUS_CHANGED">Bike Status Changed</option>
+            </select>
+
+            {/* Status Dropdown */}
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+            >
+              <option value="ALL">Status: All</option>
+              <option value="SUCCESS">Success</option>
+              <option value="FAILED">Failed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Table Content */}
       {loading ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -135,16 +369,18 @@ export default function AdminActivityPage() {
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
+                <tr className="border-b border-border bg-muted/30 font-bold text-muted-foreground">
                   <th className="p-4">Timestamp</th>
-                  <th className="p-4">Action</th>
-                  <th className="p-4">Actor</th>
-                  <th className="p-4">Details</th>
-                  <th className="p-4 text-right">Status</th>
+                  <th className="p-4">Action Event</th>
+                  <th className="p-4">Performed By</th>
+                  <th className="p-4">Target Entity</th>
+                  <th className="p-4">Summary Description</th>
+                  <th className="p-4 text-center">Status</th>
+                  <th className="p-4 text-right">Audit Detail</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,7 +388,7 @@ export default function AdminActivityPage() {
                   paginatedActivities.map((item, index) => (
                     <tr
                       key={item.id ?? index}
-                      className="border-b border-border last:border-0 hover:bg-muted/10"
+                      className="border-b border-border last:border-0 hover:bg-muted/15 transition-colors"
                     >
                       <td className="p-4 whitespace-nowrap text-muted-foreground">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -164,19 +400,30 @@ export default function AdminActivityPage() {
                       </td>
                       <td className="p-4 font-bold text-foreground">
                         <div className="flex items-center gap-2">
-                          <Activity className="h-3.5 w-3.5 text-primary" />
-                          <span>{item.action || "Administrative Action"}</span>
+                          <Activity className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-mono text-xs">{item.action || "ADMIN_ACTION"}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-muted-foreground font-medium">
-                        {item.performedBy || "System Administrator"}
+                      <td className="p-4 text-muted-foreground font-semibold">
+                        <span className="inline-block bg-muted/60 text-foreground px-2 py-0.5 rounded text-[11px]">
+                          {item.performedBy || "Administrator"}
+                        </span>
                       </td>
-                      <td className="p-4 text-muted-foreground max-w-md truncate">
+                      <td className="p-4">
+                        {item.targetType ? (
+                          <span className="inline-block bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-[10px] uppercase">
+                            {item.targetType} {item.targetId != null ? `#${item.targetId}` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-[11px]">—</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-muted-foreground max-w-sm truncate font-medium">
                         {item.details || "—"}
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-4 text-center">
                         <span
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
                             item.status?.toUpperCase() === "SUCCESS"
                               ? "bg-green-500/10 text-green-500"
                               : item.status?.toUpperCase() === "FAILED"
@@ -187,22 +434,32 @@ export default function AdminActivityPage() {
                           {item.status || "LOGGED"}
                         </span>
                       </td>
+                      <td className="p-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setDetailActivity(item)}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="h-3 w-3" />
+                          <span>Inspect</span>
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="p-10 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
                       <div className="mx-auto flex flex-col items-center justify-center space-y-2">
-                        <Activity className="h-8 w-8 text-muted-foreground/40" />
-                        <p className="text-sm font-semibold text-foreground">
+                        <Activity className="h-9 w-9 text-muted-foreground/40" />
+                        <p className="text-sm font-bold text-foreground">
                           {search
-                            ? "No matching activity records found."
-                            : "No administrative activities logged yet."}
+                            ? "No matching audit log records found."
+                            : "No administrative activities recorded yet."}
                         </p>
                         <p className="text-xs text-muted-foreground max-w-sm">
                           {search
-                            ? "Try adjusting your search criteria."
-                            : "Administrative events and audit trails will appear here as actions occur."}
+                            ? "Try adjusting your search query or reset filters."
+                            : "Administrative events and audit trails will appear here in real-time as actions occur."}
                         </p>
                       </div>
                     </td>
@@ -221,6 +478,38 @@ export default function AdminActivityPage() {
           totalPages={totalPages}
           onPageChange={setPage}
           showJumpToPage={false}
+        />
+      )}
+
+      {/* Detail Inspection Modal */}
+      {detailActivity && (
+        <AdminDetailModal
+          isOpen={!!detailActivity}
+          title={detailActivity.action || "Audit Event Detail"}
+          subtitle={`Audit Record ID #${detailActivity.id ?? "N/A"}`}
+          badges={
+            <span
+              className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                detailActivity.status?.toUpperCase() === "SUCCESS"
+                  ? "bg-green-500/10 text-green-500"
+                  : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              {detailActivity.status || "LOGGED"}
+            </span>
+          }
+          items={[
+            { label: "Action Type", value: detailActivity.action || "N/A" },
+            { label: "Performed By (Actor)", value: detailActivity.performedBy || "System Administrator" },
+            { label: "Target Entity Type", value: detailActivity.targetType || "System" },
+            { label: "Target Record ID", value: detailActivity.targetId != null ? `#${detailActivity.targetId}` : "—" },
+            {
+              label: "Timestamp",
+              value: detailActivity.timestamp ? new Date(detailActivity.timestamp).toLocaleString("en-IN") : "—",
+            },
+            { label: "Event Details / Payload", value: detailActivity.details || "No additional metadata recorded." },
+          ]}
+          onClose={() => setDetailActivity(null)}
         />
       )}
     </div>

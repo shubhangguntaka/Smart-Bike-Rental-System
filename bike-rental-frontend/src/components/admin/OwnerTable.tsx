@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Bike,
   CalendarCheck,
+  Eye,
   Mail,
   Phone,
   UserRound,
@@ -14,11 +15,13 @@ import type { OwnerAdmin } from "@/types/admin";
 interface OwnerTableProps {
   owners: OwnerAdmin[];
   loading?: boolean;
+  onViewDetails?: (owner: OwnerAdmin) => void;
 }
 
 export default function OwnerTable({
   owners,
   loading = false,
+  onViewDetails,
 }: OwnerTableProps) {
   if (loading) {
     return (
@@ -38,29 +41,13 @@ export default function OwnerTable({
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
-              <th className="p-4">
-                Owner
-              </th>
-
-              <th className="p-4">
-                Account
-              </th>
-
-              <th className="p-4">
-                Verification
-              </th>
-
-              <th className="p-4">
-                Fleet
-              </th>
-
-              <th className="p-4">
-                Bookings
-              </th>
-
-              <th className="p-4">
-                Earnings
-              </th>
+              <th className="p-4">Owner</th>
+              <th className="p-4">Account</th>
+              <th className="p-4">Verification</th>
+              <th className="p-4">Fleet</th>
+              <th className="p-4">Bookings</th>
+              <th className="p-4">Earnings</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
 
@@ -182,7 +169,7 @@ export default function OwnerTable({
 
                     {/* Earnings */}
                     <td className="p-4">
-                      <p className="font-bold">
+                      <p className="font-bold text-foreground">
                         ₹
                         {Number(
                           owner.totalEarnings ?? 0
@@ -199,13 +186,27 @@ export default function OwnerTable({
                         Total earnings
                       </p>
                     </td>
+
+                    {/* Actions */}
+                    <td className="p-4 text-right">
+                      {onViewDetails && (
+                        <button
+                          type="button"
+                          onClick={() => onViewDetails(owner)}
+                          className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer"
+                          title="View owner details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="p-8 text-center text-muted-foreground"
                 >
                   No owners matching criteria.

@@ -1,16 +1,8 @@
-import type { LucideIcon } from "lucide-react";
+import type { SidebarSection as SidebarSectionType } from "@/constants/layout";
 import SidebarItem from "./SidebarItem";
 
 interface SidebarSectionProps {
-  section: {
-    id: string;
-    title?: string;
-    items: {
-      label: string;
-      path: string;
-      icon: LucideIcon;
-    }[];
-  };
+  section: SidebarSectionType;
   collapsed: boolean;
   onNavigate?: () => void;
 }

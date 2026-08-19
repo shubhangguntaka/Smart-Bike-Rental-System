@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   CalendarCheck,
   CircleX,
+  Eye,
   Mail,
   Phone,
   UserCheck,
@@ -15,21 +16,20 @@ import type { CustomerAdmin } from "@/types/admin";
 interface CustomerTableProps {
   customers: CustomerAdmin[];
   loading?: boolean;
-  onStatusAction?: (
-    customer: CustomerAdmin
-  ) => void;
+  onStatusAction?: (customer: CustomerAdmin) => void;
+  onViewDetails?: (customer: CustomerAdmin) => void;
 }
 
 export default function CustomerTable({
   customers,
   loading = false,
   onStatusAction,
+  onViewDetails,
 }: CustomerTableProps) {
   if (loading) {
     return (
       <div className="rounded-2xl border border-border bg-card p-8 text-center">
         <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-
         <p className="mt-3 text-xs text-muted-foreground">
           Loading customers...
         </p>
@@ -43,199 +43,152 @@ export default function CustomerTable({
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
-              <th className="p-4">
-                Customer
-              </th>
-
-              <th className="p-4">
-                Account
-              </th>
-
-              <th className="p-4">
-                Verification
-              </th>
-
-              <th className="p-4">
-                Bookings
-              </th>
-
-              <th className="p-4">
-                Rental Amount
-              </th>
-
-              <th className="p-4 text-right">
-                Action
-              </th>
+              <th className="p-4">Customer</th>
+              <th className="p-4">Account</th>
+              <th className="p-4">Verification</th>
+              <th className="p-4">Bookings</th>
+              <th className="p-4">Total Spent</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {customers.length > 0 ? (
-              customers.map(
-                (customer) => {
-                  const isActive =
-                    customer.status?.toUpperCase() ===
-                    "ACTIVE";
+              customers.map((customer) => {
+                const isActive =
+                  customer.status?.toUpperCase() === "ACTIVE";
 
-                  return (
-                    <tr
-                      key={
-                        customer.customerId
-                      }
-                      className="border-b border-border last:border-0 hover:bg-muted/10"
-                    >
-                      {/* Customer */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary">
-                            {customer.profileImage ? (
-                              <img
-                                src={
-                                  customer.profileImage
-                                }
-                                alt={
-                                  customer.customerName
-                                }
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <UserRound className="h-4 w-4" />
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="font-bold text-foreground">
-                              {customer.customerName ||
-                                "Unknown Customer"}
-                            </p>
-
-                            <p className="mt-1 text-[10px] text-muted-foreground">
-                              ID #
-                              {
-                                customer.customerId
-                              }
-                            </p>
-
-                            <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Mail className="h-3 w-3" />
-
-                              {customer.email ||
-                                "—"}
-                            </p>
-
-                            {customer.phoneNumber && (
-                              <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-
-                                {
-                                  customer.phoneNumber
-                                }
-                              </p>
-                            )}
-                          </div>
+                return (
+                  <tr
+                    key={customer.customerId}
+                    className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
+                  >
+                    {/* Customer */}
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary">
+                          {customer.profileImage ? (
+                            <img
+                              src={customer.profileImage}
+                              alt={customer.customerName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <UserRound className="h-4 w-4" />
+                          )}
                         </div>
-                      </td>
 
-                      {/* Account */}
-                      <td className="p-4">
+                        <div>
+                          <p className="font-bold text-foreground">
+                            {customer.customerName || "Unknown Customer"}
+                          </p>
+
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            ID #{customer.customerId}
+                          </p>
+
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                            <Mail className="h-3 w-3" />
+                            {customer.email || "—"}
+                          </p>
+
+                          {customer.phoneNumber && (
+                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              {customer.phoneNumber}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Account */}
+                    <td className="p-4">
+                      <span
+                        className={`rounded-md px-2 py-1 text-[10px] font-semibold ${
+                          isActive
+                            ? "bg-green-500/10 text-green-500"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {isActive ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                    </td>
+
+                    {/* Verification */}
+                    <td className="p-4">
+                      <div className="space-y-1">
                         <span
-                          className={`rounded-md px-2 py-1 text-[10px] font-semibold ${
-                            isActive
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                            customer.verificationStatus
                               ? "bg-green-500/10 text-green-500"
-                              : "bg-destructive/10 text-destructive"
+                              : "bg-amber-500/10 text-amber-600"
                           }`}
                         >
-                          {isActive
-                            ? "ACTIVE"
-                            : "INACTIVE"}
+                          <BadgeCheck className="h-3 w-3" />
+                          {customer.verificationStatus ? "VERIFIED" : "PENDING / UNVERIFIED"}
                         </span>
-                      </td>
-
-                      {/* Verification */}
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold ${
-                              customer.verificationStatus
-                                ? "bg-green-500/10 text-green-500"
-                                : "bg-yellow-500/10 text-yellow-600"
-                            }`}
-                          >
-                            <BadgeCheck className="h-3 w-3" />
-
-                            {customer.verificationStatus
-                              ? "VERIFIED"
-                              : "NOT VERIFIED"}
-                          </span>
-
-                          <p className="text-[10px] text-muted-foreground">
-                            Aadhaar + Driving
-                            License
-                          </p>
-                        </div>
-                      </td>
-
-                      {/* Bookings */}
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1 font-semibold">
-                            <CalendarCheck className="h-3.5 w-3.5 text-primary" />
-
-                            {
-                              customer.totalBookings
-                            }{" "}
-                            total
-                          </span>
-
-                          <div className="flex gap-2 text-[10px]">
-                            <span className="text-green-500">
-                              {
-                                customer.completedBookings
-                              }{" "}
-                              completed
-                            </span>
-
-                            <span className="text-destructive">
-                              {
-                                customer.cancelledBookings
-                              }{" "}
-                              cancelled
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Rental Amount */}
-                      <td className="p-4">
-                        <p className="font-bold">
-                          ₹
-                          {Number(
-                            customer.totalRentalAmount ??
-                              0
-                          ).toLocaleString(
-                            "en-IN",
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
-                          )}
-                        </p>
 
                         <p className="text-[10px] text-muted-foreground">
-                          Rental amount
+                          KYC Review
                         </p>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Action */}
-                      <td className="p-4 text-right">
+                    {/* Bookings */}
+                    <td className="p-4">
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                          <CalendarCheck className="h-3.5 w-3.5 text-primary" />
+                          {customer.totalBookings} total
+                        </span>
+
+                        <div className="flex gap-2 text-[10px]">
+                          <span className="text-green-500 font-medium">
+                            {customer.completedBookings} completed
+                          </span>
+                          <span className="text-destructive font-medium">
+                            {customer.cancelledBookings} cancelled
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Rental Amount */}
+                    <td className="p-4">
+                      <p className="font-bold text-foreground">
+                        ₹
+                        {Number(customer.totalRentalAmount ?? 0).toLocaleString(
+                          "en-IN",
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Total spent
+                      </p>
+                    </td>
+
+                    {/* Action */}
+                    <td className="p-4 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        {onViewDetails && (
+                          <button
+                            type="button"
+                            onClick={() => onViewDetails(customer)}
+                            className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer"
+                            title="View customer summary"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() =>
-                            onStatusAction?.(
-                              customer
-                            )
-                          }
-                          className={`rounded-xl border border-border p-2 transition ${
+                          onClick={() => onStatusAction?.(customer)}
+                          className={`rounded-xl border border-border p-2 transition cursor-pointer ${
                             isActive
                               ? "text-destructive hover:border-destructive hover:bg-destructive/5"
                               : "text-green-500 hover:border-green-500 hover:bg-green-500/5"
@@ -252,11 +205,11 @@ export default function CustomerTable({
                             <UserCheck className="h-4 w-4" />
                           )}
                         </button>
-                      </td>
-                    </tr>
-                  );
-                }
-              )
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td
@@ -264,9 +217,7 @@ export default function CustomerTable({
                   className="p-8 text-center text-muted-foreground"
                 >
                   <CircleX className="mx-auto mb-2 h-5 w-5" />
-
-                  No customers matching
-                  criteria.
+                  No customers matching criteria.
                 </td>
               </tr>
             )}
