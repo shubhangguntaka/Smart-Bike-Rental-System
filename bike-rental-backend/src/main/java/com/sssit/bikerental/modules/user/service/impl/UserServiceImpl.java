@@ -237,4 +237,19 @@ public class UserServiceImpl implements UserService {
 
         }
 
+        @Override
+        public UserResponse lockUser(Long id, Boolean locked) {
+
+                User user = userRepository.findById(id)
+
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+                user.setAccountNonLocked(!Boolean.TRUE.equals(locked));
+
+                userRepository.save(user);
+
+                return map(user);
+
+        }
+
 }

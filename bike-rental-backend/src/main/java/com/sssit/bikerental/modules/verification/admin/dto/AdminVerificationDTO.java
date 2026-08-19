@@ -27,6 +27,15 @@ public class AdminVerificationDTO {
     private String reviewedBy;
     private LocalDateTime reviewedAt;
     
+    // Document specific metadata
+    private String customerName;
+    private String ownerName;
+    private String dob;
+    private String makerName;
+    private String fuelType;
+    private String issueDate;
+    private String validTill;
+
     // Bike details for RC
     private Long bikeId;
     private String bikeName;
@@ -35,6 +44,62 @@ public class AdminVerificationDTO {
     private String registrationNumber;
 
     private List<VerificationHistoryDTO> history;
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public void setOwnerName(String ownerName) {
+        this.ownerName = ownerName;
+    }
+
+    public String getDob() {
+        return dob;
+    }
+
+    public void setDob(String dob) {
+        this.dob = dob;
+    }
+
+    public String getMakerName() {
+        return makerName;
+    }
+
+    public void setMakerName(String makerName) {
+        this.makerName = makerName;
+    }
+
+    public String getFuelType() {
+        return fuelType;
+    }
+
+    public void setFuelType(String fuelType) {
+        this.fuelType = fuelType;
+    }
+
+    public String getIssueDate() {
+        return issueDate;
+    }
+
+    public void setIssueDate(String issueDate) {
+        this.issueDate = issueDate;
+    }
+
+    public String getValidTill() {
+        return validTill;
+    }
+
+    public void setValidTill(String validTill) {
+        this.validTill = validTill;
+    }
 
     public AdminVerificationDTO() {
     }

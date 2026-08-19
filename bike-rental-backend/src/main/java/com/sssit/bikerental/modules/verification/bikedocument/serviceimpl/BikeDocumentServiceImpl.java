@@ -66,6 +66,9 @@ import com.sssit.bikerental.modules.verification.common.util.NameMatchUtil;
  * VahanVerificationService called with the extracted registration
  * number).
  */
+import com.sssit.bikerental.modules.auth.service.EmailService;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
+
 @Service
 public class BikeDocumentServiceImpl implements BikeDocumentService {
 
@@ -92,6 +95,12 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
     @Autowired
     private RCQRReader qrReader;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     private static final String UPLOAD_DIR = "uploads/bike-document/";
 
@@ -184,11 +193,14 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
             RCData rcData = rcExtractor.extract(rawText);
 
-            // Fallback: If OCR failed to extract formatted registration number (e.g. faint red dot-matrix font),
-            // verify and adopt the bike owner's entered registration number from bike details form.
-            if (rcData.getRegistrationNumber() == null || rcData.getRegistrationNumber().isBlank()) {
-                if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
-                    String normEntered = registrationNumberParam.toUpperCase().replaceAll("[\\s-]", "");
+            // Cross-check & Fallback: If user provided registration number (e.g. TS02EY4494),
+            // adopt it if OCR missed/misread faint red dot-matrix font or if raw text contains it.
+            if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
+                String normEntered = registrationNumberParam.toUpperCase().replaceAll("[\\s-]", "");
+                String normOcr = rcData.getRegistrationNumber() != null ? rcData.getRegistrationNumber().toUpperCase().replaceAll("[\\s-]", "") : "";
+                String normRaw = rawText != null ? rawText.toUpperCase().replaceAll("[\\s-]", "") : "";
+                
+                if (normOcr.isEmpty() || normRaw.contains(normEntered) || NameMatchUtil.namesRoughlyMatch(normEntered, normOcr)) {
                     rcData.setRegistrationNumber(normEntered);
                 }
             }
@@ -396,6 +408,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             response.setMessage("Registration Certificate verified successfully.");
             applyStamp(response, true);
 
+            triggerEmailNotification(ownerId, response);
             return response;
 
         } catch (IOException e) {
@@ -405,6 +418,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             response.setMessage("Unable to upload file.");
             applyStamp(response, false);
 
+            triggerEmailNotification(ownerId, response);
             return response;
 
         } catch (Exception e) {
@@ -414,6 +428,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             response.setMessage(e.getMessage());
             applyStamp(response, false);
 
+            triggerEmailNotification(ownerId, response);
             return response;
 
         } finally {
@@ -449,6 +464,29 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             response.setStampLabel(RCConstants.STAMP_REJECTED_LABEL);
             response.setStampIcon(RCConstants.STAMP_REJECTED_ICON);
             response.setStampColor(RCConstants.STAMP_REJECTED_COLOR);
+        }
+    }
+
+    private void triggerEmailNotification(Long ownerId, BikeDocumentResponseDTO response) {
+        if (ownerId == null || response == null) return;
+        try {
+            userRepository.findById(ownerId).ifPresent(user -> {
+                if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                    if (response.isVerified()) {
+                        emailService.sendVerificationSuccessEmail(user.getEmail(), user.getFullName(), "Registration Certificate (RC)");
+                    } else {
+                        emailService.sendVerificationFailureEmail(
+                                user.getEmail(),
+                                user.getFullName(),
+                                "Registration Certificate (RC)",
+                                response.getMessage(),
+                                "Please upload a clear and current image of your bike's RC document."
+                        );
+                    }
+                }
+            });
+        } catch (Exception e) {
+            // Non-blocking log
         }
     }
 

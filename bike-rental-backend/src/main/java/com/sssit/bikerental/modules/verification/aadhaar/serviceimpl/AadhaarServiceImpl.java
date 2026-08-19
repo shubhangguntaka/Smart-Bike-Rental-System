@@ -45,6 +45,9 @@ import com.sssit.bikerental.modules.verification.common.util.NameMatchUtil;
  * and it must be the FULL card (front details plus an address, since
  * there's no QR to stand in for proof of the back side).
  */
+import com.sssit.bikerental.modules.auth.service.EmailService;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
+
 @Service
 public class AadhaarServiceImpl implements AadhaarService {
 
@@ -54,6 +57,8 @@ public class AadhaarServiceImpl implements AadhaarService {
     private final QRSignatureVerifier qrSignatureVerifier;
     private final DocumentTypeValidator documentTypeValidator;
     private final AadhaarCompletenessValidator completenessValidator;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
 
     private static final String UPLOAD_DIR = "uploads/aadhaar/";
 
@@ -63,7 +68,9 @@ public class AadhaarServiceImpl implements AadhaarService {
             QRVerificationService qrVerificationService,
             QRSignatureVerifier qrSignatureVerifier,
             DocumentTypeValidator documentTypeValidator,
-            AadhaarCompletenessValidator completenessValidator) {
+            AadhaarCompletenessValidator completenessValidator,
+            UserRepository userRepository,
+            EmailService emailService) {
 
         this.repository = repository;
         this.ocrService = ocrService;
@@ -71,6 +78,8 @@ public class AadhaarServiceImpl implements AadhaarService {
         this.qrSignatureVerifier = qrSignatureVerifier;
         this.documentTypeValidator = documentTypeValidator;
         this.completenessValidator = completenessValidator;
+        this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -538,6 +547,7 @@ public class AadhaarServiceImpl implements AadhaarService {
         response.setStampColor(VerificationConstants.STAMP_REJECTED_COLOR);
 
         // Not saved - returned as-is (its id stays null).
+        triggerEmailNotification(response);
         return response;
     }
 
@@ -577,11 +587,35 @@ public class AadhaarServiceImpl implements AadhaarService {
     // and save that (update) rather than crashing.
     //-----------------------------------
 
+    private void triggerEmailNotification(AadhaarVerification av) {
+        if (av == null || av.getCustomerId() == null) return;
+        try {
+            userRepository.findById(av.getCustomerId()).ifPresent(user -> {
+                if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                    if (VerificationConstants.STATUS_APPROVED.equalsIgnoreCase(av.getStatus())) {
+                        emailService.sendVerificationSuccessEmail(user.getEmail(), user.getFullName(), "Aadhaar Card");
+                    } else if (VerificationConstants.STATUS_REJECTED.equalsIgnoreCase(av.getStatus())) {
+                        emailService.sendVerificationFailureEmail(
+                                user.getEmail(),
+                                user.getFullName(),
+                                "Aadhaar Card",
+                                av.getRejectionReason(),
+                                "Please upload a clear and current image of your Aadhaar card."
+                        );
+                    }
+                }
+            });
+        } catch (Exception e) {
+            // Non-blocking log
+        }
+    }
+
     private AadhaarVerification saveVerification(AadhaarVerification verification) {
 
+        AadhaarVerification saved;
         try {
 
-            return repository.save(verification);
+            saved = repository.save(verification);
 
         } catch (DataIntegrityViolationException e) {
 
@@ -604,6 +638,9 @@ public class AadhaarServiceImpl implements AadhaarService {
 
             row.setUploadedFile(verification.getUploadedFile());
             row.setUploadedAt(verification.getUploadedAt());
+            if (verification.getDocumentPath() != null) {
+                row.setDocumentPath(verification.getDocumentPath());
+            }
             row.setExtractedText(verification.getExtractedText());
             row.setNameSource(verification.getNameSource());
             row.setCustomerName(verification.getCustomerName());
@@ -618,8 +655,11 @@ public class AadhaarServiceImpl implements AadhaarService {
             row.setStampIcon(verification.getStampIcon());
             row.setStampColor(verification.getStampColor());
 
-            return repository.save(row);
+            saved = repository.save(row);
         }
+
+        triggerEmailNotification(saved);
+        return saved;
     }
 
     //-----------------------------------

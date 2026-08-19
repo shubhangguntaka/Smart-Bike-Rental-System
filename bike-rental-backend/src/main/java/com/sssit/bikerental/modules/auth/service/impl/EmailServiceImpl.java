@@ -53,6 +53,65 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendVerificationSuccessEmail(String to, String name, String documentName) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Document Verification Passed - Smart Bike Rental");
+            String body = """
+                    Dear %s,
+
+                    Your documents have been successfully verified.
+
+                    Verified Document: %s
+
+                    Thank you for choosing Smart Bike Rental System.
+
+                    Regards,
+                    Smart Bike Rental Team
+                    """.formatted(name != null ? name : "User", documentName);
+            message.setText(body);
+            mailSender.send(message);
+            log.info("Verification success email sent to {}", to);
+        } catch (Exception e) {
+            log.warn("Verification success email skipped/failed for {}: {}", to, e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendVerificationFailureEmail(String to, String name, String documentName, String failureReason, String suggestion) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Document Verification Failed - Smart Bike Rental");
+            String body = """
+                    Dear %s,
+
+                    Your document verification failed.
+
+                    Document Name: %s
+                    Failure Reason: %s
+                    Suggestion: %s
+
+                    Please upload the document again.
+
+                    Regards,
+                    Smart Bike Rental Team
+                    """.formatted(
+                            name != null ? name : "User",
+                            documentName,
+                            failureReason != null && !failureReason.isBlank() ? failureReason : "Information mismatch or unreadable document",
+                            suggestion != null && !suggestion.isBlank() ? suggestion : "Please upload a clear and current image."
+                    );
+            message.setText(body);
+            mailSender.send(message);
+            log.info("Verification failure email sent to {}", to);
+        } catch (Exception e) {
+            log.warn("Verification failure email skipped/failed for {}: {}", to, e.getMessage());
+        }
+    }
+
     /**
      * Builds the email body.
      */

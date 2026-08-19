@@ -62,6 +62,39 @@ export default function AdminBikes() {
     }
   };
 
+  const handleBlockToggle = async (bike: any) => {
+    try {
+      setLoading(true);
+      const isBlocked = bike.status === "NOT_AVAILABLE";
+      if (isBlocked) {
+        await api.put(`/admin/bikes/${bike.id}/unblock`);
+        toast.success(`Bike ${bike.name} unblocked successfully.`);
+      } else {
+        await api.put(`/admin/bikes/${bike.id}/block`);
+        toast.success(`Bike ${bike.name} blocked successfully.`);
+      }
+      loadBikes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update bike status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteBike = async (bike: any) => {
+    if (!window.confirm(`Are you sure you want to delete bike "${bike.name}"?`)) return;
+    try {
+      setLoading(true);
+      await api.delete(`/admin/bikes/${bike.id}`);
+      toast.success(`Bike ${bike.name} deleted successfully.`);
+      loadBikes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete bike.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadBikes();
   }, []);

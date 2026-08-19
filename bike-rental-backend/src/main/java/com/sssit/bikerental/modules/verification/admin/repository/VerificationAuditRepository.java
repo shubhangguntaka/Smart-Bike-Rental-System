@@ -10,4 +10,6 @@ import java.util.List;
 public interface VerificationAuditRepository extends JpaRepository<VerificationAudit, Long> {
 
     List<VerificationAudit> findByDocumentReviewIdOrderByPerformedAtDesc(Long documentReviewId);
+
+    void deleteByDocumentReviewId(Long documentReviewId);
 }

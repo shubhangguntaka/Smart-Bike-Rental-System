@@ -17,11 +17,17 @@ public interface AdminService {
 
     UserAdminDTO updateUserStatus(Long userId, Boolean enabled);
 
+    UserAdminDTO lockUser(Long userId, Boolean locked);
+
+    void deleteUser(Long userId);
+
     List<OwnerAdminDTO> getOwners();
 
     List<BikeAdminDTO> getBikes();
 
     BikeAdminDTO updateBikeStatus(Long bikeId, String status);
+
+    void deleteBike(Long bikeId);
 
     List<BookingAdminDTO> getBookings();
 

@@ -53,6 +53,22 @@ public class AdminDocumentController {
         return ResponseEntity.ok(list);
     }
 
+    @GetMapping("/verifications/grouped")
+    public ResponseEntity<List<UserVerificationSummaryDTO>> getGroupedUserVerifications(
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
+        
+        List<UserVerificationSummaryDTO> list = adminDocumentService.getGroupedUserVerifications(role, status, search);
+        return ResponseEntity.ok(list);
+    }
+
+    @DeleteMapping("/verifications/user/{userId}")
+    public ResponseEntity<String> deleteAllUserVerifications(@PathVariable Long userId) {
+        adminDocumentService.deleteAllUserVerifications(userId);
+        return ResponseEntity.ok("All document verifications for user deleted successfully.");
+    }
+
     @GetMapping("/verifications/{id}")
     public ResponseEntity<AdminVerificationDTO> getVerificationById(@PathVariable Long id) {
         return ResponseEntity.ok(adminDocumentService.getVerificationById(id));
@@ -119,6 +135,12 @@ public class AdminDocumentController {
         String sender = authentication != null ? authentication.getName() : "Admin";
         adminDocumentService.sendEmail(id, request, sender);
         return ResponseEntity.ok("Email sent successfully.");
+    }
+
+    @DeleteMapping("/verifications/{id}")
+    public ResponseEntity<String> deleteVerification(@PathVariable Long id) {
+        adminDocumentService.deleteVerification(id);
+        return ResponseEntity.ok("Verification record deleted successfully.");
     }
 
     // =========================================================================

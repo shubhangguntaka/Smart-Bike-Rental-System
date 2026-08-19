@@ -28,4 +28,7 @@ public interface UserService {
         UserResponse changeUserStatus(Long id,
                         Boolean enabled);
 
+        UserResponse lockUser(Long id,
+                        Boolean locked);
+
 }

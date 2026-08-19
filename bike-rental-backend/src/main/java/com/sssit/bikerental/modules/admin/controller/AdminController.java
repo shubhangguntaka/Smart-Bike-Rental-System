@@ -51,6 +51,32 @@ public class AdminController {
         );
     }
 
+    @PutMapping("/users/{id}/block")
+    public ResponseEntity<UserAdminDTO> blockUser(@PathVariable("id") Long userId) {
+        return ResponseEntity.ok(adminService.updateUserStatus(userId, false));
+    }
+
+    @PutMapping("/users/{id}/unblock")
+    public ResponseEntity<UserAdminDTO> unblockUser(@PathVariable("id") Long userId) {
+        return ResponseEntity.ok(adminService.updateUserStatus(userId, true));
+    }
+
+    @PutMapping("/users/{id}/lock")
+    public ResponseEntity<UserAdminDTO> lockUser(@PathVariable("id") Long userId) {
+        return ResponseEntity.ok(adminService.lockUser(userId, true));
+    }
+
+    @PutMapping("/users/{id}/unlock")
+    public ResponseEntity<UserAdminDTO> unlockUser(@PathVariable("id") Long userId) {
+        return ResponseEntity.ok(adminService.lockUser(userId, false));
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable("id") Long userId) {
+        adminService.deleteUser(userId);
+        return ResponseEntity.ok("User deleted successfully");
+    }
+
     @GetMapping("/owners")
     public ResponseEntity<List<OwnerAdminDTO>> getOwners() {
 
@@ -84,6 +110,22 @@ public class AdminController {
                         status
                 )
         );
+    }
+
+    @PutMapping("/bikes/{id}/block")
+    public ResponseEntity<BikeAdminDTO> blockBike(@PathVariable("id") Long bikeId) {
+        return ResponseEntity.ok(adminService.updateBikeStatus(bikeId, "NOT_AVAILABLE"));
+    }
+
+    @PutMapping("/bikes/{id}/unblock")
+    public ResponseEntity<BikeAdminDTO> unblockBike(@PathVariable("id") Long bikeId) {
+        return ResponseEntity.ok(adminService.updateBikeStatus(bikeId, "AVAILABLE"));
+    }
+
+    @DeleteMapping("/bikes/{id}")
+    public ResponseEntity<?> deleteBike(@PathVariable("id") Long bikeId) {
+        adminService.deleteBike(bikeId);
+        return ResponseEntity.ok("Bike deleted successfully");
     }
 
     /**

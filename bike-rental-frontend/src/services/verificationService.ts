@@ -346,4 +346,28 @@ export const sendAdminVerificationEmail = async (
     subject,
     message,
   } as AdminEmailPayload);
+};
+
+export const deleteAdminVerification = async (
+  id: number
+): Promise<void> => {
+  await api.delete(`/admin/verifications/${id}`);
+};
+
+export const getGroupedUserVerifications = async (params?: {
+  role?: string;
+  status?: string;
+  search?: string;
+}): Promise<import("../types/adminVerification").UserVerificationSummary[]> => {
+  const response = await api.get<import("../types/adminVerification").UserVerificationSummary[]>(
+    "/admin/verifications/grouped",
+    { params }
+  );
+  return response.data;
+};
+
+export const deleteAllUserVerifications = async (
+  userId: number
+): Promise<void> => {
+  await api.delete(`/admin/verifications/user/${userId}`);
 };

@@ -24,4 +24,10 @@ public interface AdminDocumentService {
     byte[] getDocumentImage(Long id);
 
     MediaType getDocumentImageContentType(Long id);
+
+    void deleteVerification(Long id);
+
+    List<UserVerificationSummaryDTO> getGroupedUserVerifications(String roleFilter, String statusFilter, String search);
+
+    void deleteAllUserVerifications(Long userId);
 }

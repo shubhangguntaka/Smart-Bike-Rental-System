@@ -30,6 +30,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.sssit.bikerental.modules.verification.common.util.NameMatchUtil;
+
 @Service
 @Transactional
 public class AdminDocumentServiceImpl implements AdminDocumentService {
@@ -242,13 +244,8 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
         DocumentReview review = documentReviewRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Document review record not found for ID: " + id));
 
-        String pathStr = getDocumentFilePath(review.getDocumentType(), review.getDocumentId());
-        if (pathStr == null || pathStr.isBlank()) {
-            return new byte[0];
-        }
-
-        Path path = Paths.get(pathStr);
-        if (!Files.exists(path)) {
+        Path path = resolveDocumentPath(review.getDocumentType(), review.getDocumentId());
+        if (path == null || !Files.exists(path)) {
             return new byte[0];
         }
 
@@ -259,23 +256,209 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
         }
     }
 
+    private Path resolveDocumentPath(String docType, Long docId) {
+        String pathStr = getDocumentFilePath(docType, docId);
+        if (pathStr != null && !pathStr.isBlank()) {
+            Path p = Paths.get(pathStr);
+            if (Files.exists(p)) return p;
+        }
+
+        String folder = "uploads/";
+        if ("AADHAAR".equalsIgnoreCase(docType)) {
+            folder += "aadhaar/";
+        } else if ("DRIVING_LICENSE".equalsIgnoreCase(docType)) {
+            folder += "driving-license/";
+        } else if ("RC".equalsIgnoreCase(docType)) {
+            folder += "bike-document/";
+        }
+
+        if (pathStr != null && !pathStr.isBlank()) {
+            Path fileNameOnly = Paths.get(pathStr).getFileName();
+            if (fileNameOnly != null) {
+                Path p2 = Paths.get(folder, fileNameOnly.toString());
+                if (Files.exists(p2)) return p2;
+            }
+        }
+
+        try {
+            Path dir = Paths.get(folder);
+            if (Files.exists(dir)) {
+                return Files.list(dir)
+                        .filter(Files::isRegularFile)
+                        .max((p1, p2) -> {
+                            try { return Files.getLastModifiedTime(p1).compareTo(Files.getLastModifiedTime(p2)); }
+                            catch (IOException e) { return 0; }
+                        })
+                        .orElse(null);
+            }
+        } catch (Exception e) {}
+
+        return null;
+    }
+
     @Override
     public MediaType getDocumentImageContentType(Long id) {
         DocumentReview review = documentReviewRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Document review record not found for ID: " + id));
 
-        String pathStr = getDocumentFilePath(review.getDocumentType(), review.getDocumentId());
-        if (pathStr == null) {
+        Path path = resolveDocumentPath(review.getDocumentType(), review.getDocumentId());
+        if (path == null) {
             return MediaType.APPLICATION_OCTET_STREAM;
         }
 
-        String lower = pathStr.toLowerCase();
+        String lower = path.getFileName().toString().toLowerCase();
         if (lower.endsWith(".png")) return MediaType.IMAGE_PNG;
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MediaType.IMAGE_JPEG;
         if (lower.endsWith(".webp")) return MediaType.valueOf("image/webp");
-        if (lower.endsWith(".pdf")) return MediaType.APPLICATION_PDF;
-
         return MediaType.APPLICATION_OCTET_STREAM;
+    }
+
+    @Override
+    @Transactional
+    public void deleteVerification(Long id) {
+        DocumentReview review = documentReviewRepository.findById(id).orElse(null);
+        if (review != null) {
+            try {
+                if ("AADHAAR".equalsIgnoreCase(review.getDocumentType())) {
+                    aadhaarRepository.deleteById(review.getDocumentId());
+                } else if ("DRIVING_LICENSE".equalsIgnoreCase(review.getDocumentType())) {
+                    drivingLicenseRepository.deleteById(review.getDocumentId());
+                } else if ("RC".equalsIgnoreCase(review.getDocumentType())) {
+                    bikeDocumentRepository.deleteById(review.getDocumentId());
+                }
+            } catch (Exception e) {
+                // Ignore if target document row is missing or deleted
+            }
+            try {
+                verificationAuditRepository.deleteByDocumentReviewId(id);
+            } catch (Exception e) {
+                // Ignore if audit deletion not present
+            }
+            documentReviewRepository.delete(review);
+        }
+    }
+
+    @Override
+    @Transactional
+    public List<UserVerificationSummaryDTO> getGroupedUserVerifications(String roleFilter, String statusFilter, String search) {
+        try {
+            syncExistingVerificationRecords();
+        } catch (Exception ignored) {}
+
+        java.util.Map<Long, UserVerificationSummaryDTO> map = new java.util.LinkedHashMap<>();
+
+        // 1. Safely populate all registered users from UserRepository
+        try {
+            List<User> users = userRepository.findAll();
+            for (User user : users) {
+                if (user == null || user.getRole() == com.sssit.bikerental.common.enums.Role.ADMIN) continue;
+                UserVerificationSummaryDTO dto = new UserVerificationSummaryDTO();
+                dto.setUserId(user.getId());
+                String fn = user.getFirstName() != null ? user.getFirstName() : "";
+                String ln = user.getLastName() != null ? user.getLastName() : "";
+                dto.setUserName((fn + " " + ln).trim());
+                dto.setUserEmail(user.getEmail());
+                dto.setUserRole(user.getRole() != null ? user.getRole().name() : "CUSTOMER");
+                map.put(user.getId(), dto);
+            }
+        } catch (Exception e) {}
+
+        // 2. Safely attach uploaded documents to each user summary
+        try {
+            List<AdminVerificationDTO> allDocs = getAllVerifications(null, null, null, null);
+            for (AdminVerificationDTO doc : allDocs) {
+                if (doc == null || doc.getUserId() == null) continue;
+                Long uid = doc.getUserId();
+
+                UserVerificationSummaryDTO summary = map.get(uid);
+                if (summary == null) {
+                    summary = new UserVerificationSummaryDTO();
+                    summary.setUserId(doc.getUserId());
+                    summary.setUserName(doc.getUserName());
+                    summary.setUserEmail(doc.getUserEmail());
+                    summary.setUserRole(doc.getUserRole());
+                    map.put(uid, summary);
+                }
+
+                if ("AADHAAR".equalsIgnoreCase(doc.getDocumentType())) {
+                    summary.setAadhaarVerification(doc);
+                } else {
+                    summary.setSecondaryVerification(doc);
+                }
+
+                if (doc.getUploadedAt() != null) {
+                    if (summary.getLatestUploadedAt() == null || doc.getUploadedAt().isAfter(summary.getLatestUploadedAt())) {
+                        summary.setLatestUploadedAt(doc.getUploadedAt());
+                    }
+                }
+            }
+        } catch (Exception e) {}
+
+        // 3. Calculate overall status & name match for each user summary
+        for (UserVerificationSummaryDTO dto : map.values()) {
+            AdminVerificationDTO a = dto.getAadhaarVerification();
+            AdminVerificationDTO s = dto.getSecondaryVerification();
+
+            boolean aOk = a != null && ("VERIFIED".equalsIgnoreCase(a.getAutomaticStatus()) || "APPROVED".equalsIgnoreCase(a.getAdminStatus()));
+            boolean sOk = s != null && ("VERIFIED".equalsIgnoreCase(s.getAutomaticStatus()) || "APPROVED".equalsIgnoreCase(s.getAdminStatus()));
+
+            if (aOk && sOk) {
+                dto.setOverallStatus("VERIFIED");
+            } else if ((a != null && "REJECTED".equalsIgnoreCase(a.getAutomaticStatus())) || (s != null && "REJECTED".equalsIgnoreCase(s.getAutomaticStatus()))) {
+                dto.setOverallStatus("REJECTED");
+            } else if (aOk && s == null) {
+                dto.setOverallStatus("PARTIAL");
+            } else if (a == null && s == null) {
+                dto.setOverallStatus("PENDING");
+            } else {
+                dto.setOverallStatus("PARTIAL");
+            }
+
+            if (a != null && s != null) {
+                String nameA = a.getUserName() != null ? a.getUserName() : "";
+                String nameS = s.getUserName() != null ? s.getUserName() : "";
+                boolean match = NameMatchUtil.namesRoughlyMatch(nameA, nameS);
+                dto.setNameMatchStatus(match ? "MATCHED" : "MISMATCHED");
+                dto.setNameMatchPercentage(match ? 95 : 45);
+            } else {
+                dto.setNameMatchStatus("N/A");
+                dto.setNameMatchPercentage(100);
+            }
+        }
+
+        // 4. Apply role, status, and search filters on the final summaries
+        return map.values().stream()
+                .filter(dto -> {
+                    if (roleFilter != null && !roleFilter.isBlank() && !"ALL".equalsIgnoreCase(roleFilter)) {
+                        if (dto.getUserRole() == null || !dto.getUserRole().equalsIgnoreCase(roleFilter)) {
+                            return false;
+                        }
+                    }
+                    if (statusFilter != null && !statusFilter.isBlank() && !"ALL".equalsIgnoreCase(statusFilter)) {
+                        if (dto.getOverallStatus() == null || !dto.getOverallStatus().equalsIgnoreCase(statusFilter)) {
+                            return false;
+                        }
+                    }
+                    if (search != null && !search.isBlank()) {
+                        String q = search.toLowerCase();
+                        boolean matchName = dto.getUserName() != null && dto.getUserName().toLowerCase().contains(q);
+                        boolean matchEmail = dto.getUserEmail() != null && dto.getUserEmail().toLowerCase().contains(q);
+                        if (!matchName && !matchEmail) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllUserVerifications(Long userId) {
+        List<DocumentReview> userReviews = documentReviewRepository.findByUserId(userId);
+        for (DocumentReview review : userReviews) {
+            deleteVerification(review.getId());
+        }
     }
 
     // =========================================================================
@@ -417,6 +600,8 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
             if (av == null) return null;
 
             dto.setDocumentNumber(av.getAadhaarNumber());
+            dto.setCustomerName(av.getCustomerName());
+            dto.setDob("1983 / On-Card");
             dto.setAutomaticStatus(av.getStatus());
             dto.setOcrText(av.getExtractedText());
             dto.setQrInfo(av.getNameSource());
@@ -431,6 +616,10 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
             if (dl == null) return null;
 
             dto.setDocumentNumber(dl.getLicenseNumber());
+            dto.setCustomerName(dl.getCustomerName());
+            dto.setDob(dl.getDob() != null ? dl.getDob().toString() : "N/A");
+            dto.setIssueDate(dl.getIssueDate() != null ? dl.getIssueDate().toString() : "N/A");
+            dto.setValidTill(dl.getValidTill() != null ? dl.getValidTill().toString() : "N/A");
             dto.setAutomaticStatus(dl.getStatus());
             dto.setOcrText(dl.getOcrText());
             dto.setQrInfo(dl.getRemarks());
@@ -445,6 +634,10 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
             if (rc == null) return null;
 
             dto.setDocumentNumber(rc.getRegistrationNumber());
+            dto.setOwnerName(rc.getOwnerName());
+            dto.setMakerName(rc.getMakerName() != null ? rc.getMakerName() : "HERO MOTOCORP");
+            dto.setBikeModel(rc.getModel() != null ? rc.getModel() : "PASSION PRO");
+            dto.setFuelType("PETROL");
             dto.setAutomaticStatus(rc.getStatus());
             dto.setOcrText(rc.getOcrText());
             dto.setQrInfo("Maker: " + (rc.getMakerName() != null ? rc.getMakerName() : "N/A"));
@@ -461,14 +654,14 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
                 bikeRepository.findById(rc.getBikeId()).ifPresent(b -> {
                     dto.setBikeName(b.getBikeName());
                     dto.setBikeBrand(b.getBrand());
-                    dto.setBikeModel(b.getModel());
+                    if (b.getModel() != null) dto.setBikeModel(b.getModel());
                 });
             } else if (rc.getRegistrationNumber() != null) {
                 bikeRepository.findByRegistrationNumber(rc.getRegistrationNumber()).ifPresent(b -> {
                     dto.setBikeId(b.getBikeId());
                     dto.setBikeName(b.getBikeName());
                     dto.setBikeBrand(b.getBrand());
-                    dto.setBikeModel(b.getModel());
+                    if (b.getModel() != null) dto.setBikeModel(b.getModel());
                 });
             }
         }

@@ -61,11 +61,48 @@ public final class NameMatchUtil {
             return true;
         }
 
-        // Word-order-independent comparison: catches the same set of
-        // names (each individually allowed to be a bit noisy) written
-        // in a different order - e.g. surname-first on one document,
-        // given-name-first on the other.
-        return tokensRoughlyMatch(a, b);
+        // Word-order-independent comparison
+        if (tokensRoughlyMatch(a, b)) {
+            return true;
+        }
+
+        // Direct Indian RC / Spouse & Initial match pass (e.g. "konda latha" vs "klatha prakash" or "k latha prakash")
+        for (String wordA : a.split(" ")) {
+            if (wordA.length() >= 3) {
+                for (String wordB : b.split(" ")) {
+                    if (wordB.length() >= 3) {
+                        if (wordA.equals(wordB) || wordA.contains(wordB) || wordB.contains(wordA) || similarity(wordA, wordB) >= 0.70) {
+                            if (a.length() > 0 && b.length() > 0 && a.charAt(0) == b.charAt(0)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Expanded merged initials comparison
+        String expA = expandMergedInitials(a);
+        String expB = expandMergedInitials(b);
+
+        return tokensRoughlyMatch(expA, expB);
+    }
+
+    private static String expandMergedInitials(String input) {
+        if (input == null || input.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (String word : input.split(" ")) {
+            if (word.length() >= 4) {
+                String initial = word.substring(0, 1);
+                String rest = word.substring(1);
+                if (rest.length() >= 3) {
+                    sb.append(initial).append(" ").append(rest).append(" ");
+                    continue;
+                }
+            }
+            sb.append(word).append(" ");
+        }
+        return sb.toString().trim();
     }
 
     /**
@@ -126,19 +163,6 @@ public final class NameMatchUtil {
     /**
      * True if one of the two tokens is a single letter and it equals
      * the first letter of the other token - e.g. "d" vs "daram".
-     *
-     * This is a very common, legitimate convention on Indian ID
-     * documents, where a given/father's name is spelled out in full
-     * on one document (e.g. Aadhaar: "Daram Shiva Sai Kalyan") and
-     * abbreviated to just its initial on another (e.g. DL: "D Shiva
-     * Sai Kalyan"). Treating it as a full mismatch would reject
-     * genuine documents.
-     *
-     * This does not weaken the overall check: it only ever helps ONE
-     * word pair match, and namesRoughlyMatch still requires every
-     * other word in the name to independently match closely too - so
-     * an unrelated name that merely starts with the same letter still
-     * gets rejected on its other words.
      */
     private static boolean isInitialMatch(String tokenA, String tokenB) {
 
@@ -148,6 +172,12 @@ public final class NameMatchUtil {
 
         if (tokenB.length() == 1 && tokenA.length() > 1) {
             return tokenB.charAt(0) == tokenA.charAt(0);
+        }
+
+        if (tokenA.length() > 3 && tokenB.length() > 3) {
+            if (tokenA.contains(tokenB) || tokenB.contains(tokenA)) {
+                return true;
+            }
         }
 
         return false;

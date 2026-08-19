@@ -14,4 +14,18 @@ public interface EmailService {
             String subject,
             String message
     );
+
+    void sendVerificationSuccessEmail(
+            String to,
+            String name,
+            String documentName
+    );
+
+    void sendVerificationFailureEmail(
+            String to,
+            String name,
+            String documentName,
+            String failureReason,
+            String suggestion
+    );
 }

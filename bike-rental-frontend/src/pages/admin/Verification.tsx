@@ -9,40 +9,42 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  RotateCcw,
   Filter,
   Layers,
-  UserCheck
+  UserCheck,
+  Trash2,
+  Bike as BikeIcon,
+  FileCheck
 } from "lucide-react";
 import toast from "react-hot-toast";
-import type { AdminVerification as IAdminVerification, AdminStatus } from "@/types/adminVerification";
-import { getAdminVerifications } from "@/services/verificationService";
+import type { UserVerificationSummary } from "@/types/adminVerification";
+import { getGroupedUserVerifications, deleteAllUserVerifications } from "@/services/verificationService";
 import VerificationReviewModal from "@/components/admin/VerificationReviewModal";
 
 export default function AdminVerification() {
-  const [verifications, setVerifications] = useState<IAdminVerification[]>([]);
+  const [userSummaries, setUserSummaries] = useState<UserVerificationSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   
-  // Filters & Tabs state
+  // Filters state
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
-  const [docFilter, setDocFilter] = useState<string>("ALL");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
+  const [dateFilter, setDateFilter] = useState<string>("ALL");
 
-  // Active Review Item
-  const [selectedVerification, setSelectedVerification] = useState<IAdminVerification | null>(null);
+  // Selected User Summary for Modal
+  const [selectedSummary, setSelectedSummary] = useState<UserVerificationSummary | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
   const fetchVerifications = async () => {
     try {
       setLoading(true);
-      const data = await getAdminVerifications();
+      const data = await getGroupedUserVerifications();
       if (Array.isArray(data)) {
-        setVerifications(data);
+        setUserSummaries(data);
       }
     } catch (err) {
-      console.warn("Could not fetch verifications:", err);
+      console.warn("Could not fetch user verifications:", err);
     } finally {
       setLoading(false);
     }
@@ -64,23 +66,21 @@ export default function AdminVerification() {
   // Summary counts
   const counts = useMemo(() => {
     return {
-      total: verifications.length,
-      pending: verifications.filter((v) => v.adminStatus === "PENDING").length,
-      approved: verifications.filter((v) => v.adminStatus === "APPROVED").length,
-      rejected: verifications.filter((v) => v.adminStatus === "REJECTED").length,
-      reupload: verifications.filter((v) => v.adminStatus === "REUPLOAD_REQUIRED").length,
+      total: userSummaries.length,
+      verified: userSummaries.filter((v) => v.overallStatus === "VERIFIED").length,
+      partial: userSummaries.filter((v) => v.overallStatus === "PARTIAL").length,
+      rejected: userSummaries.filter((v) => v.overallStatus === "REJECTED").length,
     };
-  }, [verifications]);
+  }, [userSummaries]);
 
   // Filtered list
-  const filteredVerifications = useMemo(() => {
-    return verifications.filter((item) => {
+  const filteredSummaries = useMemo(() => {
+    let result = userSummaries.filter((item) => {
       // Tab status filter
       if (activeTab !== "ALL") {
-        if (activeTab === "PENDING" && item.adminStatus !== "PENDING") return false;
-        if (activeTab === "APPROVED" && item.adminStatus !== "APPROVED") return false;
-        if (activeTab === "REJECTED" && item.adminStatus !== "REJECTED") return false;
-        if (activeTab === "REUPLOAD_REQUIRED" && item.adminStatus !== "REUPLOAD_REQUIRED") return false;
+        if (activeTab === "VERIFIED" && item.overallStatus !== "VERIFIED") return false;
+        if (activeTab === "PARTIAL" && item.overallStatus !== "PARTIAL") return false;
+        if (activeTab === "REJECTED" && item.overallStatus !== "REJECTED") return false;
       }
 
       // Role filter
@@ -88,48 +88,59 @@ export default function AdminVerification() {
         if (item.userRole?.toUpperCase() !== roleFilter.toUpperCase()) return false;
       }
 
-      // Document type filter
-      if (docFilter !== "ALL") {
-        if (docFilter === "AADHAAR" && item.documentType !== "AADHAAR") return false;
-        if (docFilter === "RC" && item.documentType !== "RC") return false;
-        if (docFilter === "DRIVING_LICENSE" && item.documentType !== "DRIVING_LICENSE") return false;
+      // Search query
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        const matchesUser = item.userName?.toLowerCase().includes(query) || item.userEmail?.toLowerCase().includes(query);
+        const matchesAadhaar = item.aadhaarVerification?.documentNumber?.toLowerCase().includes(query);
+        const matchesSecondary = item.secondaryVerification?.documentNumber?.toLowerCase().includes(query) || item.secondaryVerification?.registrationNumber?.toLowerCase().includes(query);
+        if (!matchesUser && !matchesAadhaar && !matchesSecondary) return false;
       }
 
-      // Search text filter
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchName = (item.userName || "").toLowerCase().includes(q);
-        const matchEmail = (item.userEmail || "").toLowerCase().includes(q);
-        const matchDocNo = (item.documentNumber || "").toLowerCase().includes(q);
-        const matchRegNo = (item.registrationNumber || "").toLowerCase().includes(q);
-        const matchId = String(item.id).includes(q);
-        if (!matchName && !matchEmail && !matchDocNo && !matchRegNo && !matchId) {
-          return false;
+      // Date filter
+      if (dateFilter !== "ALL" && item.latestUploadedAt) {
+        const itemDate = new Date(item.latestUploadedAt);
+        const now = new Date();
+        if (dateFilter === "TODAY") {
+          if (itemDate.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === "WEEK") {
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (itemDate < sevenDaysAgo) return false;
+        } else if (dateFilter === "MONTH") {
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (itemDate < thirtyDaysAgo) return false;
         }
       }
 
       return true;
     });
-  }, [verifications, activeTab, roleFilter, docFilter, search]);
+
+    // Sort by latest upload date descending
+    result.sort((a, b) => {
+      const dateA = a.latestUploadedAt ? new Date(a.latestUploadedAt).getTime() : 0;
+      const dateB = b.latestUploadedAt ? new Date(b.latestUploadedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return result;
+  }, [userSummaries, activeTab, roleFilter, search, dateFilter]);
 
   const itemsPerPage = 8;
-  const totalPages = Math.ceil(filteredVerifications.length / itemsPerPage) || 1;
-  const paginatedVerifications = useMemo(() => {
+  const totalPages = Math.ceil(filteredSummaries.length / itemsPerPage) || 1;
+  const paginatedData = useMemo(() => {
     const start = (page - 1) * itemsPerPage;
-    return filteredVerifications.slice(start, start + itemsPerPage);
-  }, [filteredVerifications, page]);
+    return filteredSummaries.slice(start, start + itemsPerPage);
+  }, [filteredSummaries, page]);
 
-  const handleOpenReview = (item: IAdminVerification) => {
-    setSelectedVerification(item);
-    setModalOpen(true);
-  };
-
-  const handleItemUpdated = (updated: IAdminVerification) => {
-    setVerifications((prev) =>
-      prev.map((v) => (v.id === updated.id ? updated : v))
-    );
-    // Refresh backend state to ensure synched counts
-    fetchVerifications();
+  const handleDeleteUserDocs = async (summary: UserVerificationSummary) => {
+    if (!window.confirm(`Are you sure you want to delete all verification records for "${summary.userName}"?`)) return;
+    try {
+      await deleteAllUserVerifications(summary.userId);
+      toast.success(`Verification documents for ${summary.userName} deleted.`);
+      fetchVerifications();
+    } catch (err) {
+      toast.error("Failed to delete user documents.");
+    }
   };
 
   return (
@@ -137,312 +148,270 @@ export default function AdminVerification() {
       {/* Title & Header */}
       <div className="bg-card border border-border p-6 rounded-3xl shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-            Member 5 — Compliance Administration
-          </span>
-          <h2 className="text-2xl font-serif font-bold text-foreground mt-0.5">
-            Centralized Document Verification
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Manage administrative review status for Aadhaar, Driving License, and Bike Registration Certificates (RC).
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <ShieldCheck className="h-7 w-7 text-primary" />
+            Verification Workspace
+          </h1>
+          <p className="text-xs text-muted-foreground font-medium">
+            Inspect & manage combined Aadhaar, RC, and Driving License documents per owner/customer.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={fetchVerifications}
-          className="px-4 py-2 text-xs font-bold rounded-xl border border-border bg-card hover:bg-muted text-foreground transition cursor-pointer flex items-center gap-1.5"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          <span>Refresh Data</span>
-        </button>
       </div>
 
-      {/* Summary Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        <SummaryCard
-          title="Total Documents"
-          count={counts.total}
-          active={activeTab === "ALL"}
-          onClick={() => { setActiveTab("ALL"); setPage(1); }}
-          icon={<Layers className="h-4 w-4 text-primary" />}
-        />
-        <SummaryCard
-          title="Pending Review"
-          count={counts.pending}
-          active={activeTab === "PENDING"}
-          onClick={() => { setActiveTab("PENDING"); setPage(1); }}
-          icon={<Clock className="h-4 w-4 text-amber-500" />}
-          badgeClass="bg-amber-500/10 text-amber-500"
-        />
-        <SummaryCard
-          title="Approved"
-          count={counts.approved}
-          active={activeTab === "APPROVED"}
-          onClick={() => { setActiveTab("APPROVED"); setPage(1); }}
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-          badgeClass="bg-emerald-500/10 text-emerald-500"
-        />
-        <SummaryCard
-          title="Rejected"
-          count={counts.rejected}
-          active={activeTab === "REJECTED"}
-          onClick={() => { setActiveTab("REJECTED"); setPage(1); }}
-          icon={<XCircle className="h-4 w-4 text-destructive" />}
-          badgeClass="bg-destructive/10 text-destructive"
-        />
-        <SummaryCard
-          title="Re-upload Required"
-          count={counts.reupload}
-          active={activeTab === "REUPLOAD_REQUIRED"}
-          onClick={() => { setActiveTab("REUPLOAD_REQUIRED"); setPage(1); }}
-          icon={<RotateCcw className="h-4 w-4 text-orange-500" />}
-          badgeClass="bg-orange-500/10 text-orange-500"
-        />
+      {/* Summary Count Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Users</span>
+            <Layers className="h-4 w-4 text-primary" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-foreground">{counts.total}</p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Fully Verified</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-emerald-600">{counts.verified}</p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Partial Upload</span>
+            <Clock className="h-4 w-4 text-amber-600" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-amber-600">{counts.partial}</p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-destructive uppercase tracking-wider">Rejected</span>
+            <XCircle className="h-4 w-4 text-destructive" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-destructive">{counts.rejected}</p>
+        </div>
       </div>
 
-      {/* Navigation Tabs & Filter Bar */}
-      <div className="bg-card border border-border p-4 rounded-2xl space-y-4">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+      {/* Main Content Area */}
+      <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-xs">
+        {/* Top Status Tabs */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
           {[
-            { id: "ALL", label: "All Documents" },
-            { id: "PENDING", label: `Pending (${counts.pending})` },
-            { id: "APPROVED", label: `Approved (${counts.approved})` },
-            { id: "REJECTED", label: `Rejected (${counts.rejected})` },
-            { id: "REUPLOAD_REQUIRED", label: `Re-upload Required (${counts.reupload})` },
+            { id: "ALL", label: "All Users", count: counts.total },
+            { id: "VERIFIED", label: "Verified", count: counts.verified },
+            { id: "PARTIAL", label: "Partial", count: counts.partial },
+            { id: "REJECTED", label: "Rejected", count: counts.rejected },
           ].map((tab) => (
             <button
               key={tab.id}
-              type="button"
-              onClick={() => { setActiveTab(tab.id); setPage(1); }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              onClick={() => {
+                setActiveTab(tab.id);
+                setPage(1);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 activeTab === tab.id
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
               }`}
             >
               {tab.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-extrabold ${
+                activeTab === tab.id ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}>
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Filters and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <SearchBar
-            value={search}
-            onChange={(val) => { setSearch(val); setPage(1); }}
-            placeholder="Search by User, Email, Doc No, Reg No..."
-            width="max-w-md w-full"
-          />
+        {/* Filter Controls Bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:w-80">
+            <SearchBar
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+              placeholder="Search by User, Email, Doc No, Reg No..."
+            />
+          </div>
 
-          <div className="flex items-center gap-3">
-            {/* Role Filter */}
-            <div className="flex items-center gap-1.5">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <select
-                value={roleFilter}
-                onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-                className="bg-background border border-border text-xs rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
-              >
-                <option value="ALL">Role: All</option>
-                <option value="OWNER">Role: Owner</option>
-                <option value="CUSTOMER">Role: Customer</option>
-              </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              <span>Filter:</span>
             </div>
 
-            {/* Document Filter */}
+            {/* Role Filter */}
             <select
-              value={docFilter}
-              onChange={(e) => { setDocFilter(e.target.value); setPage(1); }}
-              className="bg-background border border-border text-xs rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="ALL">Document: All</option>
-              <option value="AADHAAR">Aadhaar Card</option>
-              <option value="RC">RC (Bike Document)</option>
-              <option value="DRIVING_LICENSE">Driving License</option>
+              <option value="ALL">Role: All</option>
+              <option value="OWNER">Owner</option>
+              <option value="CUSTOMER">Customer</option>
+            </select>
+
+            {/* Upload Date Filter */}
+            <select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="ALL">Date: All Time</option>
+              <option value="TODAY">Uploaded Today</option>
+              <option value="WEEK">Past 7 Days</option>
+              <option value="MONTH">Past 30 Days</option>
             </select>
           </div>
         </div>
-      </div>
 
-      {/* Main Verification Table */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        {/* User-Grouped Verification Table */}
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 border-b border-border text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground">
+            <thead className="bg-muted/40 font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
               <tr>
-                <th className="px-5 py-3.5">User</th>
-                <th className="px-4 py-3.5">Role</th>
-                <th className="px-4 py-3.5">Document</th>
-                <th className="px-4 py-3.5">Automatic Verification</th>
-                <th className="px-4 py-3.5">Admin Review Status</th>
-                <th className="px-4 py-3.5">Uploaded Date</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
+                <th className="p-3">User</th>
+                <th className="p-3">Role</th>
+                <th className="p-3">Uploaded Documents</th>
+                <th className="p-3">Compliance Status</th>
+                <th className="p-3">Last Upload</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
-
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
-                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
-                    <p className="font-semibold">Loading verification records...</p>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
+                    Loading user verifications...
                   </td>
                 </tr>
-              ) : paginatedVerifications.length > 0 ? (
-                paginatedVerifications.map((item) => (
-                  <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                    {/* User */}
-                    <td className="px-5 py-4">
-                      <div className="font-bold text-foreground text-sm">{item.userName}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono">{item.userEmail}</div>
+              ) : paginatedData.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
+                    No verification records match your selected filters.
+                  </td>
+                </tr>
+              ) : (
+                paginatedData.map((item) => (
+                  <tr key={item.userId} className="hover:bg-muted/20 transition-colors">
+                    <td className="p-3">
+                      <div>
+                        <span className="font-bold text-foreground block">{item.userName}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">{item.userEmail}</span>
+                      </div>
                     </td>
 
-                    {/* Role */}
-                    <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                        item.userRole === "OWNER"
-                          ? "bg-purple-500/10 text-purple-600 border border-purple-500/20"
-                          : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                        item.userRole === "OWNER" ? "bg-purple-500/10 text-purple-600 border border-purple-500/20" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
                       }`}>
                         {item.userRole}
                       </span>
                     </td>
 
-                    {/* Document */}
-                    <td className="px-4 py-4 space-y-0.5">
-                      <div className="font-bold text-foreground flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 text-primary" />
-                        <span>{item.documentType === "RC" ? "RC Document" : item.documentType}</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground font-mono">
-                        {item.documentNumber || item.registrationNumber || "—"}
-                      </div>
-                    </td>
-
-                    {/* Automatic Verification */}
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
-                        item.automaticStatus === "VERIFIED"
-                          ? "bg-emerald-500/15 text-emerald-600"
-                          : "bg-amber-500/15 text-amber-600"
-                      }`}>
-                        {item.automaticStatus === "VERIFIED" ? (
-                          <CheckCircle2 className="h-3 w-3" />
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.aadhaarVerification ? (
+                          <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-md text-[11px] font-semibold">
+                            <FileText className="h-3 w-3" />
+                            Aadhaar: VERIFIED
+                          </span>
                         ) : (
-                          <ShieldAlert className="h-3 w-3" />
+                          <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-md text-[11px] font-medium">
+                            Aadhaar: Missing
+                          </span>
                         )}
-                        {item.automaticStatus}
-                      </span>
+
+                        {item.secondaryVerification ? (
+                          <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-md text-[11px] font-semibold">
+                            {item.userRole === "OWNER" ? <BikeIcon className="h-3 w-3" /> : <FileCheck className="h-3 w-3" />}
+                            {item.userRole === "OWNER" ? "RC: VERIFIED" : "DL: VERIFIED"}
+                          </span>
+                        ) : (
+                          <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-md text-[11px] font-medium">
+                            {item.userRole === "OWNER" ? "RC: Missing" : "DL: Missing"}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    {/* Admin Review Status */}
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase ${
-                        item.adminStatus === "APPROVED"
-                          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                          : item.adminStatus === "REJECTED"
-                          ? "bg-destructive/10 text-destructive border border-destructive/20"
-                          : item.adminStatus === "REUPLOAD_REQUIRED"
-                          ? "bg-orange-500/10 text-orange-600 border border-orange-500/20"
-                          : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                    <td className="p-3">
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold inline-flex items-center gap-1 ${
+                        item.overallStatus === "VERIFIED"
+                          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                          : item.overallStatus === "PARTIAL"
+                          ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                          : "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          item.adminStatus === "APPROVED" ? "bg-emerald-500" :
-                          item.adminStatus === "REJECTED" ? "bg-destructive" :
-                          item.adminStatus === "REUPLOAD_REQUIRED" ? "bg-orange-500" :
-                          "bg-amber-500"
-                        }`} />
-                        {item.adminStatus === "REUPLOAD_REQUIRED" ? "RE-UPLOAD" : item.adminStatus}
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {item.overallStatus}
                       </span>
                     </td>
 
-                    {/* Uploaded Date */}
-                    <td className="px-4 py-4 text-muted-foreground font-mono text-[11px]">
-                      {item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString() : "—"}
+                    <td className="p-3 text-muted-foreground font-mono text-[11px]">
+                      {item.latestUploadedAt ? new Date(item.latestUploadedAt).toLocaleDateString() : "N/A"}
                     </td>
 
-                    {/* Actions */}
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReview(item)}
-                        className={`px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center justify-end gap-1.5 ml-auto transition cursor-pointer shadow-xs ${
-                          item.adminStatus === "PENDING"
-                            ? "bg-primary text-primary-foreground hover:opacity-90"
-                            : "border border-border bg-muted/60 text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>{item.adminStatus === "PENDING" ? "Review" : "View"}</span>
-                      </button>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSummary(item);
+                            setModalOpen(true);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-all shadow-xs"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View All
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUserDocs(item)}
+                          className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-destructive/10 hover:bg-destructive/20 text-destructive font-bold text-xs transition-all"
+                          title="Delete All User Documents"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
-                    <p className="font-semibold text-sm">No verification records found matching criteria.</p>
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground font-medium">
+            Showing <span className="font-bold text-foreground">{paginatedData.length}</span> of <span className="font-bold text-foreground">{filteredSummaries.length}</span> user profiles
+          </p>
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        </div>
       </div>
 
-      {/* Pagination Controls */}
-      {filteredVerifications.length > itemsPerPage && (
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          showJumpToPage={false}
-        />
-      )}
-
-      {/* Interactive Verification Review Modal */}
+      {/* Unified Inspection Modal */}
       <VerificationReviewModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        verification={selectedVerification}
-        onUpdated={handleItemUpdated}
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedSummary(null);
+        }}
+        summary={selectedSummary}
+        onRefreshed={fetchVerifications}
       />
     </div>
   );
 }
-
-interface SummaryCardProps {
-  title: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  badgeClass?: string;
-}
-
-const SummaryCard = ({ title, count, active, onClick, icon, badgeClass }: SummaryCardProps) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 ${
-      active
-        ? "border-primary bg-primary/5 shadow-sm"
-        : "border-border bg-card hover:bg-muted/40"
-    }`}
-  >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{title}</span>
-      {icon}
-    </div>
-    <div className="flex items-baseline justify-between">
-      <span className="text-2xl font-extrabold text-foreground">{count}</span>
-      {badgeClass && (
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${badgeClass}`}>
-          {title}
-        </span>
-      )}
-    </div>
-  </button>
-);

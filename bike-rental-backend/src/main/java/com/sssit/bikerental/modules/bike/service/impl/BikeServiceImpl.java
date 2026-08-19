@@ -221,12 +221,45 @@ public class BikeServiceImpl implements BikeService {
         return !availableDate.isBefore(today);
     }
 
+    private boolean isBikeVisibleToCustomer(Bike bike) {
+        if (bike == null) return false;
+
+        // 1. Bike status must be AVAILABLE
+        if (bike.getBikeStatus() != BikeStatus.AVAILABLE) {
+            return false;
+        }
+
+        // 2. RC Verification must be APPROVED/VERIFIED
+        boolean rcVerified = Boolean.TRUE.equals(bike.getRcVerified());
+        if (!rcVerified && bike.getRegistrationNumber() != null) {
+            BikeDocument doc = bikeDocumentRepository.findByRegistrationNumber(bike.getRegistrationNumber()).orElse(null);
+            if (doc != null && ("APPROVED".equalsIgnoreCase(doc.getStatus()) || "VERIFIED".equalsIgnoreCase(doc.getStatus()))) {
+                rcVerified = true;
+            }
+        }
+        if (!rcVerified) {
+            return false;
+        }
+
+        // 3. Owner must be active and not blocked/locked
+        if (bike.getOwnerId() == null) return false;
+        com.sssit.bikerental.modules.user.User owner = userRepository.findById(bike.getOwnerId()).orElse(null);
+        if (owner == null) return false;
+        if (!Boolean.TRUE.equals(owner.getEnabled()) || !Boolean.TRUE.equals(owner.getAccountNonLocked())) {
+            return false;
+        }
+
+        // 4. Owner Aadhaar must be verified
+        return checkOwnerVerification(owner.getId());
+    }
+
     @Override
     @Transactional
     public List<BikeDTO> getAllBikes() {
         return bikeRepository.findAll().stream()
                 .map(this::syncBikeStatus)
                 .filter(bike -> isNotExpiredFromPast(bike.getAvailableDate()))
+                .filter(this::isBikeVisibleToCustomer)
                 .map(bikeMapper::toDTO)
                 .map(this::enrichDTO)
                 .collect(Collectors.toList());

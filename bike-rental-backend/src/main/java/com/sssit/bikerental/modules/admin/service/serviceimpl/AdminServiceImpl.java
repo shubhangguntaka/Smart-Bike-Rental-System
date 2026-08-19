@@ -98,6 +98,25 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
+    public UserAdminDTO lockUser(Long userId, Boolean locked) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required.");
+        }
+        UserResponse updatedUser = userService.lockUser(userId, locked);
+        return adminMapper.toUserAdminDTO(updatedUser);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required.");
+        }
+        userService.deleteUser(userId);
+    }
+
+    @Override
     public List<OwnerAdminDTO> getOwners() {
 
         List<OwnerDTO> owners =
@@ -161,6 +180,15 @@ public class AdminServiceImpl implements AdminService {
         return adminMapper.toBikeAdminDTO(
                 updatedBike
         );
+    }
+
+    @Override
+    @Transactional
+    public void deleteBike(Long bikeId) {
+        if (bikeId == null) {
+            throw new IllegalArgumentException("Bike ID is required.");
+        }
+        bikeService.deleteBike(bikeId);
     }
 
     @Override

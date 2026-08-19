@@ -35,13 +35,22 @@ export interface AdminVerification {
   reviewedBy?: string;
   reviewedAt?: string;
   
+  // Document Specific Metadata
+  customerName?: string;
+  ownerName?: string;
+  dob?: string;
+  makerName?: string;
+  fuelType?: string;
+  issueDate?: string;
+  validTill?: string;
+
   // Bike Info for RC
   bikeId?: number;
   bikeName?: string;
   bikeBrand?: string;
   bikeModel?: string;
   registrationNumber?: string;
-  
+
   history?: VerificationHistory[];
 }
 
@@ -53,4 +62,17 @@ export interface ReviewDecisionPayload {
 export interface AdminEmailPayload {
   subject: string;
   message: string;
+}
+
+export interface UserVerificationSummary {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole;
+  overallStatus: string;
+  aadhaarVerification?: AdminVerification;
+  secondaryVerification?: AdminVerification;
+  nameMatchPercentage?: number;
+  nameMatchStatus?: string;
+  latestUploadedAt?: string;
 }

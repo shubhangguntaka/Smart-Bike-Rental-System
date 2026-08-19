@@ -27,6 +27,8 @@ import com.sssit.bikerental.modules.verification.drivinglicense.model.DLData;
 import com.sssit.bikerental.modules.verification.drivinglicense.repository.DrivingLicenseRepository;
 import com.sssit.bikerental.modules.verification.drivinglicense.service.DrivingLicenseService;
 import com.sssit.bikerental.modules.verification.drivinglicense.util.DLExtractor;
+import com.sssit.bikerental.modules.auth.service.EmailService;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.verification.drivinglicense.util.DLValidator;
 import com.sssit.bikerental.modules.verification.drivinglicense.util.QRReader;
 
@@ -50,6 +52,12 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
 
     @Autowired
     private QRReader qrReader;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     private static final String UPLOAD_DIR = "uploads/driving-license/";
 
@@ -287,6 +295,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage("Driving License verified successfully.");
             applyStamp(response, true);
 
+            triggerEmailNotification(customerId, response);
             return response;
 
         } catch (IOException e) {
@@ -296,6 +305,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage("Unable to upload file.");
             applyStamp(response, false);
 
+            triggerEmailNotification(customerId, response);
             return response;
 
         } catch (Exception e) {
@@ -305,6 +315,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage(e.getMessage());
             applyStamp(response, false);
 
+            triggerEmailNotification(customerId, response);
             return response;
 
         } finally {
@@ -340,6 +351,29 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setStampLabel(VerificationConstants.STAMP_REJECTED_LABEL);
             response.setStampIcon(VerificationConstants.STAMP_REJECTED_ICON);
             response.setStampColor(VerificationConstants.STAMP_REJECTED_COLOR);
+        }
+    }
+
+    private void triggerEmailNotification(Long customerId, DrivingLicenseResponseDTO response) {
+        if (customerId == null || response == null) return;
+        try {
+            userRepository.findById(customerId).ifPresent(user -> {
+                if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                    if (response.isVerified()) {
+                        emailService.sendVerificationSuccessEmail(user.getEmail(), user.getFullName(), "Driving License");
+                    } else {
+                        emailService.sendVerificationFailureEmail(
+                                user.getEmail(),
+                                user.getFullName(),
+                                "Driving License",
+                                response.getMessage(),
+                                "Please upload a clear and current image of your Driving License."
+                        );
+                    }
+                }
+            });
+        } catch (Exception e) {
+            // Non-blocking log
         }
     }
 
