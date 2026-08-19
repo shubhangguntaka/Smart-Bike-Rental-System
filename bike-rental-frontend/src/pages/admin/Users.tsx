@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -43,18 +44,18 @@ const FILTER_CONFIGS: FilterField[] = [
 export default function AdminUsers() {
   const [users, setUsers] = useState<UserAdmin[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] =
-    useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Record<string, any>>(
-    {}
-  );
+  const [filters, setFilters] =
+    useState<Record<string, any>>({});
+
   const [page, setPage] = useState(1);
+
   const [actionUser, setActionUser] =
     useState<UserAdmin | null>(null);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -68,15 +69,18 @@ export default function AdminUsers() {
       );
 
       setUsers([]);
-      toast.error("Unable to load users.");
+
+      toast.error(
+        "Unable to load users."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -109,15 +113,15 @@ export default function AdminUsers() {
       }
 
       if (filters.status) {
-        const active =
-          user.enabled ||
+        const isActive =
+          Boolean(user.enabled) ||
           user.status?.toUpperCase() === "ACTIVE";
 
-        const expected =
+        const expectedActive =
           String(filters.status).toUpperCase() ===
           "ACTIVE";
 
-        if (active !== expected) {
+        if (isActive !== expectedActive) {
           return false;
         }
       }
@@ -128,7 +132,9 @@ export default function AdminUsers() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredUsers.length / PAGE_SIZE)
+    Math.ceil(
+      filteredUsers.length / PAGE_SIZE
+    )
   );
 
   const paginatedUsers = filteredUsers.slice(
@@ -147,31 +153,39 @@ export default function AdminUsers() {
       return;
     }
 
-    if (
-      actionUser.role?.toUpperCase() === "ADMIN"
-    ) {
+    const role =
+      actionUser.role?.toUpperCase();
+
+    /*
+     * Admin accounts must never be changed
+     * through this management action.
+     */
+    if (role === "ADMIN") {
       toast.error(
-        "Admin accounts cannot be deactivated."
+        "Admin accounts cannot be activated or deactivated."
       );
+
       setActionUser(null);
+
       return;
     }
+
+    const currentlyActive =
+      Boolean(actionUser.enabled) ||
+      actionUser.status?.toUpperCase() ===
+        "ACTIVE";
 
     try {
       setActionLoading(true);
 
-      const isCurrentlyActive =
-        actionUser.enabled ||
-        actionUser.status?.toUpperCase() === "ACTIVE";
-
       const updatedUser =
         await adminService.updateUserStatus(
           actionUser.userId,
-          !isCurrentlyActive
+          !currentlyActive
         );
 
-      setUsers((current) =>
-        current.map((user) =>
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
           user.userId === updatedUser.userId
             ? updatedUser
             : user
@@ -179,27 +193,33 @@ export default function AdminUsers() {
       );
 
       toast.success(
-        !isCurrentlyActive
+        !currentlyActive
           ? "User activated successfully."
           : "User deactivated successfully."
       );
 
       setActionUser(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         "Failed to update user status:",
         error
       );
 
-      toast.error("Unable to update user status.");
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to update user status.";
+
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
   };
 
   const userIsActive =
-    actionUser?.enabled ||
-    actionUser?.status?.toUpperCase() === "ACTIVE";
+    Boolean(actionUser?.enabled) ||
+    actionUser?.status?.toUpperCase() ===
+      "ACTIVE";
 
   return (
     <div className="min-h-screen space-y-6 text-foreground">
@@ -264,12 +284,8 @@ export default function AdminUsers() {
         description={
           actionUser
             ? userIsActive
-              ? `This will deactivate ${
-                  actionUser.fullName
-                }'s account.`
-              : `This will activate ${
-                  actionUser.fullName
-                }'s account.`
+              ? `This will deactivate ${actionUser.fullName}'s account.`
+              : `This will activate ${actionUser.fullName}'s account.`
             : ""
         }
         actionLabel={
@@ -278,10 +294,16 @@ export default function AdminUsers() {
             : "Yes, Activate"
         }
         actionType={
-          userIsActive ? "danger" : "success"
+          userIsActive
+            ? "danger"
+            : "success"
         }
         loading={actionLoading}
-        onClose={() => setActionUser(null)}
+        onClose={() => {
+          if (!actionLoading) {
+            setActionUser(null);
+          }
+        }}
         onConfirm={() => {
           void handleStatusAction();
         }}

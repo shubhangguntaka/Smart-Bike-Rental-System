@@ -8,81 +8,88 @@ import type {
   OwnerAdmin,
   PaymentAdmin,
   UserAdmin,
-} from "../types/admin";
+} from "@/types/admin";
+
+const unwrapData = <T>(responseData: unknown): T => {
+  const payload = responseData as {
+    data?: T;
+  };
+
+  return payload?.data ?? (responseData as T);
+};
 
 export const adminService = {
-
   async getDashboard(): Promise<AdminDashboard> {
+    const response = await api.get("/admin/dashboard");
 
-    const response =
-      await api.get<AdminDashboard>(
-        "/admin/dashboard"
-      );
-
-    return response.data;
+    return unwrapData<AdminDashboard>(
+      response.data
+    );
   },
 
   async getUsers(): Promise<UserAdmin[]> {
+    const response = await api.get("/admin/users");
 
-    const response =
-      await api.get<UserAdmin[]>(
-        "/admin/users"
-      );
+    const data = unwrapData<UserAdmin[]>(
+      response.data
+    );
 
-    return response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   async updateUserStatus(
     userId: number,
     enabled: boolean
   ): Promise<UserAdmin> {
-
-    if (!userId) {
-      throw new Error(
-        "User ID is required."
-      );
+    if (!Number.isFinite(userId)) {
+      throw new Error("Valid User ID is required.");
     }
 
-    const response =
-      await api.put<UserAdmin>(
-        `/admin/users/${userId}/status`,
-        null,
-        {
-          params: {
-            enabled,
-          },
-        }
-      );
+    const response = await api.put(
+      `/admin/users/${userId}/status`,
+      null,
+      {
+        params: {
+          enabled,
+        },
+      }
+    );
 
-    return response.data;
+    return unwrapData<UserAdmin>(
+      response.data
+    );
   },
 
   async getCustomers(): Promise<CustomerAdmin[]> {
-    const response = await api.get("/admin/customers");
+    const response = await api.get(
+      "/admin/customers"
+    );
 
-    const data = response.data?.data ?? response.data;
+    const data = unwrapData<CustomerAdmin[]>(
+      response.data
+    );
 
     return Array.isArray(data) ? data : [];
   },
 
   async getOwners(): Promise<OwnerAdmin[]> {
+    const response = await api.get("/admin/owners");
 
-    const response =
-      await api.get<OwnerAdmin[]>(
-        "/admin/owners"
-      );
+    const data = unwrapData<OwnerAdmin[]>(
+      response.data
+    );
 
-    return response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   async getBikes(): Promise<BikeAdmin[]> {
+    const response = await api.get("/admin/bikes");
 
-    const response =
-      await api.get<BikeAdmin[]>(
-        "/admin/bikes"
-      );
+    const data = unwrapData<BikeAdmin[]>(
+      response.data
+    );
 
-    return response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   async updateBikeStatus(
@@ -103,64 +110,62 @@ export const adminService = {
       "NOT_AVAILABLE",
     ];
 
-    if (!allowedStatuses.includes(normalizedStatus)) {
+    if (
+      !allowedStatuses.includes(
+        normalizedStatus
+      )
+    ) {
       throw new Error(
         `Invalid bike status: ${normalizedStatus}`
       );
     }
 
-    console.log("[Admin Bike Status] Request:", {
-      bikeId,
-      status: normalizedStatus,
-    });
-
-    const response =
-      await api.put<BikeAdmin>(
-        `/admin/bikes/${bikeId}/status`,
-        null,
-        {
-          params: {
-            status: normalizedStatus,
-          },
-        }
-      );
-
-    console.log(
-      "[Admin Bike Status] Response:",
-      response.data
+    const response = await api.put(
+      `/admin/bikes/${bikeId}/status`,
+      null,
+      {
+        params: {
+          status: normalizedStatus,
+        },
+      }
     );
 
-    return response.data;
+    return unwrapData<BikeAdmin>(
+      response.data
+    );
   },
 
   async getBookings(): Promise<BookingAdmin[]> {
-
     const response =
-      await api.get<BookingAdmin[]>(
-        "/admin/bookings"
-      );
+      await api.get("/admin/bookings");
 
-    return response.data;
+    const data = unwrapData<BookingAdmin[]>(
+      response.data
+    );
+
+    return Array.isArray(data) ? data : [];
   },
 
   async getPayments(): Promise<PaymentAdmin[]> {
-
     const response =
-      await api.get<PaymentAdmin[]>(
-        "/admin/payments"
-      );
+      await api.get("/admin/payments");
 
-    return response.data;
+    const data = unwrapData<PaymentAdmin[]>(
+      response.data
+    );
+
+    return Array.isArray(data) ? data : [];
   },
 
   async getActivity(): Promise<unknown[]> {
-
     const response =
-      await api.get<unknown[]>(
-        "/admin/activity"
-      );
+      await api.get("/admin/activity");
 
-    return response.data;
+    const data = unwrapData<unknown[]>(
+      response.data
+    );
+
+    return Array.isArray(data) ? data : [];
   },
 };
 

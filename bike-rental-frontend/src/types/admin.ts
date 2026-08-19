@@ -33,7 +33,7 @@ export interface UserAdmin {
   phoneNumber?: string;
   role: string;
   enabled: boolean;
-  status?: string;
+  status?: AdminUserStatus;
   profileImage?: string;
 }
 
@@ -42,7 +42,8 @@ export interface CustomerAdmin {
   customerName: string;
   email: string;
   phoneNumber?: string;
-  status?: string;
+
+  status?: AdminUserStatus;
 
   aadhaarVerified?: boolean;
   drivingLicenseVerified?: boolean;
@@ -58,21 +59,15 @@ export interface CustomerAdmin {
 
 export interface OwnerAdmin {
   ownerId: number;
-
   ownerName: string;
-
   email: string;
-
   phoneNumber?: string;
 
-  status?: string;
-
+  status?: AdminUserStatus;
   verificationStatus?: boolean;
 
   totalBikes?: number;
-
   totalBookings?: number;
-
   totalEarnings?: number;
 
   profileImage?: string;
@@ -80,50 +75,62 @@ export interface OwnerAdmin {
 
 export interface BikeAdmin {
   bikeId: number;
+
   bikeName?: string;
   brand?: string;
   model?: string;
+
   registrationNumber?: string;
+
   ownerId?: number;
   ownerName?: string;
+
   category?: string;
-  bikeStatus?: string;
+
+  bikeStatus?: AdminBikeStatus;
+
   rentalPrice?: number;
   hourlyRate?: number;
+
   location?: string;
+
   rcVerified?: boolean;
   imageUrl?: string;
 }
 
 export interface BookingAdmin {
   bookingId: number;
+
   customerId?: number;
   customerName?: string;
+
   ownerId?: number;
   ownerName?: string;
+
   bikeId?: number;
   bikeName?: string;
   registrationNumber?: string;
+
   bookingStatus?: string;
   paymentStatus?: string;
+
   startTime?: string;
   returnTime?: string;
+
   actualPickupTime?: string;
   actualReturnTime?: string;
+
   rentalAmount?: number;
   totalAmount?: number;
+
   bookingReference?: string;
   createdAt?: string;
 }
 
 export interface PaymentAdmin {
   paymentId: number;
-
   bookingId: number;
-
   amount: number;
-
   status: string;
-
   paymentDate: string;
 }

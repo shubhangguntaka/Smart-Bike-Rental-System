@@ -41,21 +41,93 @@ public class AdminServiceImpl implements AdminService {
         @Override
         public AdminDashboardDTO getDashboard() {
 
-                /*
-                 * Dashboard aggregation belongs to Day 4.
-                 */
+                List<UserResponse> users = userService.getAllUsers();
+
+                List<OwnerDTO> owners = ownerService.getAllOwners();
+
+                List<BikeDTO> bikes = bikeService.getAllBikesForAdmin();
+
+                List<BookingResponse> bookings = bookingService.getAllBookings();
+
+                List<PaymentResponse> payments = paymentService.getAllPayments();
+
+                long totalUsers = users.stream()
+                                .filter(user -> user.getRole() != null)
+                                .filter(user -> !"ADMIN".equalsIgnoreCase(
+                                                user.getRole()))
+                                .count();
+
+                long totalOwners = owners.size();
+
+                long totalBikes = bikes.size();
+
+                long totalBookings = bookings.size();
+
+                long totalPayments = payments.size();
+
+                long activeUsers = users.stream()
+                                .filter(user -> user.getRole() != null)
+                                .filter(user -> !"ADMIN".equalsIgnoreCase(
+                                                user.getRole()))
+                                .filter(user -> Boolean.TRUE.equals(
+                                                user.getEnabled()))
+                                .count();
+
+                long activeBikes = bikes.stream()
+                                .filter(bike -> bike.getBikeStatus() != null)
+                                .filter(bike -> {
+                                        String status = bike.getBikeStatus()
+                                                        .name();
+
+                                        return "AVAILABLE".equals(status);
+                                })
+                                .count();
+
+                long activeBookings = bookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null)
+                                .filter(booking -> {
+                                        String status = booking.getBookingStatus()
+                                                        .name();
+
+                                        return "CONFIRMED".equals(status)
+                                                        || "ACTIVE".equals(status)
+                                                        || "ONGOING".equals(status);
+                                })
+                                .count();
+
+                long pendingBookings = bookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null)
+                                .filter(booking -> "PENDING".equals(
+                                                booking.getBookingStatus()
+                                                                .name()))
+                                .count();
+
+                long completedBookings = bookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null)
+                                .filter(booking -> "COMPLETED".equals(
+                                                booking.getBookingStatus()
+                                                                .name()))
+                                .count();
+
+                long cancelledBookings = bookings.stream()
+                                .filter(booking -> booking.getBookingStatus() != null)
+                                .filter(booking -> "CANCELLED".equals(
+                                                booking.getBookingStatus()
+                                                                .name()))
+                                .count();
+
                 return AdminDashboardDTO.builder()
-                                .totalUsers(0)
-                                .totalOwners(0)
-                                .totalBikes(0)
-                                .totalBookings(0)
-                                .totalPayments(0)
-                                .activeUsers(0)
-                                .activeBikes(0)
-                                .activeBookings(0)
-                                .pendingBookings(0)
-                                .completedBookings(0)
-                                .cancelledBookings(0)
+                                .totalUsers((int) totalUsers)
+                                .totalOwners((int) totalOwners)
+                                .totalBikes((int) totalBikes)
+                                .totalBookings((int) totalBookings)
+                                .totalPayments((int) totalPayments)
+                                .activeUsers((int) activeUsers)
+                                .activeBikes((int) activeBikes)
+                                .activeBookings((int) activeBookings)
+                                .pendingBookings((int) pendingBookings)
+                                .completedBookings((int) completedBookings)
+                                .cancelledBookings((int) cancelledBookings)
                                 .build();
         }
 
