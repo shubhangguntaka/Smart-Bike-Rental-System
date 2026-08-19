@@ -160,7 +160,7 @@ export default function AdminReports() {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     return bookings.filter((b) => {
-      const dateStr = b.startTime || b.createdDate;
+      const dateStr = b.startTime || b.createdAt;
       if (!dateStr) return true;
       const date = new Date(dateStr);
 
@@ -242,7 +242,7 @@ export default function AdminReports() {
     });
 
     bookings.forEach((b) => {
-      const dateStr = b.startTime || b.createdDate;
+      const dateStr = b.startTime || b.createdAt;
       if (!dateStr) return;
       const d = new Date(dateStr);
       const label = `${months[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;

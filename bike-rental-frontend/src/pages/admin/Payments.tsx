@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
   Clock,
@@ -68,6 +69,7 @@ const SummaryCard = ({
 );
 
 export default function AdminPayments() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<PaymentAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,6 +80,19 @@ export default function AdminPayments() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [detailPayment, setDetailPayment] = useState<PaymentAdmin | null>(null);
+
+  // Sync URL search params
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const qParam = searchParams.get("q");
+
+    if (statusParam) {
+      const upper = statusParam.toUpperCase();
+      setStatusFilter(upper);
+      setActiveTab(upper);
+    }
+    if (qParam) setSearch(qParam);
+  }, [searchParams]);
 
   const loadPayments = useCallback(async (isRefresh = false) => {
     try {

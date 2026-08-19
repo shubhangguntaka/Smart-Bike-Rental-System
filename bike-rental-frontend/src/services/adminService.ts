@@ -136,6 +136,13 @@ export const adminService = {
     );
   },
 
+  async deleteBike(bikeId: number): Promise<void> {
+    if (!Number.isFinite(bikeId)) {
+      throw new Error("Valid Bike ID is required.");
+    }
+    await api.delete(`/admin/bikes/${bikeId}`);
+  },
+
   async getBookings(): Promise<BookingAdmin[]> {
     const response =
       await api.get("/admin/bookings");

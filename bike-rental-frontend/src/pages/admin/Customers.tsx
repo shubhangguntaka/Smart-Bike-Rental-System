@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
   Clock,
@@ -70,6 +71,7 @@ const SummaryCard = ({
 );
 
 export default function AdminCustomers() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<CustomerAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,6 +85,19 @@ export default function AdminCustomers() {
 
   const [actionCustomer, setActionCustomer] = useState<CustomerAdmin | null>(null);
   const [detailCustomer, setDetailCustomer] = useState<CustomerAdmin | null>(null);
+
+  // Sync URL search params
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const qParam = searchParams.get("q");
+
+    if (statusParam) {
+      const upper = statusParam.toUpperCase();
+      setStatusFilter(upper);
+      setActiveTab(upper);
+    }
+    if (qParam) setSearch(qParam);
+  }, [searchParams]);
 
   const loadCustomers = useCallback(async (isRefresh = false) => {
     try {

@@ -142,4 +142,6 @@ export interface AdminActivity {
   timestamp?: string;
   details?: string;
   status?: string;
-}
+  targetType?: string;
+  targetId?: number | string;
+}

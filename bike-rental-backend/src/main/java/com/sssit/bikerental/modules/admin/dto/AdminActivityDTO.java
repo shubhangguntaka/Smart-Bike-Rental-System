@@ -21,4 +21,6 @@ public class AdminActivityDTO {
     private LocalDateTime timestamp;
     private String details;
     private String status;
+    private String targetType;
+    private Long targetId;
 }

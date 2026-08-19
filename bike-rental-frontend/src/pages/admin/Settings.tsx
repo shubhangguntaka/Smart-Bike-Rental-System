@@ -54,11 +54,11 @@ export default function AdminSettings() {
 
       setTimeout(() => {
         setSaving(false);
-        toast.success("System preferences and settings saved successfully!");
-      }, 500);
+        toast.success("Display & table preferences saved to local profile!");
+      }, 400);
     } catch {
       setSaving(false);
-      toast.error("Failed to persist settings.");
+      toast.error("Failed to persist local preferences.");
     }
   };
 
@@ -85,7 +85,7 @@ export default function AdminSettings() {
           className="px-5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50"
         >
           <Save className="h-3.5 w-3.5" />
-          <span>{saving ? "Saving Changes..." : "Save All Settings"}</span>
+          <span>{saving ? "Saving Preferences..." : "Save Preferences"}</span>
         </button>
       </div>
 

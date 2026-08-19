@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
   Bike,
@@ -71,6 +72,7 @@ const SummaryCard = ({
 );
 
 export default function AdminOwners() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [owners, setOwners] = useState<OwnerAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,6 +84,19 @@ export default function AdminOwners() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [detailOwner, setDetailOwner] = useState<OwnerAdmin | null>(null);
+
+  // Sync URL search params
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const qParam = searchParams.get("q");
+
+    if (statusParam) {
+      const upper = statusParam.toUpperCase();
+      setStatusFilter(upper);
+      setActiveTab(upper);
+    }
+    if (qParam) setSearch(qParam);
+  }, [searchParams]);
 
   const loadOwners = useCallback(async (isRefresh = false) => {
     try {
