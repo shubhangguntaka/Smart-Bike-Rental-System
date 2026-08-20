@@ -547,33 +547,38 @@ BookingResponse
 
 ---
 
+
+
 # 📦 API Response Format
 
-All APIs should return a consistent response structure.
+All APIs use a consistent response structure.
 
-Success
+## Success Response
 
 ```json
 {
   "success": true,
-  "status": 200,
-  "message": "Success",
+  "message": "Bike fetched successfully",
   "data": {},
-  "timestamp": "2026-07-30T12:00:00"
+  "timestamp": "2026-08-20T10:00:00"
 }
-```
 
-Error
-
-```json
 {
   "success": false,
-  "status": 400,
-  "message": "Validation Failed",
-  "errors": [],
-  "timestamp": "2026-07-30T12:00:00"
+  "message": "Bike not found with id: 10",
+  "data": null,
+  "timestamp": "2026-08-20T10:00:00"
 }
-```
+
+{
+  "success": false,
+  "message": "Validation Failed",
+  "data": {
+    "email": "Email is required",
+    "password": "Password must not be blank"
+  },
+  "timestamp": "2026-08-20T10:00:00"
+}
 
 ---
 

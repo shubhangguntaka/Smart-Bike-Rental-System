@@ -233,7 +233,7 @@ Role:     CUSTOMER
 Email:    neha.customer@bikerental.test
 Password: Customer@123
 Role:     CUSTOMER
-```
+``` 
 
 ```text
 Email:    vikram.customer@bikerental.test

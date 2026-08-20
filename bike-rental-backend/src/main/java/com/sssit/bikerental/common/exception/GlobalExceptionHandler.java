@@ -24,9 +24,10 @@ public class GlobalExceptionHandler {
                         ResourceNotFoundException ex) {
 
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", "Resource not found"));
+        .body(ApiResponse.error(
+                ex.getMessage() != null
+                        ? ex.getMessage()
+                        : "Resource not found"));
         }
 
         /**
@@ -47,10 +48,11 @@ public class GlobalExceptionHandler {
         public ResponseEntity<Object> handleConflictException(
                         ConflictException ex) {
 
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", ex.getMessage() != null ? ex.getMessage() : "Conflict"));
+               return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(ApiResponse.error(
+                ex.getMessage() != null
+                        ? ex.getMessage()
+                        : "Conflict"));
         }
 
         /**
@@ -105,9 +107,7 @@ public class GlobalExceptionHandler {
                         UnauthorizedException ex) {
 
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", "Unauthorized"));
+        .body(ApiResponse.error("Unauthorized"));
         }
 
         /**
@@ -118,9 +118,7 @@ public class GlobalExceptionHandler {
                         AccessDeniedException ex) {
 
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", "Access Denied"));
+        .body(ApiResponse.error("Access Denied"));
         }
 
         /**
@@ -131,9 +129,7 @@ public class GlobalExceptionHandler {
                         ResourceOwnershipException ex) {
 
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", ex.getMessage()));
+        .body(ApiResponse.error(ex.getMessage()));
         }
 
         /**
@@ -144,9 +140,7 @@ public class GlobalExceptionHandler {
                         UnauthorizedOperationException ex) {
 
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", ex.getMessage()));
+        .body(ApiResponse.error(ex.getMessage()));
         }
 
         /**
@@ -246,11 +240,9 @@ public class GlobalExceptionHandler {
         public ResponseEntity<?> handleRefreshTokenException(
                         RefreshTokenException ex) {
 
-                return ResponseEntity
-                                .status(HttpStatus.UNAUTHORIZED)
-                                .body(Map.of(
-                                                "success", false,
-                                                "message", ex.getMessage()));
+               return ResponseEntity
+        .status(HttpStatus.UNAUTHORIZED)
+        .body(ApiResponse.error(ex.getMessage()));
         }
 
 }
