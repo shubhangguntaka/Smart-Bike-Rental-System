@@ -80,7 +80,9 @@ export default function OwnerPayments() {
 
         const matchesStatus = 
             statusFilter === "ALL" || 
-            b.bookingStatus.toUpperCase() === statusFilter.toUpperCase();
+            (statusFilter.toUpperCase() === "CONFIRMED" || statusFilter.toUpperCase() === "APPROVED"
+                ? (b.bookingStatus?.toUpperCase() === "CONFIRMED" || b.bookingStatus?.toUpperCase() === "APPROVED")
+                : b.bookingStatus?.toUpperCase() === statusFilter.toUpperCase());
 
         return matchesSearch && matchesStatus;
     });
@@ -124,7 +126,8 @@ export default function OwnerPayments() {
         }
         
         bookingRequests.forEach(b => {
-            if (b.bookingStatus === "COMPLETED" || b.bookingStatus === "APPROVED") {
+            const st = b.bookingStatus?.toUpperCase();
+            if (st === "COMPLETED" || st === "CONFIRMED" || st === "APPROVED" || st === "ACTIVE") {
                 const dateObj = new Date(b.pickupDate);
                 const mName = monthNames[dateObj.getMonth()];
                 if (monthlyMap[mName] !== undefined) {
@@ -140,7 +143,10 @@ export default function OwnerPayments() {
 
         // 2. Revenue Trend (Daily accumulated)
         const successBookings = [...bookingRequests]
-            .filter(b => b.bookingStatus === "COMPLETED" || b.bookingStatus === "APPROVED")
+            .filter(b => {
+                const st = b.bookingStatus?.toUpperCase();
+                return st === "COMPLETED" || st === "CONFIRMED" || st === "APPROVED" || st === "ACTIVE";
+            })
             .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
         
         let cumulative = 0;
@@ -155,7 +161,8 @@ export default function OwnerPayments() {
         // 3. Revenue by Listed Vehicles
         const vehicleMap: { [key: string]: number } = {};
         bookingRequests.forEach(b => {
-            if (b.bookingStatus === "COMPLETED" || b.bookingStatus === "APPROVED") {
+            const st = b.bookingStatus?.toUpperCase();
+            if (st === "COMPLETED" || st === "CONFIRMED" || st === "APPROVED" || st === "ACTIVE") {
                 vehicleMap[b.bikeName] = (vehicleMap[b.bikeName] || 0) + b.rentalAmount;
             }
         });
@@ -197,11 +204,14 @@ export default function OwnerPayments() {
     };
 
     const getStatusBadgeClass = (status: string) => {
-        switch (status.toUpperCase()) {
+        switch (status?.toUpperCase()) {
             case "PENDING":
                 return "bg-amber-500/10 text-amber-500";
+            case "CONFIRMED":
             case "APPROVED":
                 return "bg-green-500/10 text-green-500";
+            case "ACTIVE":
+                return "bg-cyan-500/10 text-cyan-500";
             case "REJECTED":
                 return "bg-destructive/10 text-destructive";
             case "COMPLETED":
@@ -394,7 +404,7 @@ export default function OwnerPayments() {
 
                 {/* Filter tabs */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-border/80">
-                    {["ALL", "PENDING", "APPROVED", "REJECTED", "COMPLETED", "CANCELLED"].map((tab) => (
+                    {["ALL", "PENDING", "CONFIRMED", "ACTIVE", "REJECTED", "COMPLETED", "CANCELLED"].map((tab) => (
                         <button
                             key={tab}
                             type="button"

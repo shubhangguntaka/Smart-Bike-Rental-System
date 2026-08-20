@@ -24,8 +24,11 @@ const getStatusBadgeClass = (status: string) => {
     switch (status?.toUpperCase()) {
         case "PENDING":
             return "bg-amber-500/10 text-amber-500";
+        case "CONFIRMED":
         case "APPROVED":
             return "bg-green-500/10 text-green-500";
+        case "ACTIVE":
+            return "bg-cyan-500/10 text-cyan-500";
         case "REJECTED":
             return "bg-destructive/10 text-destructive";
         case "COMPLETED":
@@ -68,7 +71,7 @@ export default function OwnerBookings() {
             await approveBooking(id);
             toast.success("Booking approved successfully!");
             if (selectedBooking && selectedBooking.bookingId === id) {
-                setSelectedBooking((prev: any) => prev ? { ...prev, bookingStatus: "APPROVED" } : null);
+                setSelectedBooking((prev: any) => prev ? { ...prev, bookingStatus: "CONFIRMED" } : null);
             }
         } catch (err: any) {
             const errorMsg = err.response?.data?.message || err.message || "Failed to approve booking.";
@@ -135,7 +138,9 @@ export default function OwnerBookings() {
 
         const matchesStatus = 
             statusFilter === "ALL" || 
-            b.bookingStatus.toUpperCase() === statusFilter.toUpperCase();
+            (statusFilter.toUpperCase() === "CONFIRMED" || statusFilter.toUpperCase() === "APPROVED"
+                ? (b.bookingStatus?.toUpperCase() === "CONFIRMED" || b.bookingStatus?.toUpperCase() === "APPROVED")
+                : b.bookingStatus?.toUpperCase() === statusFilter.toUpperCase());
 
         return matchesSearch && matchesStatus;
     });
@@ -201,7 +206,7 @@ export default function OwnerBookings() {
                 </p>
                 <button
                     type="button"
-                    onClick={handleRetry}
+                    onClick={() => fetchBookingRequests(true)}
                     className="mt-6 px-6 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md shadow-primary/30"
                 >
                     Retry Loading
@@ -212,29 +217,29 @@ export default function OwnerBookings() {
 
     return (
         <div className="space-y-6 text-foreground min-h-screen pb-10">
-            {/* Header Title Section */}
+            {/* Header / Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-6 rounded-2xl">
                 <div>
-                    <h2 className="text-xl font-bold text-foreground">Customer Bookings</h2>
-                    <p className="text-xs text-muted-foreground mt-1">Track active, pending, and past rental contracts for your listed fleet.</p>
+                    <h2 className="text-xl font-bold text-foreground">Booking Requests</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Review incoming booking requests, manage pickups, and scan verification QR codes.</p>
                 </div>
                 <button
                     type="button"
                     onClick={() => setIsScannerOpen(true)}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-95 active:scale-95 transition-all cursor-pointer shadow-md shadow-primary/30 flex items-center justify-center gap-1.5 focus:outline-none"
+                    className="px-4 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:opacity-95 active:scale-95 transition-all cursor-pointer shadow-md shadow-primary/30 flex items-center gap-1.5 focus:outline-none"
                 >
                     <QrCode className="h-4.5 w-4.5" />
-                    <span>Scan QR Code</span>
+                    <span>Scan QR Pass</span>
                 </button>
             </div>
 
-            {/* Controls Filters Grid */}
+            {/* Filter and Sort Toolbar */}
             <div className="bg-card border border-border p-5 rounded-2xl space-y-4">
                 <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch">
                     <SearchBar
                         value={search}
                         onChange={setSearch}
-                        placeholder="Search by customer, vehicle, or Booking ID (e.g. BR-12)..."
+                        placeholder="Search by customer name, bike model, or Booking ID..."
                         width="w-full md:max-w-md"
                     />
 
@@ -261,7 +266,7 @@ export default function OwnerBookings() {
 
                 {/* Status Tabs */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-border/80">
-                    {["ALL", "PENDING", "APPROVED", "REJECTED", "COMPLETED", "CANCELLED"].map((tab) => (
+                    {["ALL", "PENDING", "CONFIRMED", "ACTIVE", "REJECTED", "COMPLETED", "CANCELLED"].map((tab) => (
                         <button
                             key={tab}
                             type="button"

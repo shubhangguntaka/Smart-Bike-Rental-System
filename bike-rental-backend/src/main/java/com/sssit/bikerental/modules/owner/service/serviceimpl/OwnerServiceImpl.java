@@ -29,6 +29,7 @@ import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
+import com.sssit.bikerental.modules.booking.dto.BookingResponse;
 import com.sssit.bikerental.modules.booking.service.BookingService;
 import com.sssit.bikerental.modules.notification.entity.NotificationService;
 
@@ -247,36 +248,26 @@ public class OwnerServiceImpl implements OwnerService {
     }
 
   @Transactional
-@Override
-public void approveBooking(Long bookingId) {
-    validateBookingOwnerPermission(bookingId);
+  @Override
+  public void approveBooking(Long bookingId) {
+      validateBookingOwnerPermission(bookingId);
 
-    Booking booking = bookingRepository.findById(bookingId)
-            .orElseThrow(() ->
-                    new ResourceNotFoundException(
-                            "Booking not found with ID: " + bookingId));
+      // Confirm booking: validates PENDING status, checks customer verification, sets payment to SUCCESS, sets status to CONFIRMED, generates QR code, updates bike status to BOOKED, and saves transactionally.
+      BookingResponse response = bookingService.confirmBooking(bookingId);
 
-    if (booking.getBookingStatus() != BookingStatus.PENDING) {
-        throw new IllegalStateException(
-                "Only PENDING bookings can be approved.");
-    }
-
-    booking.setBookingStatus(BookingStatus.APPROVED);
-    bookingRepository.save(booking);
-
-    // Notify customer that the owner approved the booking
-    try {
-        if (booking.getCustomerId() != null) {
-            notificationService.bookingApproved(booking.getCustomerId());
-        }
-    } catch (Exception e) {
-        log.error(
-                "Failed to send booking approval notification for bookingId: {}",
-                bookingId,
-                e
-        );
-    }
-}
+      // Notify customer that the owner approved the booking
+      try {
+          if (response != null && response.getCustomerId() != null) {
+              notificationService.bookingApproved(response.getCustomerId());
+          }
+      } catch (Exception e) {
+          log.error(
+                  "Failed to send booking approval notification for bookingId: {}",
+                  bookingId,
+                  e
+          );
+      }
+  }
 
     @Transactional
 @Override
