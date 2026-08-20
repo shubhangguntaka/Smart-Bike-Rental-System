@@ -66,6 +66,7 @@ import AdminOwners from "@/pages/admin/Owners";
 import AdminBookings from "@/pages/admin/Bookings";
 import AdminCustomers from "@/pages/admin/Customers";
 import AdminActivity from "@/pages/admin/Activity";
+import ComingSoon from "@/pages/ComingSoon";
 
 const AppRoutes = () => {
   return (
@@ -102,9 +103,8 @@ const AppRoutes = () => {
         >
           <Route index element={<Navigate to="/customer/bikes" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
-          <Route path="bikes" element={<Bikes />} />
-          <Route path="nearby-bikes" element={<Bikes />} />
-          <Route path="maps" element={<MapPage />} />
+          <Route path="explore-bikes" element={<Bikes />} />
+          <Route path="nearby-bikes" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
           <Route path="book/:bikeId" element={<CreateBooking />} />
           <Route path="bookings/:id" element={<BookingDetails />} />
@@ -114,12 +114,12 @@ const AppRoutes = () => {
           <Route path="booking-history" element={<BookingHistory />} />
           <Route path="ride-tracking" element={<RideTracking />} />
           <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
+          <Route path="payments" element={<ComingSoon />} />
           <Route path="payment/:bookingId" element={<Payment />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="verification" element={<DocumentVerification />} />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Owner Dashboard Routes */}
@@ -139,14 +139,13 @@ const AppRoutes = () => {
           <Route path="add-bike" element={<AddBike />} />
           <Route path="edit-bike/:bikeId" element={<EditBike />} />
           <Route path="bookings" element={<OwnerBookings />} />
-          <Route path="payments" element={<OwnerPayments />} />
+          <Route path="payments" element={<ComingSoon />} />
           <Route path="earnings" element={<OwnerPayments />} />
           <Route path="documents" element={<OwnerVerification />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="settings" element={<OwnerSettings />} />
           <Route path="scan-booking" element={<Navigate to="/owner/bookings" replace />} />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="notification" element={<Notifications />} />
         </Route>
 
         {/* Admin Dashboard Routes */}
