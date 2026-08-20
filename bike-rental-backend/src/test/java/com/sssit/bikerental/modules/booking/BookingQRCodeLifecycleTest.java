@@ -2,12 +2,17 @@ package com.sssit.bikerental.modules.booking;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
-
+import com.sssit.bikerental.modules.gps.entity.Ride;
+import com.sssit.bikerental.modules.gps.entity.RideStatus;
+import com.sssit.bikerental.modules.gps.repository.RideRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +50,8 @@ class BookingQRCodeLifecycleTest {
 
     @Mock
     private BookingRepository bookingRepository;
+    @Mock
+private RideRepository rideRepository;
     @Mock
     private BikeRepository bikeRepository;
     @Mock
@@ -167,27 +174,113 @@ class BookingQRCodeLifecycleTest {
     }
 
     @Test
-    void testHandover_ChangesStatusToActive_AndSavesActualPickupTime_PreservesQR() {
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(200L);
-            security.when(SecurityUtils::getCurrentRole).thenReturn(Role.OWNER);
+void testHandover_ChangesStatusToActive_AndSavesActualPickupTime_PreservesQR() {
 
-            when(bookingRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testBooking));
-            when(bikeRepository.findById(10L)).thenReturn(Optional.of(testBike));
-            when(userRepository.findById(100L)).thenReturn(Optional.of(testCustomer));
-            when(userRepository.findById(200L)).thenReturn(Optional.of(testOwner));
-            when(bookingRepository.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
+    try (MockedStatic<SecurityUtils> security =
+                 mockStatic(SecurityUtils.class)) {
 
-            String originalQr = testBooking.getQrCode();
+        security.when(SecurityUtils::getCurrentUserId)
+                .thenReturn(200L);
 
-            BookingResponse res = bookingService.handoverBooking(1L);
+        security.when(SecurityUtils::getCurrentRole)
+                .thenReturn(Role.OWNER);
 
-            assertEquals(BookingStatus.ACTIVE, res.getBookingStatus());
-            assertNotNull(res.getActualPickupTime());
-            assertEquals(originalQr, res.getQrCode()); // QR code remains identical
-            verify(qrCodeService, never()).generateQRCode(anyString(), anyInt(), anyInt());
-        }
+        // Booking exists
+        when(bookingRepository.findByIdForUpdate(1L))
+                .thenReturn(Optional.of(testBooking));
+
+        // Bike exists and belongs to the owner
+        when(bikeRepository.findById(10L))
+                .thenReturn(Optional.of(testBike));
+
+        // Customer and owner exist
+        when(userRepository.findById(100L))
+                .thenReturn(Optional.of(testCustomer));
+
+        when(userRepository.findById(200L))
+                .thenReturn(Optional.of(testOwner));
+
+        // Booking save should return the same booking object
+        when(bookingRepository.save(any(Booking.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        // ---------------------------------------------------------
+        // RideRepository mocking
+        // ---------------------------------------------------------
+
+        // No active ride exists for this booking yet
+        when(rideRepository.existsByBookingIdAndStatus(
+                1L,
+                RideStatus.ACTIVE
+        )).thenReturn(false);
+
+        // Create the Ride object that production code expects
+        // to receive from rideRepository.save(...)
+        Ride savedRide = new Ride();
+
+        savedRide.setId(1L);
+        savedRide.setBookingId(1L);
+        savedRide.setBikeId(10L);
+        savedRide.setCustomerId(100L);
+        savedRide.setStatus(RideStatus.ACTIVE);
+        savedRide.setStartedAt(LocalDateTime.now());
+
+        // IMPORTANT:
+        // Mockito returns null from save() unless we explicitly
+        // tell it what to return.
+        when(rideRepository.save(any(Ride.class)))
+                .thenReturn(savedRide);
+
+        // Preserve original QR code
+        String originalQr = testBooking.getQrCode();
+
+        // Execute handover
+        BookingResponse res =
+                bookingService.handoverBooking(1L);
+
+        // ---------------------------------------------------------
+        // Assertions
+        // ---------------------------------------------------------
+
+        assertNotNull(res);
+
+        // Booking must become ACTIVE
+        assertEquals(
+                BookingStatus.ACTIVE,
+                res.getBookingStatus()
+        );
+
+        // Actual pickup time must be created
+        assertNotNull(res.getActualPickupTime());
+
+        // QR code must remain unchanged
+        assertEquals(
+                originalQr,
+                res.getQrCode()
+        );
+
+        // Handover should not generate a new QR code
+        verify(
+                qrCodeService,
+                never()
+        ).generateQRCode(
+                anyString(),
+                anyInt(),
+                anyInt()
+        );
+
+        // Verify that an ACTIVE ride was checked
+        verify(rideRepository, times(1))
+                .existsByBookingIdAndStatus(
+                        1L,
+                        RideStatus.ACTIVE
+                );
+
+        // Verify that the ride was saved
+        verify(rideRepository, times(1))
+                .save(any(Ride.class));
     }
+}
 
     @Test
     void testOwnerScansQR_SecondScan_ActiveBooking() {

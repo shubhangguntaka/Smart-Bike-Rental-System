@@ -37,6 +37,10 @@ import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.service.AadhaarService;
 import com.sssit.bikerental.modules.verification.drivinglicense.service.DrivingLicenseService;
 
+import com.sssit.bikerental.modules.gps.entity.Ride;
+import com.sssit.bikerental.modules.gps.entity.RideStatus;
+import com.sssit.bikerental.modules.gps.repository.RideRepository;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -55,6 +59,7 @@ public class BookingServiceImpl implements BookingService {
     private final DrivingLicenseService drivingLicenseService;
     private final QRCodeService qrCodeService;
     private final NotificationService notificationService;
+    private final RideRepository rideRepository;
 
     private void checkBikeAvailability(Bike bike, LocalDateTime startTime, LocalDateTime endTime, Long currentBookingId) {
         // 1. Check permanent status
@@ -523,12 +528,44 @@ if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
     throw new IllegalArgumentException("Booking must be CONFIRMED before handover.");
 }
 
-        booking.setBookingStatus(BookingStatus.ACTIVE);
-        booking.setActualPickupTime(LocalDateTime.now());
-        Booking savedBooking = bookingRepository.save(booking);
+       booking.setBookingStatus(BookingStatus.ACTIVE);
+booking.setActualPickupTime(LocalDateTime.now());
 
-        bike.setBikeStatus(BikeStatus.BOOKED);
-        bikeRepository.save(bike);
+Booking savedBooking = bookingRepository.save(booking);
+
+// Create an ACTIVE ride when the bike is handed over
+if (rideRepository.existsByBookingIdAndStatus(
+        savedBooking.getId(),
+        RideStatus.ACTIVE)) {
+
+    throw new IllegalStateException(
+            "An active ride already exists for booking: "
+                    + savedBooking.getId()
+    );
+}
+
+Ride ride = new Ride();
+
+ride.setBookingId(savedBooking.getId());
+ride.setBikeId(savedBooking.getBikeId());
+ride.setCustomerId(savedBooking.getCustomerId());
+
+ride.setStatus(RideStatus.ACTIVE);
+ride.setStartedAt(savedBooking.getActualPickupTime());
+
+ride.setTotalDistance(0.0);
+ride.setTotalDuration(0L);
+
+Ride savedRide = rideRepository.save(ride);
+
+log.info(
+        "Ride created successfully. rideId: {}, bookingId: {}",
+        savedRide.getId(),
+        savedBooking.getId()
+);
+
+bike.setBikeStatus(BikeStatus.BOOKED);
+bikeRepository.save(bike);
 
         // Send handover notifications to customer and owner
         try {

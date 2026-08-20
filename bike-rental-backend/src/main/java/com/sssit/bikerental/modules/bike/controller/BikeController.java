@@ -114,7 +114,7 @@ public class BikeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<BikeDTO>> addBike(@Valid @RequestBody BikeDTO bikeDTO) {
         BikeDTO saved = bikeService.addBike(bikeDTO);
                 // Broadcast to SSE subscribers that a new bike was added
@@ -128,7 +128,7 @@ public class BikeController {
     }
 
     @PutMapping("/{bikeId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<BikeDTO>> updateBike(
             @PathVariable Long bikeId,
             @Valid @RequestBody BikeDTO bikeDTO) {
@@ -147,7 +147,7 @@ public class BikeController {
     }
 
     @DeleteMapping("/{bikeId}")
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'CUSTOMER', 'USER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<String>> deleteBike(@PathVariable Long bikeId) {
                 bikeService.deleteBike(bikeId);
                 try {

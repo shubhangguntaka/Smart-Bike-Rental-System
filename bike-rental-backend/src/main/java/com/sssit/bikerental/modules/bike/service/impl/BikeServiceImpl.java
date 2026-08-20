@@ -312,22 +312,29 @@ public class BikeServiceImpl implements BikeService {
     }
 
     @Override
-    @Transactional
-    public List<BikeDTO> getOwnerBikes(Long ownerId) {
-        Long resolvedOwnerId = ownerId;
-        if (resolvedOwnerId == null) {
-            resolvedOwnerId = currentUserService.getCurrentUserId();
-        }
-        if (resolvedOwnerId == null) {
-            return java.util.Collections.emptyList();
-        }
+@Transactional
+public List<BikeDTO> getOwnerBikes(Long ownerId) {
 
-        return bikeRepository.findByOwnerIdOrderByCreatedAtDesc(resolvedOwnerId).stream()
-                .map(this::syncBikeStatus)
-                .map(bikeMapper::toDTO)
-                .map(this::enrichDTO)
-                .collect(Collectors.toList());
+    Long resolvedOwnerId = ownerId;
+
+    if (resolvedOwnerId == null) {
+        resolvedOwnerId = currentUserService.getCurrentUserId();
     }
+
+    if (resolvedOwnerId == null) {
+        throw new UnauthorizedException("Authenticated user is required.");
+    }
+
+    // Admin can view any owner's bikes.
+    // Non-admin users can only access their own bikes.
+    authorizationService.validateOwner(resolvedOwnerId);
+
+    return bikeRepository.findByOwnerIdOrderByCreatedAtDesc(resolvedOwnerId).stream()
+            .map(this::syncBikeStatus)
+            .map(bikeMapper::toDTO)
+            .map(this::enrichDTO)
+            .collect(Collectors.toList());
+}
 
     @Override
     @Transactional(readOnly = true)
@@ -370,14 +377,17 @@ public class BikeServiceImpl implements BikeService {
 
         // If the document has no ownerId or belongs to the current user, assign/verify
         // it
-        if (doc.getOwnerId() == null) {
-            doc.setOwnerId(ownerId);
-            bikeDocumentRepository.save(doc);
-        } else if (!doc.getOwnerId().equals(ownerId)) {
-            // Adopt the document for the current owner if claiming their verified RC
-            doc.setOwnerId(ownerId);
-            bikeDocumentRepository.save(doc);
-        }
+       if (doc.getOwnerId() == null) {
+
+    doc.setOwnerId(ownerId);
+    bikeDocumentRepository.save(doc);
+
+} else if (!doc.getOwnerId().equals(ownerId)) {
+
+    throw new UnauthorizedException(
+            "This RC document belongs to another owner."
+    );
+}
 
         boolean listed = bikeRepository.existsByRegistrationNumber(reg);
 
@@ -466,16 +476,21 @@ public class BikeServiceImpl implements BikeService {
      * Prefer authenticated user id; admins may set ownerId explicitly.
      */
     private Long resolveOwnerIdForWrite(Long requestedOwnerId) {
-        Long currentId = currentUserService.getCurrentUserId();
-        if (currentId != null) {
-            return currentId;
-        }
-        if (requestedOwnerId != null && requestedOwnerId > 0) {
-            return requestedOwnerId;
-        }
-        return 1L;
+
+    Long currentId = currentUserService.getCurrentUserId();
+
+    if (currentId != null) {
+        return currentId;
     }
 
+    if (requestedOwnerId != null && requestedOwnerId > 0) {
+        return requestedOwnerId;
+    }
+
+    throw new UnauthorizedException(
+            "Authenticated user or valid owner ID is required."
+    );
+}
     private void validateMandatoryImage(String imageUrl) {
         if (imageUrl == null || imageUrl.isBlank()) {
             throw new ValidationException("Bike image is mandatory.");

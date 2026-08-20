@@ -6,6 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.sssit.bikerental.common.security.AuthorizationService;
+import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.gps.dto.RideDTO;
 import com.sssit.bikerental.modules.gps.entity.GPSLocation;
 import com.sssit.bikerental.modules.gps.entity.Ride;
@@ -26,6 +29,7 @@ public class RideServiceImpl implements RideService {
     private final GPSRepository gpsRepository;
     private final RideHistoryRepository rideHistoryRepository;
     private final AuthorizationService authorizationService;
+    private final BookingRepository bookingRepository;
 
     @Override
     public RideDTO startRide(
@@ -33,24 +37,67 @@ public class RideServiceImpl implements RideService {
             Long bikeId,
             Long customerId) {
 
+        // 1. Validate that the authenticated user owns the customer account
+        authorizationService.validateCurrentUser(customerId);
+
+        // 2. Find the booking
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(()
+                        -> new RuntimeException(
+                        "Booking not found: " + bookingId
+                )
+                );
+
+        // 3. Verify booking belongs to the authenticated customer
+        if (!booking.getCustomerId().equals(customerId)) {
+            throw new RuntimeException(
+                    "Booking does not belong to customer: " + customerId
+            );
+        }
+
+        // 4. Verify requested bike matches the booking
+        if (!booking.getBikeId().equals(bikeId)) {
+            throw new RuntimeException(
+                    "Bike does not belong to booking: " + bookingId
+            );
+        }
+
+        // 5. Validate booking status
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException(
+                    "Ride can only be started for a confirmed booking"
+            );
+        }
+
+        // 6. Prevent multiple active rides for the same customer
         if (rideRepository.existsByCustomerIdAndStatus(
-        customerId,
-        RideStatus.ACTIVE)) {
+                customerId,
+                RideStatus.ACTIVE)) {
 
-    throw new RuntimeException(
-            "Customer already has an active ride"
-    );
-}
+            throw new RuntimeException(
+                    "Customer already has an active ride"
+            );
+        }
 
+        // 7. Prevent multiple active rides for the same booking
+        if (rideRepository.existsByBookingIdAndStatus(
+                bookingId,
+                RideStatus.ACTIVE)) {
+
+            throw new RuntimeException(
+                    "Booking already has an active ride: " + bookingId
+            );
+        }
+
+        // 8. Create ride using validated booking data
         Ride ride = new Ride();
 
-        ride.setBookingId(bookingId);
-        ride.setBikeId(bikeId);
-        ride.setCustomerId(customerId);
+        ride.setBookingId(booking.getId());
+        ride.setBikeId(booking.getBikeId());
+        ride.setCustomerId(booking.getCustomerId());
 
         ride.setStatus(RideStatus.ACTIVE);
-
-        ride.setStartedAt(java.time.LocalDateTime.now());
+        ride.setStartedAt(LocalDateTime.now());
 
         ride.setTotalDistance(0.0);
         ride.setTotalDuration(0L);
@@ -60,18 +107,18 @@ public class RideServiceImpl implements RideService {
         return convertToRideDTO(savedRide);
     }
 
-   @Override
-public RideDTO getRide(Long rideId) {
+    @Override
+    public RideDTO getRide(Long rideId) {
 
-    Ride ride = rideRepository.findById(rideId)
-            .orElseThrow(() ->
-                    new RuntimeException("Ride not found with id: " + rideId)
-            );
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(()
+                        -> new RuntimeException("Ride not found with id: " + rideId)
+                );
 
-    authorizationService.validateCurrentUser(ride.getCustomerId());
+        authorizationService.validateCurrentUser(ride.getCustomerId());
 
-    return convertToRideDTO(ride);
-}
+        return convertToRideDTO(ride);
+    }
 
     @Override
     public RideDTO endRide(Long rideId) {
@@ -128,131 +175,129 @@ public RideDTO getRide(Long rideId) {
 
     private double calculateRideDistance(Long rideId) {
 
-    List<GPSLocation> locations =
-            gpsRepository.findByRideIdOrderByTimestampAsc(rideId);
+        List<GPSLocation> locations
+                = gpsRepository.findByRideIdOrderByTimestampAsc(rideId);
 
-    if (locations.size() < 2) {
-        return 0.0;
-    }
+        if (locations.size() < 2) {
+            return 0.0;
+        }
 
-    double totalDistance = 0.0;
+        double totalDistance = 0.0;
 
-    for (int i = 1; i < locations.size(); i++) {
+        for (int i = 1; i < locations.size(); i++) {
 
-        GPSLocation previous = locations.get(i - 1);
-        GPSLocation current = locations.get(i);
+            GPSLocation previous = locations.get(i - 1);
+            GPSLocation current = locations.get(i);
 
-        totalDistance += calculateHaversineDistance(
-                previous.getLatitude(),
-                previous.getLongitude(),
-                current.getLatitude(),
-                current.getLongitude()
-        );
-    }
-
-    return totalDistance;
-}
-
-private double calculateHaversineDistance(
-        double latitude1,
-        double longitude1,
-        double latitude2,
-        double longitude2) {
-
-    final double EARTH_RADIUS_KM = 6371.0;
-
-    double latitudeDifference =
-            Math.toRadians(latitude2 - latitude1);
-
-    double longitudeDifference =
-            Math.toRadians(longitude2 - longitude1);
-
-    double a =
-            Math.sin(latitudeDifference / 2)
-            * Math.sin(latitudeDifference / 2)
-            +
-            Math.cos(Math.toRadians(latitude1))
-            * Math.cos(Math.toRadians(latitude2))
-            * Math.sin(longitudeDifference / 2)
-            * Math.sin(longitudeDifference / 2);
-
-    double c =
-            2 * Math.atan2(
-                    Math.sqrt(a),
-                    Math.sqrt(1 - a)
+            totalDistance += calculateHaversineDistance(
+                    previous.getLatitude(),
+                    previous.getLongitude(),
+                    current.getLatitude(),
+                    current.getLongitude()
             );
+        }
 
-    return EARTH_RADIUS_KM * c;
-}
+        return totalDistance;
+    }
 
-private void saveRideHistory(Ride ride) {
+    private double calculateHaversineDistance(
+            double latitude1,
+            double longitude1,
+            double latitude2,
+            double longitude2) {
 
-    RideHistory history = new RideHistory();
+        final double EARTH_RADIUS_KM = 6371.0;
 
-    history.setRideId(ride.getId());
-    history.setBookingId(ride.getBookingId());
-    history.setBikeId(ride.getBikeId());
-    history.setCustomerId(ride.getCustomerId());
+        double latitudeDifference
+                = Math.toRadians(latitude2 - latitude1);
 
-    history.setStartedAt(ride.getStartedAt());
-    history.setEndedAt(ride.getEndedAt());
+        double longitudeDifference
+                = Math.toRadians(longitude2 - longitude1);
 
-    history.setStartLatitude(ride.getStartLatitude());
-    history.setStartLongitude(ride.getStartLongitude());
+        double a
+                = Math.sin(latitudeDifference / 2)
+                * Math.sin(latitudeDifference / 2)
+                + Math.cos(Math.toRadians(latitude1))
+                * Math.cos(Math.toRadians(latitude2))
+                * Math.sin(longitudeDifference / 2)
+                * Math.sin(longitudeDifference / 2);
 
-    history.setEndLatitude(ride.getEndLatitude());
-    history.setEndLongitude(ride.getEndLongitude());
+        double c
+                = 2 * Math.atan2(
+                        Math.sqrt(a),
+                        Math.sqrt(1 - a)
+                );
 
-    history.setTotalDistance(ride.getTotalDistance());
-    history.setTotalDuration(ride.getTotalDuration());
+        return EARTH_RADIUS_KM * c;
+    }
 
-    history.setCompletedAt(ride.getEndedAt());
+    private void saveRideHistory(Ride ride) {
 
-    rideHistoryRepository.save(history);
-}
+        RideHistory history = new RideHistory();
 
-   @Override
-public List<RideDTO> getCustomerRides(Long customerId) {
+        history.setRideId(ride.getId());
+        history.setBookingId(ride.getBookingId());
+        history.setBikeId(ride.getBikeId());
+        history.setCustomerId(ride.getCustomerId());
 
-    authorizationService.validateCurrentUser(customerId);
+        history.setStartedAt(ride.getStartedAt());
+        history.setEndedAt(ride.getEndedAt());
 
-    List<Ride> rides =
-            rideRepository.findByCustomerIdOrderByStartedAtDesc(customerId);
+        history.setStartLatitude(ride.getStartLatitude());
+        history.setStartLongitude(ride.getStartLongitude());
 
-    return rides.stream()
-            .map(this::convertToRideDTO)
-            .toList();
-}
+        history.setEndLatitude(ride.getEndLatitude());
+        history.setEndLongitude(ride.getEndLongitude());
 
+        history.setTotalDistance(ride.getTotalDistance());
+        history.setTotalDuration(ride.getTotalDuration());
+
+        history.setCompletedAt(ride.getEndedAt());
+
+        rideHistoryRepository.save(history);
+    }
 
     @Override
-public RideDTO getRideHistory(Long rideId) {
+    public List<RideDTO> getCustomerRides(Long customerId) {
 
-    RideHistory history =
-            rideHistoryRepository.findByRideId(rideId)
-                    .orElseThrow(() ->
-                            new RuntimeException(
-                                    "Ride history not found for ride: " + rideId
-                            )
-                    );
+        authorizationService.validateCurrentUser(customerId);
+
+        List<Ride> rides
+                = rideRepository.findByCustomerIdOrderByStartedAtDesc(customerId);
+
+        return rides.stream()
+                .map(this::convertToRideDTO)
+                .toList();
+    }
+
+    @Override
+    public RideDTO getRideHistory(Long rideId) {
+
+        RideHistory history
+                = rideHistoryRepository.findByRideId(rideId)
+                        .orElseThrow(()
+                                -> new RuntimeException(
+                                "Ride history not found for ride: " + rideId
+                        )
+                        );
         authorizationService.validateCurrentUser(history.getCustomerId());
 
-    return new RideDTO(
-            history.getRideId(),
-            history.getBookingId(),
-            history.getBikeId(),
-            history.getCustomerId(),
-            RideStatus.COMPLETED,
-            history.getStartedAt(),
-            history.getEndedAt(),
-            history.getStartLatitude(),
-            history.getStartLongitude(),
-            history.getEndLatitude(),
-            history.getEndLongitude(),
-            history.getTotalDistance(),
-            history.getTotalDuration()
-    );
-}
+        return new RideDTO(
+                history.getRideId(),
+                history.getBookingId(),
+                history.getBikeId(),
+                history.getCustomerId(),
+                RideStatus.COMPLETED,
+                history.getStartedAt(),
+                history.getEndedAt(),
+                history.getStartLatitude(),
+                history.getStartLongitude(),
+                history.getEndLatitude(),
+                history.getEndLongitude(),
+                history.getTotalDistance(),
+                history.getTotalDuration()
+        );
+    }
 
     private RideDTO convertToRideDTO(Ride ride) {
 

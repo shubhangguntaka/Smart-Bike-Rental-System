@@ -15,6 +15,7 @@ import com.sssit.bikerental.modules.gps.dto.RideDTO;
 import com.sssit.bikerental.modules.gps.service.GPSService;
 import com.sssit.bikerental.modules.gps.service.RideService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +28,7 @@ public class RideController {
     private final GPSService gpsService;
 
     @PostMapping("/start")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<RideDTO> startRide(
             @Valid @RequestBody RideDTO rideDTO) {
 
@@ -40,6 +42,7 @@ public class RideController {
     }
 
     @GetMapping("/{rideId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
     public ResponseEntity<RideDTO> getRide(
             @PathVariable Long rideId) {
 
@@ -49,6 +52,7 @@ public class RideController {
     }
 
     @PostMapping("/{rideId}/end")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<RideDTO> endRide(
             @PathVariable Long rideId) {
 
@@ -58,6 +62,7 @@ public class RideController {
     }
 
     @GetMapping("/customer")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<List<RideDTO>> getCustomerRides(
             @RequestParam Long customerId) {
 
@@ -66,7 +71,8 @@ public class RideController {
         );
     }
 
-    @GetMapping("/{rideId}/history")
+   @GetMapping("/{rideId}/history")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
     public ResponseEntity<RideDTO> getRideHistory(
             @PathVariable Long rideId) {
 
@@ -76,6 +82,7 @@ public class RideController {
     }
 
     @GetMapping("/{rideId}/distance")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
 public ResponseEntity<Double> calculateDistance(
         @PathVariable Long rideId) {
 

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sssit.bikerental.modules.gps.dto.GPSLocationDTO;
 import com.sssit.bikerental.modules.gps.service.GPSService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ public class GPSController {
     private final GPSService gpsService;
 
     @PostMapping("/{rideId}/location")
+@PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<GPSLocationDTO> saveLocation(
             @PathVariable Long rideId,
             @Valid @RequestBody GPSLocationDTO locationDTO) {
@@ -35,6 +37,7 @@ public class GPSController {
     }
 
     @GetMapping("/{rideId}/location")
+@PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
     public ResponseEntity<List<GPSLocationDTO>> getLocations(
             @PathVariable Long rideId) {
 
