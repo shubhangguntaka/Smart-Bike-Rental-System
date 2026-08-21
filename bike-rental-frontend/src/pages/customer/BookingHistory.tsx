@@ -214,7 +214,7 @@ const BookingHistory = () => {
           <Typography variant="h6" color="text.secondary" mb={2}>
             No bookings found.
           </Typography>
-          <Button variant="contained" color="primary" onClick={() => navigate("/customer/book-bike")}>
+          <Button variant="contained" color="primary" onClick={() => navigate("/customer/explore-bikes")}>
             Rent a Bike Now
           </Button>
         </Paper>
