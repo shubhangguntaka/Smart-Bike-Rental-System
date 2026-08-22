@@ -77,14 +77,20 @@ export default function CustomerBookings() {
         BookingService.getCustomerBookings(Number(user.id)),
         reviewService.getReviewsByCustomer(Number(user.id)).catch(() => []),
       ]);
-      setUserReviews(reviewsData || []);
       const localCustom = JSON.parse(localStorage.getItem("custom_user_bookings") || localStorage.getItem("user_bookings") || "[]");
       const mergedMap = new Map();
-      (data || []).forEach((b: any) => mergedMap.set(String(b.bookingId || b.id), b));
       (localCustom || []).forEach((b: any) => {
         const key = String(b.bookingId || b.id);
-        const existing = mergedMap.get(key);
-        mergedMap.set(key, existing ? { ...existing, ...b } : b);
+        if (key && key !== "undefined" && key !== "null") {
+          mergedMap.set(key, b);
+        }
+      });
+      (data || []).forEach((b: any) => {
+        const key = String(b.bookingId || b.id);
+        if (key && key !== "undefined" && key !== "null") {
+          const existingLocal = mergedMap.get(key);
+          mergedMap.set(key, existingLocal ? { ...existingLocal, ...b } : b);
+        }
       });
       setBookings(Array.from(mergedMap.values()));
     } catch (err) {

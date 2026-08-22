@@ -26,6 +26,7 @@ import ReviewList from "@/components/review/ReviewList";
 import { format12Hour } from "@/utils/timeUtils";
 import useAuth from "@/hooks/useAuth";
 import { BookingService } from "@/services/bookingService";
+import RentBikeModal from "@/components/bike/RentBikeModal";
 
 export default function CustomerBikeDetails() {
   const { bikeId } = useParams();
@@ -35,6 +36,7 @@ export default function CustomerBikeDetails() {
   const [bike, setBike] = useState<Bike | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [isRentModalOpen, setIsRentModalOpen] = useState(false);
 
   useEffect(() => {
     if (!bikeId) return;
@@ -61,6 +63,24 @@ export default function CustomerBikeDetails() {
     })();
   }, [bikeId, navigate]);
 
+  useEffect(() => {
+    if (!user || !bike) return;
+    const pendingStr = localStorage.getItem("pending_booking");
+    if (!pendingStr) return;
+    try {
+      const pending = JSON.parse(pendingStr);
+      if (pending && Number(pending.bikeId) === Number(bike.bikeId || bike.id)) {
+        BookingService.checkVerificationStatus(Number(user.id)).then((verified) => {
+          if (verified) {
+            setIsRentModalOpen(true);
+            toast.success(`Identity verified! Continuing your booking for ${bike.bikeName || bike.brand}`);
+            localStorage.removeItem("pending_booking");
+          }
+        });
+      }
+    } catch (e) {}
+  }, [bike, user]);
+
   const handleBookNow = async () => {
     if (!bike) return;
     if (!user) {
@@ -80,9 +100,8 @@ export default function CustomerBikeDetails() {
       );
 
       const isVerified = await BookingService.checkVerificationStatus(customerId);
-      const targetBikeId = bike.bikeId || bike.id || bikeId;
       if (isVerified) {
-        navigate(`/customer/book/${targetBikeId}`);
+        setIsRentModalOpen(true);
       } else {
         toast.error("You need to complete identity verification to rent a bike.");
         navigate("/customer/verification");
@@ -384,6 +403,18 @@ export default function CustomerBikeDetails() {
         <h2 className="text-lg font-bold text-foreground mb-4">Reviews & Customer Feedback</h2>
         <ReviewList bikeId={targetId} />
       </div>
+
+      {/* Rent Bike Modal */}
+      <RentBikeModal
+        isOpen={isRentModalOpen}
+        onClose={() => setIsRentModalOpen(false)}
+        bike={bike}
+        onBookingSuccess={() => {
+          setIsRentModalOpen(false);
+          localStorage.removeItem("pending_booking");
+          navigate("/customer/bookings");
+        }}
+      />
     </div>
   );
 }

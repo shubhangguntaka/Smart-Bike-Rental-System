@@ -23,9 +23,7 @@ import CustomerBookings from "../pages/customer/Bookings";
 import CustomerBikeDetails from "../pages/customer/BikeDetails";
 import CustomerProfile from "../pages/customer/Profile";
 import CustomerSettings from "../pages/customer/Settings";
-import CreateBooking from "../pages/customer/CreateBooking";
 import BookingDetails from "../pages/customer/BookingDetails";
-import BookBike from "../pages/customer/BookBike";
 import BookingHistory from "../pages/customer/BookingHistory";
 import RideTracking from "../pages/customer/RideTracking";
 import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
@@ -106,11 +104,11 @@ const AppRoutes = () => {
           <Route path="explore-bikes" element={<Bikes />} />
           <Route path="nearby-bikes" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
-          <Route path="book/:bikeId" element={<CreateBooking />} />
+          <Route path="book/:bikeId" element={<Navigate to="/customer/explore-bikes" replace />} />
           <Route path="bookings/:id" element={<BookingDetails />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="settings" element={<CustomerSettings />} />
-          <Route path="book-bike" element={<BookBike />} />
+          <Route path="book-bike" element={<Navigate to="/customer/explore-bikes" replace />} />
           <Route path="booking-history" element={<BookingHistory />} />
           <Route path="ride-tracking" element={<RideTracking />} />
           <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
