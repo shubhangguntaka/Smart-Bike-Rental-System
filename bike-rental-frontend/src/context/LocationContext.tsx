@@ -17,6 +17,7 @@ import { mapService } from "@/services/mapService";
 import { normalizeBike } from "@/utils/bikeUtils";
 import { subscribeBikeUpdates } from "@/utils/syncUtils";
 import toast from "react-hot-toast";
+import useAuth from "../hooks/useAuth";
 
 const DEFAULT_LOCATION: Coordinates = {
   latitude: 17.3850,
@@ -45,6 +46,7 @@ interface LocationContextType {
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export function LocationProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [currentLocation, setCurrentLocationState] = useState<Coordinates | null>(null);
   const [nearbyBikes, setNearbyBikes] = useState<NearbyBike[]>([]);
   const [selectedBike, setSelectedBike] = useState<NearbyBike | null>(null);
@@ -87,6 +89,9 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
   const getNearbyBikes = useCallback(
     async (overrideLocation?: Coordinates) => {
+      if (!isAuthenticated) {
+        return;
+      }
       const targetLoc = overrideLocation || currentLocation || DEFAULT_LOCATION;
       if (typeof targetLoc.latitude !== "number" || typeof targetLoc.longitude !== "number") {
         return;
@@ -112,11 +117,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     },
-    [currentLocation]
+    [currentLocation, isAuthenticated]
   );
 
   const getRoute = useCallback(
     async (bikeId: number) => {
+      if (!isAuthenticated) return;
       const targetLoc = currentLocation || DEFAULT_LOCATION;
       if (typeof targetLoc.latitude !== "number" || typeof targetLoc.longitude !== "number") return;
       try {
@@ -132,7 +138,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         toast.error("Failed to calculate route.");
       }
     },
-    [currentLocation]
+    [currentLocation, isAuthenticated]
   );
 
   const refreshLocation = useCallback(() => {

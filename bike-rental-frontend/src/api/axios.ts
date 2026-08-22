@@ -54,6 +54,18 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      const refreshToken = storage.getRefreshToken();
+      if (!refreshToken) {
+        storage.removeToken();
+        storage.removeUser();
+        storage.removeRole();
+        storage.removeRefreshToken();
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+          window.location.href = "/login";
+        }
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -69,11 +81,6 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = storage.getRefreshToken();
-        if (!refreshToken) {
-          throw new Error("No refresh token available");
-        }
-
         const res = await axios.post(`${env.API_BASE_URL}/auth/refresh-token`, {
           refreshToken: refreshToken,
         });
@@ -100,7 +107,9 @@ api.interceptors.response.use(
         storage.removeUser();
         storage.removeRole();
         storage.removeRefreshToken();
-        window.location.href = "/login";
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
