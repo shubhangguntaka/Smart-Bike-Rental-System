@@ -1,25 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Activity,
-  CheckCircle2,
-  Database,
-  Globe,
-  HardDrive,
-  KeyRound,
-  Layout,
-  Moon,
-  RotateCcw,
-  Save,
-  Server,
-  Settings,
-  Shield,
-  ShieldCheck,
-  Sliders,
-  Sun,
-  Tv,
-  User,
-} from "lucide-react";
+import { Activity, CheckCircle2, Database, Globe, HardDrive, KeyRound, Layout, Moon, RotateCcw, Save, Server, Settings, Shield, ShieldCheck, Sliders, Sun, Tv, User, } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -104,11 +85,10 @@ export default function AdminSettings() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-                isActive
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${isActive
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+                }`}
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{tab.label}</span>
@@ -140,11 +120,10 @@ export default function AdminSettings() {
                     key={opt.id}
                     type="button"
                     onClick={() => setTheme(opt.id as any)}
-                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between space-y-3 cursor-pointer ${
-                      isCurrent
+                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between space-y-3 cursor-pointer ${isCurrent
                         ? "border-primary bg-primary/10 shadow-xs"
                         : "border-border bg-background hover:bg-muted/40"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <OptIcon className={`h-5 w-5 ${isCurrent ? "text-primary" : "text-muted-foreground"}`} />

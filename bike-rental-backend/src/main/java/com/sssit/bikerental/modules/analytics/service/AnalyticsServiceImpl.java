@@ -101,6 +101,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 analyticsRepository.countSuccessfulPayments(
                         startDate, endDate);
 
+        long failedPayments =
+                analyticsRepository.countFailedPayments(
+                        startDate, endDate);
+
         long totalRides =
                 analyticsRepository.countRidesBetween(startDate, endDate);
 
@@ -109,8 +113,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
         RideAnalyticsDTO rideAnalytics =
                 getRideAnalytics(today, today);
-        
-        
 
         if (rideAnalytics != null) {
             activeRides = rideAnalytics.getActiveRides();
@@ -144,7 +146,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
                 .totalRevenue(totalRevenue)
                 .successfulPayments(successfulPayments)
-                .failedPayments(0)
+                .failedPayments(failedPayments)
 
                 .totalRides(totalRides)
                 .activeRides(activeRides)
@@ -179,6 +181,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
         long successfulPayments =
                 analyticsRepository.countSuccessfulPayments(
+                        startDate,
+                        endDate
+                );
+
+        long failedPayments =
+                analyticsRepository.countFailedPayments(
                         startDate,
                         endDate
                 );
@@ -222,7 +230,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return RevenueAnalyticsDTO.builder()
                 .totalRevenue(totalRevenue)
                 .successfulPaymentCount(successfulPayments)
-                .failedPaymentCount(0)
+                .failedPaymentCount(failedPayments)
                 .averagePaymentAmount(averagePaymentAmount)
                 .revenueByDate(revenueByDate)
                 .build();
@@ -335,6 +343,18 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         endDate
                 );
 
+        long activeRides =
+                analyticsRepository.countActiveRidesBetween(
+                        startDate,
+                        endDate
+                );
+
+        long completedRides =
+                analyticsRepository.countCompletedRidesBetween(
+                        startDate,
+                        endDate
+                );
+
         Double totalDistance =
                 analyticsRepository.calculateTotalDistance(
                         startDate,
@@ -366,13 +386,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     totalDuration / totalRides;
         }
 
+        List<Object[]> rideRows =
+                analyticsRepository.countRidesByDate(
+                        startDate,
+                        endDate
+                );
+
         Map<String, Long> ridesByDate =
-                new LinkedHashMap<>();
+                toStringLongMap(rideRows);
 
         return RideAnalyticsDTO.builder()
                 .totalRides(totalRides)
-                .activeRides(0)
-                .completedRides(0)
+                .activeRides(activeRides)
+                .completedRides(completedRides)
                 .totalDistance(totalDistance)
                 .averageDistance(averageDistance)
                 .totalDuration(totalDuration)

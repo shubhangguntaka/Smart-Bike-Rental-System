@@ -271,15 +271,14 @@ List<Object[]> countRidesByDate(
   // =========================================================
 
   @Query("""
-      SELECT FUNCTION('DATE', b.createdAt),
-             COALESCE(SUM(b.rentalAmount), 0)
-      FROM Booking b
-      WHERE b.bookingStatus =
-            com.sssit.bikerental.modules.booking.enums.BookingStatus.COMPLETED
-        AND b.createdAt >= :startDate
-        AND b.createdAt < :endDate
-      GROUP BY FUNCTION('DATE', b.createdAt)
-      ORDER BY FUNCTION('DATE', b.createdAt)
+      SELECT FUNCTION('DATE', p.paymentDate),
+             COALESCE(SUM(p.amount), 0)
+      FROM Payment p
+      WHERE p.status = 'SUCCESS'
+        AND p.paymentDate >= :startDate
+        AND p.paymentDate < :endDate
+      GROUP BY FUNCTION('DATE', p.paymentDate)
+      ORDER BY FUNCTION('DATE', p.paymentDate)
       """)
   List<Object[]> revenueByDate(
       @Param("startDate") LocalDateTime startDate,

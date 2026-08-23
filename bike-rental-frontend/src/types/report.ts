@@ -56,4 +56,5 @@ export interface PaymentReportRow {
   status: string;
 
   paymentDate?: string;
+  createdAt?: string;
 }
