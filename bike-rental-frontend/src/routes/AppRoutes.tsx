@@ -83,11 +83,11 @@ const AppRoutes = () => {
           <Route path="maps" element={<MapPage />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
-          <Route path="pricing" element={<PricingPage />} />
-          <Route path="faq" element={<FAQPage />} />
-          <Route path="help" element={<HelpPage />} />
-          <Route path="privacy" element={<PrivacyPolicyPage />} />
-          <Route path="terms" element={<TermsPage />} />
+          {/* <Route path="pricing" element={<PricingPage />} /> */}
+          {/* <Route path="faq" element={<FAQPage />} /> */}
+          {/* <Route path="help" element={<HelpPage />} /> */}
+          {/* <Route path="privacy" element={<PrivacyPolicyPage />} /> */}
+          {/* <Route path="terms" element={<TermsPage />} /> */}
         </Route>
 
         {/* Auth Routes */}

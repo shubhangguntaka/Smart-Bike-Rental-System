@@ -44,20 +44,15 @@ export const PUBLIC_NAVIGATION = [
     icon: Compass,
   },
   {
-    label: "Pricing & Plans",
-    path: "/pricing",
-    icon: FileText,
-  },
-  {
-    label: "Find Hubs",
-    path: "/stations",
-    icon: MapPin,
-  },
-  {
-    label: "Contact Support",
+    label: "Contact",
     path: "/contact",
     icon: Phone,
   },
+  {
+    label: "About",
+    path: "/about",
+    icon: Info,
+  }
 ];
 
 /* ===========================

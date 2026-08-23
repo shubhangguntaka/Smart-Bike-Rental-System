@@ -12,15 +12,15 @@ export default function Navbar() {
           <NavbarLogo />
         </div>
 
-        {/* Center Public Navigation Links */}
+        {/* Center Public Navigation Links
         <div className="hidden lg:flex items-center justify-center">
+        </div> */}
           <NavbarLinks />
-        </div>
 
-        {/* Search Bar - hidden on mobile/tablet */}
+        {/* Search Bar - hidden on mobile/tablet
         <div className="hidden xl:block w-72">
           <NavbarSearch />
-        </div>
+        </div> */}
 
         {/* Right Actions Toggles & Buttons */}
         <NavbarActions />
