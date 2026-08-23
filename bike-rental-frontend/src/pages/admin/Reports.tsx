@@ -53,6 +53,7 @@ const formatCurrency = (value: number) => {
 };
 
 type AnalyticsRange =
+  | "ALL"
   | "TODAY"
   | "7DAYS"
   | "30DAYS"
@@ -73,6 +74,10 @@ const getDateRange = (range: AnalyticsRange) => {
   let from = new Date(today);
 
   switch (range) {
+    case "ALL":
+      from = new Date(2020, 0, 1);
+      break;
+
     case "TODAY":
       break;
 
@@ -93,7 +98,7 @@ const getDateRange = (range: AnalyticsRange) => {
       break;
 
     default:
-      from.setDate(today.getDate() - 29);
+      from = new Date(2020, 0, 1);
   }
 
   return {
@@ -103,7 +108,45 @@ const getDateRange = (range: AnalyticsRange) => {
 };
 
 export default function AdminReports() {
-  const loadReport = async () => {
+  type ReportType = "bookings" | "revenue" | "bikes" | "payments";
+
+  const [selectedReport, setSelectedReport] =
+    useState<ReportType>("bookings");
+
+  const [reportData, setReportData] = useState<
+    | BookingReportRow[]
+    | RevenueReportRow[]
+    | BikeReportRow[]
+    | PaymentReportRow[]
+  >([]);
+
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [analyticsRange, setAnalyticsRange] =
+    useState<AnalyticsRange>("ALL");
+
+  const [dashboard, setDashboard] =
+    useState<DashboardAnalytics | null>(null);
+
+  const [revenue, setRevenue] =
+    useState<RevenueAnalytics | null>(null);
+
+  const [bookings, setBookings] =
+    useState<BookingAnalytics>({});
+
+  const [bikes, setBikes] =
+    useState<BikeAnalytics>({});
+
+  const [users, setUsers] =
+    useState<UserAnalytics>({});
+
+  const [rides, setRides] =
+    useState<RideAnalytics | null>(null);
+
+  const loadReport = useCallback(async () => {
     try {
       setReportLoading(true);
       setReportError(null);
@@ -135,7 +178,7 @@ export default function AdminReports() {
           break;
       }
 
-      setReportData(data);
+      setReportData(data || []);
     } catch (error) {
       console.error("Failed to load report:", error);
 
@@ -145,7 +188,61 @@ export default function AdminReports() {
     } finally {
       setReportLoading(false);
     }
-  };
+  }, [selectedReport, analyticsRange]);
+
+  useEffect(() => {
+    void loadReport();
+  }, [loadReport]);
+
+  const loadAnalytics = useCallback(
+    async (
+      range: AnalyticsRange = analyticsRange,
+      refresh = false
+    ) => {
+      try {
+        if (refresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        const selectedRange = getDateRange(range);
+
+        const [
+          dashboardData,
+          revenueData,
+          bookingData,
+          bikeData,
+          userData,
+          rideData,
+        ] = await Promise.all([
+          analyticsService.getDashboard(),
+          analyticsService.getRevenue(selectedRange),
+          analyticsService.getBookings(selectedRange),
+          analyticsService.getBikes(selectedRange),
+          analyticsService.getUsers(selectedRange),
+          analyticsService.getRides(selectedRange),
+        ]);
+
+        setDashboard(dashboardData);
+        setRevenue(revenueData);
+        setBookings(bookingData || {});
+        setBikes(bikeData || {});
+        setUsers(userData || {});
+        setRides(rideData);
+
+      } catch (error) {
+        console.error("Failed to load analytics:", error);
+        toast.error("Failed to load analytics data.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }, [analyticsRange]);
+
+  useEffect(() => {
+    void loadAnalytics();
+  }, [loadAnalytics]);
 
   const exportReportToPDF = () => {
     if (!reportData.length) {
@@ -216,6 +313,7 @@ export default function AdminReports() {
 
     doc.save(`${selectedReport}-report.pdf`);
   };
+
   const exportReportToCSV = () => {
     if (!reportData.length) {
       return;
@@ -256,94 +354,6 @@ export default function AdminReports() {
 
     URL.revokeObjectURL(url);
   };
-  type ReportType = "bookings" | "revenue" | "bikes" | "payments";
-
-  const [selectedReport, setSelectedReport] =
-    useState<ReportType>("bookings");
-
-  const [reportData, setReportData] = useState<
-    | BookingReportRow[]
-    | RevenueReportRow[]
-    | BikeReportRow[]
-    | PaymentReportRow[]
-  >([]);
-
-  const [reportLoading, setReportLoading] = useState(false);
-
-  const [reportError, setReportError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const [analyticsRange, setAnalyticsRange] =
-    useState<AnalyticsRange>("30DAYS");
-
-  const [dashboard, setDashboard] =
-    useState<DashboardAnalytics | null>(null);
-
-  const [revenue, setRevenue] =
-    useState<RevenueAnalytics | null>(null);
-
-  const [bookings, setBookings] =
-    useState<BookingAnalytics>({});
-
-  const [bikes, setBikes] =
-    useState<BikeAnalytics>({});
-
-  const [users, setUsers] =
-    useState<UserAnalytics>({});
-
-  const [rides, setRides] =
-    useState<RideAnalytics | null>(null);
-
-  const loadAnalytics = useCallback(
-    async (
-      range: AnalyticsRange = analyticsRange,
-      refresh = false
-    ) => {
-      try {
-        if (refresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        const selectedRange = getDateRange(range);
-
-        const [
-          dashboardData,
-          revenueData,
-          bookingData,
-          bikeData,
-          userData,
-          rideData,
-        ] = await Promise.all([
-          analyticsService.getDashboard(),
-          analyticsService.getRevenue(selectedRange),
-          analyticsService.getBookings(selectedRange),
-          analyticsService.getBikes(selectedRange),
-          analyticsService.getUsers(selectedRange),
-          analyticsService.getRides(selectedRange),
-        ]);
-
-        setDashboard(dashboardData);
-        setRevenue(revenueData);
-        setBookings(bookingData || {});
-        setBikes(bikeData || {});
-        setUsers(userData || {});
-        setRides(rideData);
-
-      } catch (error) {
-        console.error("Failed to load analytics:", error);
-        toast.error("Failed to load analytics data.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }, [analyticsRange]);
-
-  useEffect(() => {
-    void loadAnalytics();
-  }, [loadAnalytics]);
 
   /*
    * Revenue chart
@@ -461,10 +471,6 @@ export default function AdminReports() {
       <div className="bg-card border border-border rounded-3xl p-6 shadow-xs">
         <div className="flex flex-col md:flex-row justify-between gap-4">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-              Member 4 — Reports & Analytics
-            </span>
-
             <h1 className="text-2xl font-serif font-bold mt-1">
               Executive Analytics Dashboard
             </h1>
@@ -510,6 +516,10 @@ export default function AdminReports() {
 
           <div className="flex flex-wrap gap-2">
             {[
+              {
+                id: "ALL" as AnalyticsRange,
+                label: "All Time",
+              },
               {
                 id: "TODAY" as AnalyticsRange,
                 label: "Today",
@@ -853,28 +863,26 @@ export default function AdminReports() {
         </div>
       </div>
 
-      <section className="mt-6 rounded-xl border bg-white p-6">
+      {/* Detailed Operational Reports */}
+      <section className="bg-card border border-border rounded-3xl p-6 shadow-xs">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-serif font-bold text-foreground">
               Detailed Reports
             </h2>
 
-            <p className="text-sm text-gray-500">
-              Generate operational reports for the selected period.
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Live operational reports automatically generated for the selected timeframe.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <select
               value={selectedReport}
               onChange={(e) => {
-                setSelectedReport(
-                  e.target.value as ReportType
-                );
-                setReportData([]);
+                setSelectedReport(e.target.value as ReportType);
               }}
-              className="rounded-lg border px-4 py-2"
+              className="bg-background border border-border text-foreground rounded-xl px-3.5 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
             >
               <option value="bookings">Bookings</option>
               <option value="revenue">Revenue</option>
@@ -885,12 +893,11 @@ export default function AdminReports() {
             <select
               value={analyticsRange}
               onChange={(e) =>
-                setAnalyticsRange(
-                  e.target.value as AnalyticsRange
-                )
+                setAnalyticsRange(e.target.value as AnalyticsRange)
               }
-              className="rounded-lg border px-4 py-2"
+              className="bg-background border border-border text-foreground rounded-xl px-3.5 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
             >
+              <option value="ALL">All Time</option>
               <option value="TODAY">Today</option>
               <option value="7DAYS">Last 7 Days</option>
               <option value="30DAYS">Last 30 Days</option>
@@ -899,25 +906,18 @@ export default function AdminReports() {
 
             <button
               type="button"
-              onClick={() => void loadReport()}
-              disabled={reportLoading}
-              className="rounded-lg px-4 py-2 font-medium"
-            >
-              {reportLoading ? "Loading..." : "Generate Report"}
-            </button>
-            <button
-              type="button"
               onClick={exportReportToCSV}
-              disabled={reportData.length === 0}
-              className="rounded-lg px-4 py-2 font-medium"
+              disabled={reportData.length === 0 || reportLoading}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
             >
               Export CSV
             </button>
+
             <button
               type="button"
               onClick={exportReportToPDF}
-              disabled={reportData.length === 0}
-              className="rounded-lg px-4 py-2 font-medium"
+              disabled={reportData.length === 0 || reportLoading}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
             >
               Export PDF
             </button>
@@ -925,26 +925,33 @@ export default function AdminReports() {
         </div>
 
         {reportError && (
-          <div className="mt-4 rounded-lg border p-3 text-sm">
+          <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
             {reportError}
           </div>
         )}
 
-        {!reportLoading && reportData.length === 0 && !reportError && (
-          <div className="mt-6 rounded-lg border p-6 text-center text-gray-500">
-            Select a report and click "Generate Report".
+        {reportLoading && (
+          <div className="mt-8 py-12 text-center">
+            <div className="animate-spin mx-auto mb-2 h-6 w-6 rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-xs text-muted-foreground font-medium">Updating report data...</p>
           </div>
         )}
 
-        {reportData.length > 0 && (
-          <div className="mt-6 overflow-x-auto rounded-lg border">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
+        {!reportLoading && reportData.length === 0 && !reportError && (
+          <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+            No records found for the selected {selectedReport} report within this timeframe.
+          </div>
+        )}
+
+        {!reportLoading && reportData.length > 0 && (
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-border bg-card shadow-2xs">
+            <table className="min-w-full text-xs">
+              <thead className="bg-muted/40 border-b border-border">
                 <tr>
                   {Object.keys(reportData[0]).map((key) => (
                     <th
                       key={key}
-                      className="whitespace-nowrap border-b px-4 py-3 text-left font-semibold text-gray-700"
+                      className="whitespace-nowrap px-4 py-3 text-left font-bold text-muted-foreground uppercase text-[10px] tracking-wider"
                     >
                       {key
                         .replace(/([A-Z])/g, " $1")
@@ -958,12 +965,12 @@ export default function AdminReports() {
                 {reportData.map((row, rowIndex) => (
                   <tr
                     key={rowIndex}
-                    className="hover:bg-gray-50"
+                    className="border-b border-border/50 hover:bg-muted/30 transition last:border-b-0"
                   >
                     {Object.entries(row).map(([key, value]) => (
                       <td
                         key={key}
-                        className="whitespace-nowrap border-b px-4 py-3 text-gray-600"
+                        className="whitespace-nowrap px-4 py-3 text-foreground font-medium"
                       >
                         {value === null || value === undefined
                           ? "-"
