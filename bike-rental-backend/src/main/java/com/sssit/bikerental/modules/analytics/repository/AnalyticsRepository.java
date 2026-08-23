@@ -96,6 +96,17 @@ public interface AnalyticsRepository extends JpaRepository<Booking, Long> {
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
 
+      @Query("""
+    SELECT COUNT(p)
+    FROM Payment p
+    WHERE p.status = 'FAILED'
+      AND p.paymentDate >= :startDate
+      AND p.paymentDate < :endDate
+    """)
+long countFailedPayments(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
   // =========================================================
   // RIDE ANALYTICS
   // =========================================================
@@ -110,6 +121,43 @@ public interface AnalyticsRepository extends JpaRepository<Booking, Long> {
   long countRidesBetween(
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
+
+      @Query("""
+    SELECT COUNT(r)
+    FROM Ride r
+    WHERE r.startedAt IS NOT NULL
+      AND r.endedAt IS NULL
+      AND r.startedAt >= :startDate
+      AND r.startedAt < :endDate
+    """)
+long countActiveRidesBetween(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+@Query("""
+    SELECT COUNT(r)
+    FROM Ride r
+    WHERE r.startedAt IS NOT NULL
+      AND r.endedAt IS NOT NULL
+      AND r.startedAt >= :startDate
+      AND r.startedAt < :endDate
+    """)
+long countCompletedRidesBetween(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+@Query("""
+    SELECT FUNCTION('DATE', r.startedAt), COUNT(r)
+    FROM Ride r
+    WHERE r.startedAt IS NOT NULL
+      AND r.startedAt >= :startDate
+      AND r.startedAt < :endDate
+    GROUP BY FUNCTION('DATE', r.startedAt)
+    ORDER BY FUNCTION('DATE', r.startedAt)
+    """)
+List<Object[]> countRidesByDate(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
 
   @Query("""
       SELECT COALESCE(SUM(r.totalDistance), 0)
