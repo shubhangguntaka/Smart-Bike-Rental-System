@@ -35,19 +35,17 @@ export interface RevenueReportRow {
 export interface BikeReportRow {
   bikeId: number;
   ownerId: number;
-
   bikeName: string;
   brand: string;
   model: string;
   registrationNumber: string;
-
   rentalPrice: number;
   location: string;
-  status: string;
-
-  totalBookings?: number;
-  completedRides?: number;
-  utilizationPercentage?: number;
+  bikeStatus: string;
+  rentalType?: string;
+  hourlyRate?: number;
+  availableDate?: string;
+  createdAt?: string;
 }
 
 export interface PaymentReportRow {

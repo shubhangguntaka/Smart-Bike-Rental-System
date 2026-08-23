@@ -1,43 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Activity,
-  Bike,
-  Calendar,
-  CalendarCheck,
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  RefreshCw,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Activity,Bike,Calendar,CalendarCheck,CheckCircle2,Clock,CreditCard,RefreshCw,TrendingUp, Users,} from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid,Cell,Legend,Pie,PieChart,ResponsiveContainer,Tooltip,XAxis,YAxis,} from "recharts";
+import reportService from "@/services/reportService";
+
+import type { BookingReportRow,RevenueReportRow,BikeReportRow,PaymentReportRow,} from "@/types/report";
 import toast from "react-hot-toast";
 
 import analyticsService from "@/services/analyticsService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-import type {
-  DashboardAnalytics,
-  RevenueAnalytics,
-  BookingAnalytics,
-  BikeAnalytics,
-  UserAnalytics,
-  RideAnalytics,
-} from "@/types/analytics";
+import type { DashboardAnalytics,RevenueAnalytics,BookingAnalytics,BikeAnalytics,UserAnalytics,RideAnalytics,} from "@/types/analytics";
 
 interface MetricCardProps {
   title: string;
@@ -136,10 +109,178 @@ const getDateRange = (range: AnalyticsRange) => {
 };
 
 export default function AdminReports() {
+  const loadReport = async () => {
+  try {
+    setReportLoading(true);
+    setReportError(null);
+
+    const { from, to } = getDateRange(analyticsRange);
+
+    const dateRange = {
+      from,
+      to,
+    };
+
+    let data;
+
+    switch (selectedReport) {
+      case "bookings":
+        data = await reportService.getBookings(dateRange);
+        break;
+
+      case "revenue":
+        data = await reportService.getRevenue(dateRange);
+        break;
+
+      case "bikes":
+        data = await reportService.getBikes(dateRange);
+        break;
+
+      case "payments":
+        data = await reportService.getPayments(dateRange);
+        break;
+    }
+
+    setReportData(data);
+  } catch (error) {
+    console.error("Failed to load report:", error);
+
+    setReportError(
+      "Unable to load report data. Please try again."
+    );
+  } finally {
+    setReportLoading(false);
+  }
+};
+
+const exportReportToPDF = () => {
+  if (!reportData.length) {
+    return;
+  }
+
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const title =
+    `${selectedReport.charAt(0).toUpperCase()}${selectedReport.slice(1)} Report`;
+
+  doc.setFontSize(18);
+  doc.text(title, 14, 15);
+
+  const { from, to } = getDateRange(analyticsRange);
+
+  doc.setFontSize(10);
+  doc.text(
+    `Period: ${from} to ${to}`,
+    14,
+    22
+  );
+
+  const headers = Object.keys(reportData[0]);
+
+  const rows = reportData.map((row) =>
+    headers.map((header) => {
+      const value = row[header as keyof typeof row];
+
+      if (value === null || value === undefined) {
+        return "-";
+      }
+
+      if (typeof value === "object") {
+        return JSON.stringify(value);
+      }
+
+      return String(value);
+    })
+  );
+
+  autoTable(doc, {
+    head: [
+      headers.map((header) =>
+        header
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (str) => str.toUpperCase())
+      ),
+    ],
+    body: rows,
+    startY: 28,
+    styles: {
+      fontSize: 7,
+      cellPadding: 2,
+    },
+    headStyles: {
+      fontSize: 7,
+    },
+    margin: {
+      left: 10,
+      right: 10,
+    },
+  });
+
+  doc.save(`${selectedReport}-report.pdf`);
+};
+const exportReportToCSV = () => {
+  if (!reportData.length) {
+    return;
+  }
+
+  const headers = Object.keys(reportData[0]);
+
+  const rows = reportData.map((row) =>
+    headers.map((header) => {
+      const value = row[header as keyof typeof row];
+
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      return `"${String(value).replace(/"/g, '""')}"`;
+    })
+  );
+
+  const csv = [
+    headers.join(","),
+    ...rows.map((row) => row.join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${selectedReport}-report.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+};
+  type ReportType = "bookings" | "revenue" | "bikes" | "payments";
+
+const [selectedReport, setSelectedReport] =
+  useState<ReportType>("bookings");
+
+const [reportData, setReportData] = useState<
+  | BookingReportRow[]
+  | RevenueReportRow[]
+  | BikeReportRow[]
+  | PaymentReportRow[]
+>([]);
+
+const [reportLoading, setReportLoading] = useState(false);
+
+const [reportError, setReportError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 const [refreshing, setRefreshing] = useState(false);
 
-const [dateRange, setDateRange] =
+const [analyticsRange, setAnalyticsRange] =
   useState<AnalyticsRange>("30DAYS");
 
   const [dashboard, setDashboard] =
@@ -162,7 +303,7 @@ const [dateRange, setDateRange] =
 
   const loadAnalytics = useCallback(
   async (
-    range: AnalyticsRange = dateRange,
+    range: AnalyticsRange = analyticsRange,
     refresh = false
   ) => {
     try {
@@ -204,7 +345,7 @@ analyticsService.getRides(selectedRange),
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateRange]);
+  }, [analyticsRange]);
 
   useEffect(() => {
     void loadAnalytics();
@@ -395,10 +536,10 @@ analyticsService.getRides(selectedRange),
         <button
           key={range.id}
           type="button"
-          onClick={() => setDateRange(range.id)}
+          onClick={() => setAnalyticsRange(range.id)}
           disabled={loading || refreshing}
           className={`px-3 py-2 rounded-xl text-xs font-bold transition ${
-            dateRange === range.id
+            analyticsRange === range.id
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           } disabled:opacity-60`}
@@ -718,6 +859,133 @@ analyticsService.getRides(selectedRange),
           </div>
         </div>
       </div>
+
+      <section className="mt-6 rounded-xl border bg-white p-6">
+  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h2 className="text-xl font-semibold">
+        Detailed Reports
+      </h2>
+
+      <p className="text-sm text-gray-500">
+        Generate operational reports for the selected period.
+      </p>
+    </div>
+
+    <div className="flex flex-wrap gap-3">
+      <select
+        value={selectedReport}
+        onChange={(e) => {
+          setSelectedReport(
+            e.target.value as ReportType
+          );
+          setReportData([]);
+        }}
+        className="rounded-lg border px-4 py-2"
+      >
+        <option value="bookings">Bookings</option>
+        <option value="revenue">Revenue</option>
+        <option value="bikes">Bikes</option>
+        <option value="payments">Payments</option>
+      </select>
+
+      <select
+  value={analyticsRange}
+  onChange={(e) =>
+    setAnalyticsRange(
+      e.target.value as AnalyticsRange
+    )
+  }
+  className="rounded-lg border px-4 py-2"
+>
+  <option value="TODAY">Today</option>
+  <option value="7DAYS">Last 7 Days</option>
+  <option value="30DAYS">Last 30 Days</option>
+  <option value="THIS_MONTH">This Month</option>
+</select>
+
+      <button
+        type="button"
+        onClick={() => void loadReport()}
+        disabled={reportLoading}
+        className="rounded-lg px-4 py-2 font-medium"
+      >
+        {reportLoading ? "Loading..." : "Generate Report"}
+      </button>
+      <button
+  type="button"
+  onClick={exportReportToCSV}
+  disabled={reportData.length === 0}
+  className="rounded-lg px-4 py-2 font-medium"
+>
+  Export CSV
+</button>
+<button
+  type="button"
+  onClick={exportReportToPDF}
+  disabled={reportData.length === 0}
+  className="rounded-lg px-4 py-2 font-medium"
+>
+  Export PDF
+</button>
+    </div>
+  </div>
+
+  {reportError && (
+    <div className="mt-4 rounded-lg border p-3 text-sm">
+      {reportError}
+    </div>
+  )}
+
+  {!reportLoading && reportData.length === 0 && !reportError && (
+    <div className="mt-6 rounded-lg border p-6 text-center text-gray-500">
+      Select a report and click "Generate Report".
+    </div>
+  )}
+
+  {reportData.length > 0 && (
+  <div className="mt-6 overflow-x-auto rounded-lg border">
+    <table className="min-w-full text-sm">
+      <thead className="bg-gray-50">
+        <tr>
+          {Object.keys(reportData[0]).map((key) => (
+            <th
+              key={key}
+              className="whitespace-nowrap border-b px-4 py-3 text-left font-semibold text-gray-700"
+            >
+              {key
+                .replace(/([A-Z])/g, " $1")
+                .replace(/^./, (str) => str.toUpperCase())}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody>
+        {reportData.map((row, rowIndex) => (
+          <tr
+            key={rowIndex}
+            className="hover:bg-gray-50"
+          >
+            {Object.entries(row).map(([key, value]) => (
+              <td
+                key={key}
+                className="whitespace-nowrap border-b px-4 py-3 text-gray-600"
+              >
+                {value === null || value === undefined
+                  ? "-"
+                  : typeof value === "object"
+                    ? JSON.stringify(value)
+                    : String(value)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
+</section>
 
       {/* Additional statistics */}
       <div className="bg-card border border-border rounded-3xl p-6 shadow-xs">
