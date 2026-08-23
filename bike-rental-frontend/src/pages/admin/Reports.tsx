@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Bike,
+  Calendar,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -84,29 +85,62 @@ const formatCurrency = (value: number) => {
   })}`;
 };
 
-const getDateRange = () => {
-  const to = new Date();
-  const from = new Date();
+type AnalyticsRange =
+  | "TODAY"
+  | "7DAYS"
+  | "30DAYS"
+  | "THIS_MONTH";
 
-  from.setDate(to.getDate() - 29);
+const formatAnalyticsDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
-    return `${year}-${month}-${day}`;
-  };
+const getDateRange = (range: AnalyticsRange) => {
+  const today = new Date();
+
+  const to = new Date(today);
+  let from = new Date(today);
+
+  switch (range) {
+    case "TODAY":
+      break;
+
+    case "7DAYS":
+      from.setDate(today.getDate() - 6);
+      break;
+
+    case "30DAYS":
+      from.setDate(today.getDate() - 29);
+      break;
+
+    case "THIS_MONTH":
+      from = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      );
+      break;
+
+    default:
+      from.setDate(today.getDate() - 29);
+  }
 
   return {
-    from: formatDate(from),
-    to: formatDate(to),
+    from: formatAnalyticsDate(from),
+    to: formatAnalyticsDate(to),
   };
 };
 
 export default function AdminReports() {
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+const [refreshing, setRefreshing] = useState(false);
+
+const [dateRange, setDateRange] =
+  useState<AnalyticsRange>("30DAYS");
 
   const [dashboard, setDashboard] =
     useState<DashboardAnalytics | null>(null);
@@ -126,7 +160,11 @@ export default function AdminReports() {
   const [rides, setRides] =
     useState<RideAnalytics | null>(null);
 
-  const loadAnalytics = useCallback(async (refresh = false) => {
+  const loadAnalytics = useCallback(
+  async (
+    range: AnalyticsRange = dateRange,
+    refresh = false
+  ) => {
     try {
       if (refresh) {
         setRefreshing(true);
@@ -134,7 +172,7 @@ export default function AdminReports() {
         setLoading(true);
       }
 
-      const dateRange = getDateRange();
+      const selectedRange = getDateRange(range);
 
       const [
         dashboardData,
@@ -145,11 +183,11 @@ export default function AdminReports() {
         rideData,
       ] = await Promise.all([
         analyticsService.getDashboard(),
-        analyticsService.getRevenue(dateRange),
-        analyticsService.getBookings(dateRange),
-        analyticsService.getBikes(dateRange),
-        analyticsService.getUsers(dateRange),
-        analyticsService.getRides(dateRange),
+        analyticsService.getRevenue(selectedRange),
+analyticsService.getBookings(selectedRange),
+analyticsService.getBikes(selectedRange),
+analyticsService.getUsers(selectedRange),
+analyticsService.getRides(selectedRange),
       ]);
 
       setDashboard(dashboardData);
@@ -166,7 +204,7 @@ export default function AdminReports() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     void loadAnalytics();
@@ -304,7 +342,7 @@ export default function AdminReports() {
 
           <button
             type="button"
-            onClick={() => void loadAnalytics(true)}
+            onClick={() => void loadAnalytics()}
             disabled={refreshing}
             className="self-start px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-muted transition flex items-center gap-2 text-sm font-bold disabled:opacity-60"
           >
@@ -317,6 +355,60 @@ export default function AdminReports() {
           </button>
         </div>
       </div>
+
+      {/* Analysis Timeframe */}
+<div className="bg-card border border-border rounded-2xl p-4 shadow-xs">
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="flex items-center gap-2">
+      <Calendar className="h-4 w-4 text-primary" />
+
+      <div>
+        <p className="text-xs font-bold text-foreground">
+          Analysis Timeframe
+        </p>
+
+        <p className="text-[11px] text-muted-foreground">
+          Select the period for analytics and charts
+        </p>
+      </div>
+    </div>
+
+    <div className="flex flex-wrap gap-2">
+      {[
+        {
+          id: "TODAY" as AnalyticsRange,
+          label: "Today",
+        },
+        {
+          id: "7DAYS" as AnalyticsRange,
+          label: "Last 7 Days",
+        },
+        {
+          id: "30DAYS" as AnalyticsRange,
+          label: "Last 30 Days",
+        },
+        {
+          id: "THIS_MONTH" as AnalyticsRange,
+          label: "This Month",
+        },
+      ].map((range) => (
+        <button
+          key={range.id}
+          type="button"
+          onClick={() => setDateRange(range.id)}
+          disabled={loading || refreshing}
+          className={`px-3 py-2 rounded-xl text-xs font-bold transition ${
+            dateRange === range.id
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          } disabled:opacity-60`}
+        >
+          {range.label}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
 
       {/* Dashboard Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
