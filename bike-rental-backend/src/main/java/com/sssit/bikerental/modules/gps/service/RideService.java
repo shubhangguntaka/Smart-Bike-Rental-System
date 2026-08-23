@@ -10,7 +10,13 @@ public interface RideService {
 
     RideDTO getRide(Long rideId);
 
+    RideDTO getRideByBookingId(Long bookingId);
+
     RideDTO endRide(Long rideId);
+
+    RideDTO pauseRide(Long rideId);
+
+    RideDTO resumeRide(Long rideId);
 
     List<RideDTO> getCustomerRides(Long customerId);
 

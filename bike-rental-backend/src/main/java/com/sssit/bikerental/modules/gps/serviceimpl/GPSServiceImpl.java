@@ -93,7 +93,11 @@ public class GPSServiceImpl implements GPSService {
         location.setRideId(rideId);
         location.setLatitude(locationDTO.getLatitude());
         location.setLongitude(locationDTO.getLongitude());
-        location.setTimestamp(locationDTO.getTimestamp());
+        location.setTimestamp(
+                locationDTO.getTimestamp() != null
+                        ? locationDTO.getTimestamp()
+                        : java.time.LocalDateTime.now()
+        );
         location.setAccuracy(locationDTO.getAccuracy());
 
         GPSLocation savedLocation = gpsRepository.save(location);

@@ -18,6 +18,10 @@ export const ROUTES = {
     BOOKINGS: "/customer/bookings",
     PROFILE: "/customer/profile",
     SETTINGS: "/customer/settings",
+
+    LIVE_GPS: "/customer/live-gps",
+    RIDE_TRACKING: "/customer/ride-tracking",
+    RIDE_HISTORY: "/customer/ride-history",
   },
 
   OWNER: {
@@ -31,6 +35,7 @@ export const ROUTES = {
     PAYMENTS: "/owner/payments",
     PROFILE: "/owner/profile",
     SETTINGS: "/owner/settings",
+    TRACK_BIKE: (rideId: number | string) => `/owner/track-bike/${rideId}`,
   },
 
   ADMIN: {
@@ -42,4 +47,4 @@ export const ROUTES = {
     VERIFICATION: "/admin/verification",
     SETTINGS: "/admin/settings",
   },
-};
+};

@@ -26,6 +26,7 @@ public class Ride {
     private Long customerId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 32)
     private RideStatus status;
 
     private LocalDateTime startedAt;

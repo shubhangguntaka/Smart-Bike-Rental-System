@@ -1,242 +1,285 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Container,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  CircularProgress,
   Alert,
+  Box,
   Button,
-  Grid,
+  CircularProgress,
+  Container,
   Paper,
-  Divider,
+  Typography,
 } from "@mui/material";
-import NavigationIcon from "@mui/icons-material/Navigation";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import MapIcon from "@mui/icons-material/Map";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
-import { BookingService } from "../../services/bookingService";
-import useAuth from "../../hooks/useAuth";
-import type { Booking } from "../../types/booking";
 
-const liveUserIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+import { useRideTracking } from "@/hooks/useRideTracking";
+import useAuth from "@/hooks/useAuth";
 
-const bikeMarkerIcon = new L.Icon({
-  iconUrl: "/icons/motorbike.png",
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-});
+import { BookingService } from "@/services/bookingService";
+import { gpsService } from "@/services/gpsService";
+import type { Booking } from "@/types/booking";
+import type { Ride } from "@/types/ride";
+import RideStatusCard from "@/components/map/RideStatusCard";
+import LiveTracker from "@/components/map/LiveTracker";
+import RideSummaryCard from "@/components/map/RideSummaryCard";
 
-const RideTracking = () => {
+export default function RideTracking() {
   const { user } = useAuth();
-  const customerId = user?.id || 11;
 
-  const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
+  const customerId = user?.id;
+
+  const {
+    ride,
+    locations,
+    currentLocation,
+    isStarting,
+    isEnding,
+    isTracking,
+    error,
+    gpsError,
+    permissionDenied,
+    startRide,
+    endRide,
+    restoreActiveRide,
+  } = useRideTracking();
+
+  const [activeBooking, setActiveBooking] =
+    useState<Booking | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [bookingError, setBookingError] =
+    useState<string | null>(null);
 
-  const [rideDuration, setRideDuration] = useState("00:00:00");
-  const [currentLocation, setCurrentLocation] = useState("Koramangala 4th Block, Bangalore");
-  const [eta, setEta] = useState("15 mins");
-  const [trackingData, setTrackingData] = useState<any>(null);
+  /*
+   * Load the customer's active booking and recover any active ride.
+   */
+  const loadActiveBookingAndRide = async () => {
+    if (!customerId) {
+      setLoading(false);
+      return;
+    }
 
-  const loadActiveRide = async () => {
     try {
       setLoading(true);
-      setError(null);
+      setBookingError(null);
 
-      const list = await BookingService.fetchBookingHistory(customerId);
-      const active = list.find((b: any) => b.bookingStatus === "ACTIVE");
-      setActiveBooking(active || null);
+      // 1. Load active booking
+      let foundActiveBooking: Booking | null = null;
+      try {
+        const bookings = await BookingService.fetchBookingHistory(customerId);
+        const active = bookings.find(
+          (booking: Booking) => booking.bookingStatus === "ACTIVE"
+        );
+        foundActiveBooking = active ?? null;
+        setActiveBooking(foundActiveBooking);
+      } catch (bErr) {
+        console.warn("Could not fetch booking history:", bErr);
+      }
+
+      // 2. Recover active ride using GET /api/rides/customer?customerId=...
+      try {
+        const ridesRes = await gpsService.getCustomerRides(customerId);
+        const customerRides: Ride[] = ridesRes.data ?? [];
+
+        const activeRide = customerRides.find(
+          (r: Ride) => r.status === "ACTIVE"
+        );
+
+        if (activeRide) {
+          await restoreActiveRide(activeRide);
+        } else if (foundActiveBooking) {
+          try {
+            const bookingRideRes = await gpsService.getRideByBookingId(foundActiveBooking.bookingId);
+            if (bookingRideRes.data) {
+              await restoreActiveRide(bookingRideRes.data);
+            }
+          } catch {
+            // No ride created yet
+          }
+        }
+      } catch (rErr) {
+        console.warn("Could not fetch customer rides for recovery:", rErr);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to load active ride details.");
+      console.error(
+        "Failed to load active booking:",
+        err
+      );
+
+      setBookingError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load active booking."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadActiveRide();
+    loadActiveBookingAndRide();
   }, [customerId]);
 
-  useEffect(() => {
-    if (!activeBooking) return;
+  /*
+   * Start GPS ride tracking.
+   */
+  const handleStartTracking = async () => {
+    if (!activeBooking) {
+      return;
+    }
 
-    const fetchTracking = async () => {
-      try {
-        const data = await BookingService.getRideTracking(activeBooking.bookingId);
-        setTrackingData(data);
-        if (data.currentLocation) setCurrentLocation(data.currentLocation);
-        if (data.rideDuration) setRideDuration(data.rideDuration);
-        if (data.eta) setEta(data.eta);
-      } catch (err) {
-        console.error("Failed to fetch ride tracking data:", err);
-      }
-    };
+    if (!customerId) {
+      setBookingError(
+        "Customer information is not available."
+      );
+      return;
+    }
 
-    fetchTracking();
-    const interval = setInterval(fetchTracking, 3000);
+    await startRide(
+      activeBooking.bookingId,
+      activeBooking.bikeId,
+      customerId
+    );
+  };
 
-    return () => clearInterval(interval);
-  }, [activeBooking]);
+  /*
+   * Complete the ride.
+   */
+  const handleEndRide = async () => {
+    await endRide();
+  };
 
-  const mapLat = trackingData?.latitude || 12.9352;
-  const mapLng = trackingData?.longitude || 77.6245;
+  /*
+   * Loading state.
+   */
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="300px"
+        >
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-        <NavigationIcon color="primary" sx={{ fontSize: 36, transform: "rotate(45deg)" }} />
-        <Typography variant="h4" fontWeight="black" color="primary">
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box mb={4}>
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          gutterBottom
+        >
           Live Ride Tracking
+        </Typography>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+        >
+          Track your bike location and ride progress in
+          real time.
         </Typography>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {bookingError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {bookingError}
+        </Alert>
+      )}
 
-      {loading ? (
-        <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
-        </Box>
-      ) : !activeBooking ? (
-        <Paper sx={{ p: 5, textAlign: "center", borderRadius: 2 }}>
-          <Typography variant="h6" color="text.secondary" mb={2}>
-            No active ride found.
+      {!activeBooking && !ride ? (
+        <Paper
+          sx={{
+            p: 5,
+            textAlign: "center",
+            borderRadius: 3,
+          }}
+        >
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            gutterBottom
+          >
+            No active ride found
           </Typography>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            Once the bike owner confirms the pickup, your ride status transitions to ACTIVE and tracking starts.
+
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 3 }}
+          >
+            Once your booking becomes active, you can
+            start GPS ride tracking here.
           </Typography>
-          <Button variant="contained" color="primary" onClick={loadActiveRide}>
-            Refresh Tracking Status
+
+          <Button
+            variant="contained"
+            onClick={loadActiveBookingAndRide}
+          >
+            Refresh
           </Button>
         </Paper>
       ) : (
-        <Grid container spacing={3}>
-          {/* Tracking Stats */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: "100%", boxShadow: 3, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="subtitle1" color="primary" fontWeight="bold" gutterBottom>
-                  Ride Metrics
+        <Box
+          display="flex"
+          flexDirection="column"
+          gap={3}
+        >
+          {/* Ride status and controls */}
+          <RideStatusCard
+            ride={ride}
+            isTracking={isTracking}
+            isStarting={isStarting}
+            isEnding={isEnding}
+            error={error}
+            gpsError={gpsError}
+            permissionDenied={permissionDenied}
+            onStartTracking={handleStartTracking}
+            onEndRide={handleEndRide}
+          />
+
+          {/* Live map */}
+          {(ride || currentLocation) && (
+            <Paper
+              sx={{
+                overflow: "hidden",
+                borderRadius: 3,
+              }}
+            >
+              <Box sx={{ p: 2 }}>
+                <Typography
+                  variant="h6"
+                  fontWeight={600}
+                >
+                  Live Location
                 </Typography>
-                <Divider sx={{ mb: 2 }} />
 
-                <Box display="flex" alignItems="center" gap={2} mb={3}>
-                  <AccessTimeIcon color="action" fontSize="large" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">ELAPSED DURATION</Typography>
-                    <Typography variant="h5" fontWeight="bold" color="primary">
-                      {rideDuration}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box display="flex" alignItems="center" gap={2} mb={3}>
-                  <Box sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    bgcolor: "error.main",
-                    display: "inline-block",
-                    animation: "pulse 1.5s infinite"
-                  }} />
-                  <LocationOnIcon color="error" fontSize="large" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">CURRENT POSITION</Typography>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      {currentLocation}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box display="flex" alignItems="center" gap={2} mb={2}>
-                  <MapIcon color="action" fontSize="large" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">ESTIMATED ARRIVAL TIME (ETA)</Typography>
-                    <Typography variant="subtitle1" fontWeight="bold" color="success.main">
-                      {eta}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Location details */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: "100%", boxShadow: 3, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="subtitle1" color="primary" fontWeight="bold" gutterBottom>
-                  Trip Info
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                >
+                  Your current GPS position and travelled
+                  route.
                 </Typography>
-                <Divider sx={{ mb: 2 }} />
+              </Box>
 
-                <Box mb={2.5}>
-                  <Typography variant="caption" color="text.secondary" display="block">PICKUP POINT</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {trackingData?.pickupLocation || "Owner's registered location"}
-                  </Typography>
-                </Box>
-
-                <Box mb={2.5}>
-                  <Typography variant="caption" color="text.secondary" display="block">DROP POINT</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {trackingData?.dropLocation || "Return location (same as pickup)"}
-                  </Typography>
-                </Box>
-
-                <Box mb={2.5}>
-                  <Typography variant="caption" color="text.secondary" display="block">BOOKING REFERENCE</Typography>
-                  <Typography variant="body2" fontWeight="bold">BK-{activeBooking.bookingId}</Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Interactive Leaflet GPS Map */}
-          <Grid item xs={12}>
-            <Paper sx={{ height: 420, width: "100%", overflow: "hidden", borderRadius: 3, border: "1px solid #e0e0e0" }}>
-              <MapContainer
-                center={[mapLat, mapLng]}
-                zoom={14}
-                style={{ height: "100%", width: "100%" }}
-              >
-                <TileLayer
-                  attribution="© OpenStreetMap contributors"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker position={[mapLat, mapLng]} icon={bikeMarkerIcon}>
-                  <Popup>
-                    <strong>Live Ride Location</strong>
-                    <br />
-                    {currentLocation}
-                  </Popup>
-                </Marker>
-              </MapContainer>
+              <LiveTracker
+                currentLocation={currentLocation}
+                locations={locations}
+              />
             </Paper>
-          </Grid>
-        </Grid>
-      )}
+          )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pulse {
-          0% { transform: scale(0.9); opacity: 0.7; }
-          50% { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(0.9); opacity: 0.7; }
-        }
-      `}} />
+          {/* Completed ride summary */}
+          {ride?.status === "COMPLETED" && (
+            <RideSummaryCard ride={ride} />
+          )}
+        </Box>
+      )}
     </Container>
   );
-};
-
-export default RideTracking;
+}

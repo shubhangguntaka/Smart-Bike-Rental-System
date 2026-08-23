@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -11,10 +11,20 @@ import {
   FileText, 
   Sparkles,
   AlertCircle,
-  RotateCw
+  RotateCw,
+  Play,
+  Pause,
+  Square,
+  MapPin,
+  Compass,
+  Radio,
+  ExternalLink
 } from "lucide-react";
 import BookingQRCode from "../../components/booking/BookingQRCode";
 import { BookingService } from "../../services/bookingService";
+import { gpsService } from "../../services/gpsService";
+import { useRideTracking } from "../../hooks/useRideTracking";
+import useAuth from "../../hooks/useAuth";
 import type { Booking } from "../../types/booking";
 
 const BookingQRCodeComponent = (BookingQRCode as any).default || BookingQRCode;
@@ -22,10 +32,31 @@ const BookingQRCodeComponent = (BookingQRCode as any).default || BookingQRCode;
 const BookingQRCodePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const customerId = user?.id;
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  const {
+    ride,
+    locations,
+    currentLocation,
+    isStarting,
+    isEnding,
+    isTracking,
+    error: gpsError,
+    permissionDenied,
+    startRide,
+    endRide,
+    pauseRide,
+    resumeRide,
+    startTracking,
+    stopTracking,
+    restoreActiveRide,
+  } = useRideTracking();
 
   const formatDateTime = (dateStr?: string) => {
     try {
@@ -51,23 +82,87 @@ const BookingQRCodePage = () => {
     }
   };
 
-  const loadBooking = async () => {
+  const loadBookingAndRide = useCallback(async (isQuiet = false) => {
     if (!id) return;
     try {
-      setLoading(true);
-      setError(null);
+      if (!isQuiet) {
+        setLoading(true);
+        setError(null);
+      }
       const data = await BookingService.getBookingById(Number(id));
       setBooking(data);
+
+      // Check if ride already exists for this booking
+      if (data?.bookingId) {
+        try {
+          const rideRes = await gpsService.getRideByBookingId(data.bookingId);
+          if (rideRes.data) {
+            await restoreActiveRide(rideRes.data);
+          }
+        } catch {
+          // No ride created yet for this booking
+        }
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to load booking details.");
+      if (!isQuiet) {
+        setError(err.message || "Failed to load booking details.");
+      }
     } finally {
-      setLoading(false);
+      if (!isQuiet) {
+        setLoading(false);
+      }
+    }
+  }, [id, restoreActiveRide]);
+
+  useEffect(() => {
+    loadBookingAndRide();
+  }, [loadBookingAndRide]);
+
+  // Polling for owner return scan when booking is active
+  useEffect(() => {
+    if (!booking || booking.bookingStatus !== "ACTIVE") return;
+
+    const interval = setInterval(() => {
+      loadBookingAndRide(true);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [booking?.bookingStatus, loadBookingAndRide]);
+
+  // Handle Start / Resume Tracking
+  const handleStartOrResume = async () => {
+    if (!booking) return;
+
+    if (ride?.rideId && (ride.status === "PAUSED" || ride.status === "ACTIVE")) {
+      // Resume ride on backend (intimating owner) and resume browser GPS tracking
+      await resumeRide();
+      return;
+    }
+
+    if (customerId) {
+      // Start a new ride session with backend
+      await startRide(booking.bookingId, booking.bikeId, customerId);
     }
   };
 
-  useEffect(() => {
-    loadBooking();
-  }, [id]);
+  // Handle Pause Tracking
+  const handlePauseTracking = async () => {
+    if (ride?.rideId) {
+      // Pause ride on backend (intimating owner) and halt browser GPS tracking
+      await pauseRide();
+    } else {
+      stopTracking();
+    }
+  };
+
+  // Handle Stop / Return Click
+  const handleStopClick = async () => {
+    // Automatically pause tracking and display owner return scan modal
+    await handlePauseTracking();
+    setShowEndConfirm(true);
+  };
+
+  const isRideActive = ride?.status === "ACTIVE" || ride?.status === "PAUSED" || booking?.bookingStatus === "ACTIVE";
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -99,7 +194,7 @@ const BookingQRCodePage = () => {
             <p className="text-sm font-semibold">{error}</p>
             <button
               type="button"
-              onClick={loadBooking}
+              onClick={() => loadBookingAndRide()}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer"
             >
               <RotateCw className="w-3.5 h-3.5" />
@@ -118,6 +213,188 @@ const BookingQRCodePage = () => {
               <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Your Digital Booking Pass</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">Present this single pass for both vehicle collection and return.</p>
             </div>
+
+            {/* GPS Telemetry & Ride Action Controls Bar (Active Booking) */}
+            {isRideActive && (
+              <div className="bg-card/95 backdrop-blur-md border border-border/80 rounded-3xl shadow-xl p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/70">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                      isTracking 
+                        ? "bg-emerald-500/15 text-emerald-500 ring-2 ring-emerald-500/20 animate-pulse"
+                        : "bg-amber-500/15 text-amber-500"
+                    }`}>
+                      <Radio className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-foreground">Live GPS Ride Telemetry</h2>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                          isTracking
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : ride?.status === "ACTIVE"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                              : "bg-muted text-muted-foreground"
+                        }`}>
+                          {isTracking ? "● Tracking Active" : ride?.status === "ACTIVE" ? "⏸ Tracking Paused" : "Ready"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isTracking 
+                          ? "Broadcasting real-time vehicle GPS coordinates to server."
+                          : "Location broadcasting is paused. Click Start to resume."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Navigation shortcut to full Live GPS Page */}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/customer/live-gps")}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all cursor-pointer border border-primary/20"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Open Live Map</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
+                  </button>
+                </div>
+
+                {/* GPS Errors or Permission Warnings */}
+                {permissionDenied && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Location access denied. Please grant location permissions in your browser to broadcast GPS.</span>
+                  </div>
+                )}
+                {gpsError && !permissionDenied && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-2xl text-xs text-destructive flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{gpsError}</span>
+                  </div>
+                )}
+
+                {/* Quick Telemetry Indicators */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-2xl bg-muted/20 border border-border/50 space-y-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Latitude</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {currentLocation?.latitude ? currentLocation.latitude.toFixed(5) : "—"}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-muted/20 border border-border/50 space-y-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Longitude</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {currentLocation?.longitude ? currentLocation.longitude.toFixed(5) : "—"}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-muted/20 border border-border/50 space-y-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">GPS Accuracy</span>
+                    <span className="font-bold text-foreground">
+                      {currentLocation?.accuracy != null ? `±${Math.round(currentLocation.accuracy)} m` : "—"}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-muted/20 border border-border/50 space-y-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Checkpoints</span>
+                    <span className="font-bold text-primary">
+                      {locations.length} points
+                    </span>
+                  </div>
+                </div>
+
+                {/* Location Action Buttons: Start, Pause, Stop */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  {/* Start / Resume Button */}
+                  <button
+                    type="button"
+                    disabled={isTracking || isStarting}
+                    onClick={handleStartOrResume}
+                    className={`flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs active:scale-95 ${
+                      !isTracking
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/20"
+                        : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    {isStarting ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Play className="w-4 h-4 fill-current" />
+                    )}
+                    <span>{ride?.status === "ACTIVE" ? "Resume Tracking" : "Start Tracking"}</span>
+                  </button>
+
+                  {/* Pause Button */}
+                  <button
+                    type="button"
+                    disabled={!isTracking}
+                    onClick={handlePauseTracking}
+                    className={`flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs active:scale-95 ${
+                      isTracking
+                        ? "bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-500/20"
+                        : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    <Pause className="w-4 h-4 fill-current" />
+                    <span>Pause Tracking</span>
+                  </button>
+
+                  {/* Stop / Return Vehicle Button */}
+                  <button
+                    type="button"
+                    disabled={!booking || booking.bookingStatus !== "ACTIVE"}
+                    onClick={handleStopClick}
+                    className={`flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs active:scale-95 ${
+                      booking?.bookingStatus === "ACTIVE"
+                        ? "bg-rose-600 hover:bg-rose-700 text-white ring-2 ring-rose-500/20"
+                        : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                    <span>Stop / Return Bike</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Return Verification Modal */}
+            {showEndConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+                <div className="bg-card border border-border rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-foreground">Return Verification Required</h3>
+                      <p className="text-xs text-muted-foreground">Owner scan required to stop and complete rental</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs space-y-2">
+                    <p className="font-semibold">
+                      To complete the return and stop your ride session:
+                    </p>
+                    <p className="leading-relaxed">
+                      Please return the bike to the owner and present the <strong>Booking QR Code</strong> on this page. Once the owner scans and verifies the vehicle condition, your ride will officially end.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 p-3 bg-muted/30 rounded-xl border border-border/50 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>Awaiting owner return scan...</span>
+                  </div>
+
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowEndConfirm(false)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all cursor-pointer shadow-xs"
+                    >
+                      Show QR Code to Owner
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Equal Side-by-Side Grid Layout (50% / 50% width and matching height) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -261,7 +538,7 @@ const BookingQRCodePage = () => {
                   </div>
                   <p className="text-xs font-semibold text-foreground/90 leading-relaxed">
                     {booking.bookingStatus === "CONFIRMED" && "Show this QR code to the bike owner when collecting the vehicle to begin your journey."}
-                    {booking.bookingStatus === "ACTIVE" && `Bike handed over at ${formatDateTime(booking.actualPickupTime || "").time}. Present this same pass to return the bike.`}
+                    {booking.bookingStatus === "ACTIVE" && `Bike handed over at ${formatDateTime(booking.actualPickupTime || "").time}. Use the controls above to manage live GPS tracking.`}
                     {booking.bookingStatus === "COMPLETED" && `Bike returned at ${formatDateTime(booking.actualReturnTime || "").time}. Rental completed successfully.`}
                     {booking.bookingStatus !== "CONFIRMED" && booking.bookingStatus !== "ACTIVE" && booking.bookingStatus !== "COMPLETED" && "Keep this booking pass ready for validation."}
                   </p>
@@ -276,3 +553,4 @@ const BookingQRCodePage = () => {
 };
 
 export default BookingQRCodePage;
+

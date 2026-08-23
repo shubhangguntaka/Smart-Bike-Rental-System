@@ -29,6 +29,8 @@ import RideTracking from "../pages/customer/RideTracking";
 import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
 import Payment from "../pages/customer/Payment";
 import Notifications from "../pages/customer/Notifications";
+import LiveGPS from "../pages/customer/LiveGPS";
+import RideHistory from "../pages/customer/RideHistory";
 
 // Owner Pages
 import OwnerDashboard from "@/pages/owner/Dashboard";
@@ -40,6 +42,7 @@ import OwnerBookings from "@/pages/owner/Bookings";
 import OwnerPayments from "@/pages/owner/Payments";
 import OwnerProfile from "@/pages/owner/Profile";
 import OwnerSettings from "@/pages/owner/Settings";
+import TrackBike from "@/pages/owner/TrackBike";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -110,8 +113,26 @@ const AppRoutes = () => {
           <Route path="settings" element={<CustomerSettings />} />
           <Route path="book-bike" element={<Navigate to="/customer/explore-bikes" replace />} />
           <Route path="booking-history" element={<BookingHistory />} />
-          <Route path="ride-tracking" element={<RideTracking />} />
-          <Route path="booking-qr/:id" element={<BookingQRCodePage />} />
+
+          <Route
+            path="ride-tracking"
+            element={<RideTracking />}
+          />
+
+          <Route
+            path="live-gps"
+            element={<LiveGPS />}
+          />
+
+          <Route
+            path="ride-history"
+            element={<RideHistory />}
+          />
+
+          <Route
+            path="booking-qr/:id"
+            element={<BookingQRCodePage />}
+          />
           <Route path="payments" element={<ComingSoon />} />
           <Route path="payment/:bookingId" element={<Payment />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
@@ -143,6 +164,7 @@ const AppRoutes = () => {
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="settings" element={<OwnerSettings />} />
           <Route path="scan-booking" element={<Navigate to="/owner/bookings" replace />} />
+          <Route path="track-bike/:rideId" element={<TrackBike />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>
 

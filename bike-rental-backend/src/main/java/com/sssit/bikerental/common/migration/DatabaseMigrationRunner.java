@@ -50,5 +50,12 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 jdbcTemplate.execute("ALTER TABLE bikes MODIFY COLUMN " + col + " VARCHAR(255) NULL");
             } catch (Exception ignored) {}
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE rides MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'");
+            log.info("Rides table status column migration completed successfully.");
+        } catch (Exception e) {
+            log.debug("Could not alter rides status column: {}", e.getMessage());
+        }
     }
 }

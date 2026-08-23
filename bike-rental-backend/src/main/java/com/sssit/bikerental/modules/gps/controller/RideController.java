@@ -51,6 +51,16 @@ public class RideController {
         );
     }
 
+    @GetMapping("/booking/{bookingId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
+    public ResponseEntity<RideDTO> getRideByBookingId(
+            @PathVariable Long bookingId) {
+
+        return ResponseEntity.ok(
+                rideService.getRideByBookingId(bookingId)
+        );
+    }
+
     @PostMapping("/{rideId}/end")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<RideDTO> endRide(
@@ -58,6 +68,26 @@ public class RideController {
 
         return ResponseEntity.ok(
                 rideService.endRide(rideId)
+        );
+    }
+
+    @PostMapping("/{rideId}/pause")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<RideDTO> pauseRide(
+            @PathVariable Long rideId) {
+
+        return ResponseEntity.ok(
+                rideService.pauseRide(rideId)
+        );
+    }
+
+    @PostMapping("/{rideId}/resume")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<RideDTO> resumeRide(
+            @PathVariable Long rideId) {
+
+        return ResponseEntity.ok(
+                rideService.resumeRide(rideId)
         );
     }
 

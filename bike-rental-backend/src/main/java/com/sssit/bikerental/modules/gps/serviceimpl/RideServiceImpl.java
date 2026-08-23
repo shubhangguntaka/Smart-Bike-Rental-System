@@ -30,6 +30,36 @@ public class RideServiceImpl implements RideService {
     private final RideHistoryRepository rideHistoryRepository;
     private final AuthorizationService authorizationService;
     private final BookingRepository bookingRepository;
+    private final com.sssit.bikerental.modules.bike.repository.BikeRepository bikeRepository;
+    private final com.sssit.bikerental.modules.notification.entity.NotificationService notificationService;
+
+    private Long getOwnerIdForBike(Long bikeId) {
+        if (bikeId == null) return null;
+        return bikeRepository.findById(bikeId)
+                .map(com.sssit.bikerental.modules.bike.entity.Bike::getOwnerId)
+                .orElse(null);
+    }
+
+    private void notifyOwner(Long ownerId, String title, String message, String type) {
+        if (ownerId == null || notificationService == null) {
+            return;
+        }
+        try {
+            com.sssit.bikerental.modules.notification.entity.Notification notification =
+                    com.sssit.bikerental.modules.notification.entity.Notification.builder()
+                            .userId(ownerId)
+                            .title(title)
+                            .message(message)
+                            .notificationType(type)
+                            .isRead(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+            notificationService.sendNotification(notification);
+        } catch (Exception e) {
+            // Log and continue without failing ride transaction
+            System.err.println("Notice: could not deliver notification to owner " + ownerId + ": " + e.getMessage());
+        }
+    }
 
     @Override
     public RideDTO startRide(
@@ -63,9 +93,10 @@ public class RideServiceImpl implements RideService {
         }
 
         // 5. Validate booking status
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED
+                && booking.getBookingStatus() != BookingStatus.ACTIVE) {
             throw new RuntimeException(
-                    "Ride can only be started for a confirmed booking"
+                    "Ride can only be started for a confirmed or active booking"
             );
         }
 
@@ -115,7 +146,22 @@ public class RideServiceImpl implements RideService {
                         -> new RuntimeException("Ride not found with id: " + rideId)
                 );
 
-        authorizationService.validateCurrentUser(ride.getCustomerId());
+        authorizationService.validateRideAccess(ride);
+
+        return convertToRideDTO(ride);
+    }
+
+    @Override
+    public RideDTO getRideByBookingId(Long bookingId) {
+
+        Ride ride = rideRepository.findByBookingId(bookingId)
+                .orElseThrow(()
+                        -> new RuntimeException(
+                        "Ride not found for booking: " + bookingId
+                )
+                );
+
+        authorizationService.validateRideAccess(ride);
 
         return convertToRideDTO(ride);
     }
@@ -132,7 +178,7 @@ public class RideServiceImpl implements RideService {
 
         authorizationService.validateCurrentUser(ride.getCustomerId());
 
-        if (ride.getStatus() != RideStatus.ACTIVE) {
+        if (ride.getStatus() != RideStatus.ACTIVE && ride.getStatus() != RideStatus.PAUSED) {
             throw new RuntimeException(
                     "Ride is not active: " + rideId
             );
@@ -170,7 +216,68 @@ public class RideServiceImpl implements RideService {
 
         saveRideHistory(completedRide);
 
+        // Intimate bike owner that ride has completed
+        Long ownerId = getOwnerIdForBike(completedRide.getBikeId());
+        notifyOwner(
+                ownerId,
+                "Ride Completed",
+                "Customer has ended the ride for Bike #" + completedRide.getBikeId() + " (Ride #" + completedRide.getId() + "). Distance: " + String.format("%.2f", totalDistance) + " km.",
+                "RIDE_COMPLETED"
+        );
+
         return convertToRideDTO(completedRide);
+    }
+
+    @Override
+    public RideDTO pauseRide(Long rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found with id: " + rideId));
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
+
+        if (ride.getStatus() == RideStatus.ACTIVE) {
+            ride.setStatus(RideStatus.PAUSED);
+            Ride saved = rideRepository.save(ride);
+
+            // Intimate bike owner that ride tracking has been paused
+            Long ownerId = getOwnerIdForBike(saved.getBikeId());
+            notifyOwner(
+                    ownerId,
+                    "Ride Tracking Paused",
+                    "Customer has paused live GPS tracking for Bike #" + saved.getBikeId() + " (Ride #" + saved.getId() + ").",
+                    "RIDE_PAUSED"
+            );
+
+            return convertToRideDTO(saved);
+        }
+
+        return convertToRideDTO(ride);
+    }
+
+    @Override
+    public RideDTO resumeRide(Long rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found with id: " + rideId));
+
+        authorizationService.validateCurrentUser(ride.getCustomerId());
+
+        if (ride.getStatus() == RideStatus.PAUSED) {
+            ride.setStatus(RideStatus.ACTIVE);
+            Ride saved = rideRepository.save(ride);
+
+            // Intimate bike owner that ride tracking has resumed
+            Long ownerId = getOwnerIdForBike(saved.getBikeId());
+            notifyOwner(
+                    ownerId,
+                    "Ride Tracking Resumed",
+                    "Customer has resumed live GPS tracking for Bike #" + saved.getBikeId() + " (Ride #" + saved.getId() + ").",
+                    "RIDE_RESUMED"
+            );
+
+            return convertToRideDTO(saved);
+        }
+
+        return convertToRideDTO(ride);
     }
 
     private double calculateRideDistance(Long rideId) {
@@ -280,7 +387,13 @@ public class RideServiceImpl implements RideService {
                                 "Ride history not found for ride: " + rideId
                         )
                         );
-        authorizationService.validateCurrentUser(history.getCustomerId());
+
+        Ride ride = rideRepository.findById(rideId).orElse(null);
+        if (ride != null) {
+            authorizationService.validateRideAccess(ride);
+        } else {
+            authorizationService.validateCurrentUser(history.getCustomerId());
+        }
 
         return new RideDTO(
                 history.getRideId(),

@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useOwnerStore } from "../../store/ownerStore";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import BookingQRScanner from "../../components/owner/BookingQRScanner";
+import { gpsService } from "@/services/gpsService";
 import { 
     Calendar, 
     Clock, 
@@ -16,7 +18,8 @@ import {
     User,
     Bike,
     TrendingUp,
-    CreditCard
+    CreditCard,
+    MapPin
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -41,6 +44,7 @@ const getStatusBadgeClass = (status: string) => {
 };
 
 export default function OwnerBookings() {
+    const navigate = useNavigate();
     const { 
         bookingRequests, 
         loading, 
@@ -60,6 +64,25 @@ export default function OwnerBookings() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [actioningId, setActioningId] = useState<number | null>(null);
+    const [trackingLoadingId, setTrackingLoadingId] = useState<number | null>(null);
+
+    const handleTrackBike = async (bookingId: number) => {
+        setTrackingLoadingId(bookingId);
+        try {
+            const res = await gpsService.getRideByBookingId(bookingId);
+            if (res.data?.rideId) {
+                navigate(`/owner/track-bike/${res.data.rideId}`);
+            } else {
+                toast.error("Active ride not found for this booking.");
+            }
+        } catch (err: any) {
+            console.error("Failed to find ride for booking:", err);
+            const msg = err.response?.data?.message || err.message || "Failed to locate active ride session.";
+            toast.error(msg);
+        } finally {
+            setTrackingLoadingId(null);
+        }
+    };
 
     useEffect(() => {
         fetchBookingRequests(true);
@@ -328,6 +351,22 @@ export default function OwnerBookings() {
                             </div>
 
                             <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
+                                {booking.bookingStatus === "ACTIVE" && (
+                                    <button
+                                        type="button"
+                                        disabled={trackingLoadingId !== null}
+                                        onClick={() => handleTrackBike(booking.bookingId)}
+                                        className="px-3.5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                        title="Track My Bike"
+                                    >
+                                        {trackingLoadingId === booking.bookingId ? (
+                                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                        ) : (
+                                            <MapPin className="h-3.5 w-3.5" />
+                                        )}
+                                        Track My Bike
+                                    </button>
+                                )}
                                 <div>
                                     <span className="text-lg font-black text-foreground">{formatCurrency(booking.rentalAmount)}</span>
                                     <p className="text-[10px] text-muted-foreground font-semibold">Rental Amount</p>
@@ -485,7 +524,34 @@ export default function OwnerBookings() {
                             </button>
                         </div>
                     )}
-                    {(!selectedBooking || selectedBooking.bookingStatus !== "PENDING") && (
+                    {selectedBooking && selectedBooking.bookingStatus === "ACTIVE" && (
+                        <div className="flex gap-2 w-full justify-between items-center">
+                            <button
+                                type="button"
+                                disabled={trackingLoadingId !== null}
+                                onClick={() => {
+                                    setIsDetailsOpen(false);
+                                    handleTrackBike(selectedBooking.bookingId);
+                                }}
+                                className="px-4 py-2.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            >
+                                {trackingLoadingId === selectedBooking.bookingId ? (
+                                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                ) : (
+                                    <MapPin className="h-4 w-4" />
+                                )}
+                                Track My Bike
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsDetailsOpen(false)}
+                                className="px-4 py-2.5 text-xs font-bold bg-muted hover:bg-muted/80 text-foreground rounded-xl transition-all cursor-pointer"
+                            >
+                                Close Details
+                            </button>
+                        </div>
+                    )}
+                    {(!selectedBooking || (selectedBooking.bookingStatus !== "PENDING" && selectedBooking.bookingStatus !== "ACTIVE")) && (
                         <button
                             type="button"
                             onClick={() => setIsDetailsOpen(false)}

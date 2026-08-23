@@ -638,6 +638,27 @@ bikeRepository.save(bike);
         bike.setBikeStatus(BikeStatus.AVAILABLE);
         bikeRepository.save(bike);
 
+        // Complete any associated active or paused Ride for this booking
+        try {
+            rideRepository.findByBookingId(savedBooking.getId()).ifPresent(ride -> {
+                if (ride.getStatus() == RideStatus.ACTIVE || ride.getStatus() == RideStatus.PAUSED) {
+                    ride.setStatus(RideStatus.COMPLETED);
+                    ride.setEndedAt(savedBooking.getActualReturnTime());
+                    if (ride.getStartedAt() != null && savedBooking.getActualReturnTime() != null) {
+                        long duration = java.time.Duration.between(
+                                ride.getStartedAt(),
+                                savedBooking.getActualReturnTime()
+                        ).getSeconds();
+                        ride.setTotalDuration(duration);
+                    }
+                    rideRepository.save(ride);
+                    log.info("Ride #{} completed upon return confirmation for booking #{}", ride.getId(), savedBooking.getId());
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to complete ride for bookingId: {}", savedBooking.getId(), e);
+        }
+
         // Send completion notifications to bike owner and customer
         try {
             java.time.format.DateTimeFormatter timeFormatter = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");

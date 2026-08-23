@@ -50,6 +50,12 @@ class RideServiceAuthorizationTest {
     @Mock
     private BookingRepository bookingRepository;
 
+    @Mock
+    private com.sssit.bikerental.modules.bike.repository.BikeRepository bikeRepository;
+
+    @Mock
+    private com.sssit.bikerental.modules.notification.entity.NotificationService notificationService;
+
     @InjectMocks
     private RideServiceImpl rideService;
 
@@ -149,14 +155,14 @@ class RideServiceAuthorizationTest {
     }
 
     @Test
-    void getRide_ShouldReject_WhenRideBelongsToAnotherCustomer() {
+    void getRide_ShouldReject_WhenRideAccessDenied() {
 
         testRide.setCustomerId(100L);
 
         doThrow(new ResourceOwnershipException(
-                "Access Denied: You can only access your own data"))
+                "Access Denied: You are not authorized to access this ride"))
                 .when(authorizationService)
-                .validateCurrentUser(100L);
+                .validateRideAccess(testRide);
 
         when(rideRepository.findById(1L))
                 .thenReturn(Optional.of(testRide));
@@ -167,7 +173,29 @@ class RideServiceAuthorizationTest {
         );
 
         verify(authorizationService, times(1))
-                .validateCurrentUser(100L);
+                .validateRideAccess(testRide);
+    }
+
+    @Test
+    void getRideByBookingId_ShouldReject_WhenRideAccessDenied() {
+
+        testRide.setCustomerId(100L);
+
+        doThrow(new ResourceOwnershipException(
+                "Access Denied: You are not authorized to access this ride"))
+                .when(authorizationService)
+                .validateRideAccess(testRide);
+
+        when(rideRepository.findByBookingId(1L))
+                .thenReturn(Optional.of(testRide));
+
+        assertThrows(
+                ResourceOwnershipException.class,
+                () -> rideService.getRideByBookingId(1L)
+        );
+
+        verify(authorizationService, times(1))
+                .validateRideAccess(testRide);
     }
 
     @Test
@@ -193,7 +221,7 @@ class RideServiceAuthorizationTest {
     }
 
     @Test
-    void getRideHistory_ShouldReject_WhenHistoryBelongsToAnotherCustomer() {
+    void getRideHistory_ShouldReject_WhenHistoryAccessDenied() {
 
         RideHistory history = new RideHistory();
 
@@ -208,11 +236,13 @@ class RideServiceAuthorizationTest {
 
         when(rideHistoryRepository.findByRideId(1L))
                 .thenReturn(Optional.of(history));
+        when(rideRepository.findById(1L))
+                .thenReturn(Optional.of(testRide));
 
         doThrow(new ResourceOwnershipException(
-                "Access Denied: You can only access your own data"))
+                "Access Denied: You are not authorized to access this ride"))
                 .when(authorizationService)
-                .validateCurrentUser(100L);
+                .validateRideAccess(testRide);
 
         assertThrows(
                 ResourceOwnershipException.class,
@@ -223,7 +253,7 @@ class RideServiceAuthorizationTest {
                 .findByRideId(1L);
 
         verify(authorizationService, times(1))
-                .validateCurrentUser(100L);
+                .validateRideAccess(testRide);
     }
 
     @Test
@@ -267,5 +297,64 @@ class RideServiceAuthorizationTest {
 
         verify(rideRepository, times(1))
                 .save(any(Ride.class));
+    }
+
+    @Test
+    void pauseRide_ShouldPauseAndNotifyOwner_WhenRideIsActive() {
+        testRide.setStatus(RideStatus.ACTIVE);
+        when(rideRepository.findById(1L)).thenReturn(Optional.of(testRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Bike bike = new Bike();
+        bike.setBikeId(10L);
+        bike.setOwnerId(200L);
+        when(bikeRepository.findById(10L)).thenReturn(Optional.of(bike));
+
+        RideDTO result = rideService.pauseRide(1L);
+
+        assertNotNull(result);
+        assertEquals(RideStatus.PAUSED, result.getStatus());
+        verify(authorizationService, times(1)).validateCurrentUser(100L);
+        verify(notificationService, times(1)).sendNotification(any());
+    }
+
+    @Test
+    void resumeRide_ShouldResumeAndNotifyOwner_WhenRideIsPaused() {
+        testRide.setStatus(RideStatus.PAUSED);
+        when(rideRepository.findById(1L)).thenReturn(Optional.of(testRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Bike bike = new Bike();
+        bike.setBikeId(10L);
+        bike.setOwnerId(200L);
+        when(bikeRepository.findById(10L)).thenReturn(Optional.of(bike));
+
+        RideDTO result = rideService.resumeRide(1L);
+
+        assertNotNull(result);
+        assertEquals(RideStatus.ACTIVE, result.getStatus());
+        verify(authorizationService, times(1)).validateCurrentUser(100L);
+        verify(notificationService, times(1)).sendNotification(any());
+    }
+
+    @Test
+    void endRide_ShouldCompleteAndNotifyOwner_WhenRideIsActive() {
+        testRide.setStatus(RideStatus.ACTIVE);
+        when(rideRepository.findById(1L)).thenReturn(Optional.of(testRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(gpsRepository.findTopByRideIdOrderByTimestampDesc(1L)).thenReturn(Optional.empty());
+        when(gpsRepository.findByRideIdOrderByTimestampAsc(1L)).thenReturn(List.of());
+
+        Bike bike = new Bike();
+        bike.setBikeId(10L);
+        bike.setOwnerId(200L);
+        when(bikeRepository.findById(10L)).thenReturn(Optional.of(bike));
+
+        RideDTO result = rideService.endRide(1L);
+
+        assertNotNull(result);
+        assertEquals(RideStatus.COMPLETED, result.getStatus());
+        verify(authorizationService, times(1)).validateCurrentUser(100L);
+        verify(notificationService, times(1)).sendNotification(any());
     }
 }
