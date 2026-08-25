@@ -788,6 +788,9 @@ bikeRepository.save(bike);
                     response.setBikeImage(bike.getImageUrl());
                     response.setRegistrationNumber(bike.getRegistrationNumber());
                     response.setOwnerId(bike.getOwnerId());
+                    response.setLatitude(bike.getLatitude());
+                    response.setLongitude(bike.getLongitude());
+                    response.setLocation(bike.getLocation());
                     userRepository.findById(bike.getOwnerId()).ifPresent(owner -> {
                         response.setOwnerName(owner.getFullName());
                     });

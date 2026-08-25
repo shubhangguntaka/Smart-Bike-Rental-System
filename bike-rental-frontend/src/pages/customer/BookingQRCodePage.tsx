@@ -18,9 +18,11 @@ import {
   MapPin,
   Compass,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Navigation
 } from "lucide-react";
 import BookingQRCode from "../../components/booking/BookingQRCode";
+import BikeDirectionsModal from "../../components/booking/BikeDirectionsModal";
 import { BookingService } from "../../services/bookingService";
 import { gpsService } from "../../services/gpsService";
 import { useRideTracking } from "../../hooks/useRideTracking";
@@ -39,6 +41,7 @@ const BookingQRCodePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
 
   const {
     ride,
@@ -168,7 +171,7 @@ const BookingQRCodePage = () => {
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Navigation & Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => navigate("/customer/bookings")}
@@ -178,9 +181,22 @@ const BookingQRCodePage = () => {
             <span>Back to Bookings</span>
           </button>
 
-          <span className="text-[11px] font-mono font-semibold text-muted-foreground uppercase tracking-widest">
-            Verification Pass
-          </span>
+          <div className="flex items-center gap-3">
+            {booking && (
+              <button
+                type="button"
+                onClick={() => setShowDirections(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 cursor-pointer shadow-md active:scale-95 ring-2 ring-emerald-500/20"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Directions to Bike</span>
+              </button>
+            )}
+
+            <span className="text-[11px] font-mono font-semibold text-muted-foreground uppercase tracking-widest">
+              Verification Pass
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -406,6 +422,7 @@ const BookingQRCodePage = () => {
                   bookingStatus={booking.bookingStatus}
                   actualPickupTime={booking.actualPickupTime}
                   actualReturnTime={booking.actualReturnTime}
+                  onOpenDirections={() => setShowDirections(true)}
                 />
               </div>
 
@@ -545,6 +562,13 @@ const BookingQRCodePage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Live Directions Path Modal */}
+            <BikeDirectionsModal
+              isOpen={showDirections}
+              onClose={() => setShowDirections(false)}
+              booking={booking}
+            />
           </div>
         )}
       </div>

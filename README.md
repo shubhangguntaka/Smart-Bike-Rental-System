@@ -536,8 +536,6 @@ CUSTOMER
 Customer 2
 Email:
 neha.customer@bikerental.test
-
-
 Password:
 Customer@123
 

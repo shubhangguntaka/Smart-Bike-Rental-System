@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
-import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2, CheckCircle2, XCircle, QrCode, Star } from "lucide-react";
+import { Calendar, Clock, CreditCard, ChevronRight, Eye, ShieldCheck, Loader2, CheckCircle2, XCircle, QrCode, Star, Navigation } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuth from "@/hooks/useAuth";
 import { BookingService } from "@/services/bookingService";
 import reviewService from "@/services/reviewService";
 import ReviewForm from "@/components/review/ReviewForm";
+import BikeDirectionsModal from "@/components/booking/BikeDirectionsModal";
 import type { Review, ReviewDTO } from "@/types/review";
 
 export default function CustomerBookings() {
@@ -19,6 +20,7 @@ export default function CustomerBookings() {
   const [search, setSearch] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [directionBooking, setDirectionBooking] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("request-desc");
 
@@ -274,16 +276,28 @@ export default function CustomerBookings() {
                     <p className="text-[10px] text-muted-foreground font-semibold">Total Paid</p>
                   </div>
 
-                  {(bStatus === "CONFIRMED" || bStatus === "ACTIVE") && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/customer/booking-qr/${bId}`)}
-                      className="px-3 py-2 rounded-xl border border-primary hover:bg-primary/5 text-primary text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none flex items-center gap-1.5"
-                      title="View QR Code"
-                    >
-                      <QrCode className="h-4 w-4" />
-                      <span>View QR</span>
-                    </button>
+                  {(bStatus === "CONFIRMED" || bStatus === "ACTIVE" || bStatus === "APPROVED") && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/customer/booking-qr/${bId}`)}
+                        className="px-3 py-2 rounded-xl border border-primary hover:bg-primary/5 text-primary text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none flex items-center gap-1.5"
+                        title="View QR Code Pass"
+                      >
+                        <QrCode className="h-4 w-4" />
+                        <span>View QR</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDirectionBooking(booking)}
+                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none flex items-center gap-1.5 shadow-sm active:scale-95 ring-2 ring-emerald-500/20"
+                        title="Directions to Accepted Bike"
+                      >
+                        <Navigation className="h-3.5 w-3.5" />
+                        <span>Directions</span>
+                      </button>
+                    </div>
                   )}
 
                   {bStatus === "COMPLETED" && (() => {
@@ -437,6 +451,13 @@ export default function CustomerBookings() {
           </ModalBody>
         </Modal>
       )}
+
+      {/* Directions to Accepted Bike Modal */}
+      <BikeDirectionsModal
+        isOpen={!!directionBooking}
+        onClose={() => setDirectionBooking(null)}
+        booking={directionBooking}
+      />
     </div>
   );
 }

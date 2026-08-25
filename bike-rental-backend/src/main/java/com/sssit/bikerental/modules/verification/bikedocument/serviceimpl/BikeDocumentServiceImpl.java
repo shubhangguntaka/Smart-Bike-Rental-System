@@ -177,7 +177,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             // out of it.
             //-----------------------------------
 
-            if (!documentTypeValidator.isRCDocument(rawText)) {
+            if (!documentTypeValidator.isRCDocument(rawText, registrationNumberParam)) {
 
                 response.setVerified(false);
                 response.setStatus("REJECTED");
@@ -200,7 +200,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
                 String normOcr = rcData.getRegistrationNumber() != null ? rcData.getRegistrationNumber().toUpperCase().replaceAll("[\\s-]", "") : "";
                 String normRaw = rawText != null ? rawText.toUpperCase().replaceAll("[\\s-]", "") : "";
                 
-                if (normOcr.isEmpty() || normRaw.contains(normEntered) || NameMatchUtil.namesRoughlyMatch(normEntered, normOcr)) {
+                if (normOcr.isEmpty() || normRaw.contains(normEntered) || NameMatchUtil.namesRoughlyMatch(normEntered, normOcr) || normEntered.matches("^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$")) {
                     rcData.setRegistrationNumber(normEntered);
                 }
             }
@@ -300,12 +300,24 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
                 return response;
             }
 
+            if ((rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) && matchedAadhaar != null && rawText != null) {
+                String aadhaarName = matchedAadhaar.getCustomerName();
+                if (aadhaarName != null) {
+                    for (String part : aadhaarName.split("\\s+")) {
+                        if (part.length() >= 3 && rawText.toUpperCase().contains(part.toUpperCase())) {
+                            rcData.setOwnerName(aadhaarName);
+                            break;
+                        }
+                    }
+                }
+            }
+
             // Perform explicit 80% fuzzy name matching check between verified Aadhaar and RC owner name
             if (rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) {
                 response.setVerified(false);
                 response.setStatus("REJECTED");
                 response.setOwnerAadhaarNameMatched(false);
-                response.setMessage("RC Owner Name does not match verified Aadhaar Name ('" + matchedAadhaar.getCustomerName() + "'). Please ensure you upload your own RC document.");
+                response.setMessage("RC Owner Name could not be detected. Please ensure you upload a clear image of your RC document.");
                 applyStamp(response, false);
 
                 return response;

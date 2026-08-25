@@ -48,9 +48,10 @@ export default function DistanceCard({
           .then((res) => {
             const data = res.data?.data || res.data;
             if (data?.distanceInKm !== undefined) {
+              const d = data.distanceInKm;
               setDistanceInfo({
-                distanceKm: data.distanceInKm,
-                estimatedTime: data.estimatedTime || `${Math.round((data.distanceInKm / 30) * 60)} mins drive`,
+                distanceKm: d < 0.05 ? 0.0 : d,
+                estimatedTime: d < 0.05 ? "< 1 min (At location)" : data.estimatedTime || `${Math.round((d / 30) * 60)} mins drive`,
               });
             }
           })
@@ -66,16 +67,17 @@ export default function DistanceCard({
                   Math.sin(dLon / 2) *
                   Math.sin(dLon / 2);
               const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-              const dist = R * c;
+              const dist = Number((R * c).toFixed(1));
               setDistanceInfo({
-                distanceKm: dist,
-                estimatedTime: `${Math.round((dist / 30) * 60)} mins drive`,
+                distanceKm: dist < 0.05 ? 0.0 : dist,
+                estimatedTime: dist < 0.05 ? "< 1 min (At location)" : `${Math.max(1, Math.round((dist / 30) * 60))} mins drive`,
               });
             }
           })
           .finally(() => setLoading(false));
       },
-      () => {}
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   }, [bikeId, latitude, longitude]);
 

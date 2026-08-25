@@ -30,12 +30,16 @@ public class RCDocumentTypeValidator {
             Pattern.compile("\\b[A-Z]{5}\\d{4}[A-Z]\\b");
 
     public boolean isRCDocument(String rawText) {
+        return isRCDocument(rawText, null);
+    }
 
-        if (rawText == null || rawText.isBlank()) {
+    public boolean isRCDocument(String rawText, String registrationNumberParam) {
+
+        if ((rawText == null || rawText.isBlank()) && (registrationNumberParam == null || registrationNumberParam.isBlank())) {
             return false;
         }
 
-        String lower = rawText.toLowerCase();
+        String lower = rawText != null ? rawText.toLowerCase() : "";
 
         //-----------------------------------
         // Reject if it clearly belongs to another document type
@@ -44,7 +48,7 @@ public class RCDocumentTypeValidator {
         if (lower.contains("income tax department")
                 || lower.contains("permanent account number")
                 || lower.contains("income tax")
-                || PAN_NUMBER_PATTERN.matcher(rawText).find()) {
+                || (rawText != null && PAN_NUMBER_PATTERN.matcher(rawText).find())) {
             return false;
         }
 
@@ -65,7 +69,7 @@ public class RCDocumentTypeValidator {
         }
 
         if ((lower.contains("aadhaar") || lower.contains("aadhar") || lower.contains("uidai"))
-                && AADHAAR_NUMBER_PATTERN.matcher(rawText).find()
+                && rawText != null && AADHAAR_NUMBER_PATTERN.matcher(rawText).find()
                 && !lower.contains("registration")) {
             return false;
         }
@@ -81,12 +85,35 @@ public class RCDocumentTypeValidator {
                         || lower.contains("form 23")
                         || lower.contains("regional transport")
                         || lower.contains("registering authority")
+                        || lower.contains("transport department")
+                        || lower.contains("transport")
                         || lower.contains("rto")
                         || lower.contains("chassis number")
-                        || lower.contains("engine number");
+                        || lower.contains("chassis")
+                        || lower.contains("engine number")
+                        || lower.contains("engine")
+                        || lower.contains("regn. number")
+                        || lower.contains("regn")
+                        || lower.contains("regd. owner")
+                        || lower.contains("regd owner")
+                        || lower.contains("vehicle class")
+                        || lower.contains("motor cycle")
+                        || lower.contains("maker's class")
+                        || lower.contains("makers class")
+                        || lower.contains("fuel used")
+                        || lower.contains("type of body")
+                        || lower.contains("registration");
 
-        boolean hasRegNumberPattern = REG_NUMBER_PATTERN.matcher(rawText).find();
+        boolean hasRegNumberPattern = rawText != null && REG_NUMBER_PATTERN.matcher(rawText).find();
 
-        return hasRCKeyword || hasRegNumberPattern;
+        boolean matchesEnteredRegistration = false;
+        if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
+            String normEntered = registrationNumberParam.toUpperCase().replaceAll("[\\s-]", "");
+            if (REG_NUMBER_PATTERN.matcher(normEntered).find()) {
+                matchesEnteredRegistration = true;
+            }
+        }
+
+        return hasRCKeyword || hasRegNumberPattern || matchesEnteredRegistration;
     }
 }

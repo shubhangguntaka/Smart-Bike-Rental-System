@@ -1,6 +1,6 @@
 import React from "react";
 import QRCode from "react-qr-code";
-import { QrCode, ShieldCheck, CheckCircle2, Clock, Sparkles } from "lucide-react";
+import { QrCode, ShieldCheck, CheckCircle2, Clock, Sparkles, Navigation } from "lucide-react";
 
 interface Props {
   value: string;
@@ -8,9 +8,17 @@ interface Props {
   bookingStatus: string;
   actualPickupTime?: string;
   actualReturnTime?: string;
+  onOpenDirections?: () => void;
 }
 
-const BookingQRCode = ({ value, bookingId, bookingStatus, actualPickupTime, actualReturnTime }: Props) => {
+const BookingQRCode = ({
+  value,
+  bookingId,
+  bookingStatus,
+  actualPickupTime,
+  actualReturnTime,
+  onOpenDirections,
+}: Props) => {
   const isDataUri = value?.startsWith("data:");
 
   const formatTimeAMPM = (dateStr?: string) => {
@@ -109,6 +117,18 @@ const BookingQRCode = ({ value, bookingId, bookingStatus, actualPickupTime, actu
         </div>
       </div>
 
+      {/* Action: Directions to Bike button beside/under QR */}
+      {onOpenDirections && (
+        <button
+          type="button"
+          onClick={onOpenDirections}
+          className="mb-3 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer ring-2 ring-emerald-500/20"
+        >
+          <Navigation className="w-4 h-4" />
+          <span>Directions to Accepted Bike</span>
+        </button>
+      )}
+
       {/* Status Specific Guidance Note */}
       <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 text-xs text-muted-foreground leading-relaxed text-center">
         {bookingStatus === "CONFIRMED" && (
@@ -143,4 +163,4 @@ const BookingQRCode = ({ value, bookingId, bookingStatus, actualPickupTime, actu
   );
 };
 
-export default BookingQRCode;
+export default BookingQRCode;

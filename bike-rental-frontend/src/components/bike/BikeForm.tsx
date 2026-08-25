@@ -18,10 +18,13 @@ import {
   Gauge,
   Fuel,
   Users,
+  Compass,
+  Edit3,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { Bike, BikeStatus } from "../../types/bike";
 import { BIKE_STATUSES } from "../../types/bike";
+import LocationPickerModal from "./LocationPickerModal";
 
 export interface BikeFormProps {
   initial: Bike;
@@ -44,6 +47,7 @@ const BikeForm = ({
 }: BikeFormProps) => {
   const [bike, setBike] = useState<Bike>({ ...initial });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,10 +62,10 @@ const BikeForm = ({
       ...prev,
       [name]:
         name === "rentalPrice" ||
-        name === "hourlyRate" ||
-        name === "seatingCapacity" ||
-        name === "latitude" ||
-        name === "longitude"
+          name === "hourlyRate" ||
+          name === "seatingCapacity" ||
+          name === "latitude" ||
+          name === "longitude"
           ? value === ""
             ? 0
             : Number(value)
@@ -199,28 +203,55 @@ const BikeForm = ({
     }
     setDetectingGps(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = parseFloat(pos.coords.latitude.toFixed(6));
         const lng = parseFloat(pos.coords.longitude.toFixed(6));
+
+        let resolvedLocation = bike.location || "Hyderabad";
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          if (data && data.display_name) {
+            const addr = data.address || {};
+            const neighbourhood =
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.commercial ||
+              addr.residential ||
+              addr.road;
+            const city = addr.city || addr.town || "Hyderabad";
+            if (neighbourhood && neighbourhood !== city) {
+              resolvedLocation = `${neighbourhood}, ${city}`;
+            } else {
+              resolvedLocation = data.display_name.split(",").slice(0, 2).join(",").trim();
+            }
+          }
+        } catch {
+          // safe fallback
+        }
+
         setBike((prev) => ({
           ...prev,
           latitude: lat,
           longitude: lng,
-          location: prev.location || "Hyderabad",
+          location: resolvedLocation,
         }));
-        toast.success(`Live GPS Coordinates attached! (${lat}, ${lng})`);
+        toast.success(`Live GPS attached: ${resolvedLocation} (${lat}, ${lng})`);
         setDetectingGps(false);
       },
       () => {
         toast.error("Could not fetch GPS location. Please check browser permissions.");
         setDetectingGps(false);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 
   const inputClass = (name: string) =>
-    `w-full rounded-2xl border bg-background/90 px-4 py-3 text-sm font-medium text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary focus:ring-4 focus:ring-primary/10 ${
-      errors[name] ? "border-destructive/60 bg-destructive/5 ring-2 ring-destructive/10" : "border-border/80"
+    `w-full rounded-2xl border bg-background/90 px-4 py-3 text-sm font-medium text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary focus:ring-4 focus:ring-primary/10 ${errors[name] ? "border-destructive/60 bg-destructive/5 ring-2 ring-destructive/10" : "border-border/80"
     } ${lockIdentityFields && (name === "registrationNumber" || name === "rcNumber") ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}`;
 
   return (
@@ -407,46 +438,74 @@ const BikeForm = ({
             </select>
           </Field>
 
-          <div className="sm:col-span-2 space-y-2">
+          <div className="sm:col-span-2 space-y-3">
             <Field label="City Pickup Location" required error={errors.location}>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  name="location"
-                  value={bike.location}
-                  onChange={handleChange}
-                  className={inputClass("location")}
-                  placeholder="Hyderabad"
-                />
-                <button
-                  type="button"
-                  disabled={detectingGps}
-                  onClick={handleDetectGps}
-                  title="Detect Live GPS Coordinates"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted shrink-0"
-                >
-                  <Navigation className={`h-4 w-4 text-primary ${detectingGps ? "animate-spin" : ""}`} />
-                  <span>{detectingGps ? "Detecting..." : "Detect GPS"}</span>
-                </button>
-                {onOpenMapPicker && (
+              <div className="space-y-2.5">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      name="location"
+                      value={bike.location}
+                      onChange={handleChange}
+                      className={`${inputClass("location")} pl-10`}
+                      placeholder="e.g. Madhapur, Hitech City, Hyderabad"
+                    />
+                  </div>
+
                   <button
                     type="button"
-                    onClick={onOpenMapPicker}
-                    title="Open Google Maps Picker"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted shrink-0"
+                    onClick={() => setIsLocationPickerOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-3 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
+                    title="Set Location on Map"
                   >
-                    <Map className="h-4 w-4 text-primary" />
-                    <span>Pick on Map</span>
+                    <Map className="h-4 w-4" />
+                    <span>Set on Map</span>
                   </button>
+
+                  <button
+                    type="button"
+                    disabled={detectingGps}
+                    onClick={handleDetectGps}
+                    title="Detect Live GPS Coordinates"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-muted/40 hover:bg-muted px-4 py-3 text-xs font-bold text-foreground transition shrink-0 cursor-pointer active:scale-95"
+                  >
+                    <Navigation className={`h-4 w-4 text-emerald-600 ${detectingGps ? "animate-spin" : ""}`} />
+                    <span>{detectingGps ? "Detecting..." : "Live GPS"}</span>
+                  </button>
+                </div>
+
+                {bike.latitude && bike.longitude ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
+                        <MapPin className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <span>Station Coordinates: </span>
+                        <span className="font-mono text-[11px] font-extrabold bg-background/80 px-2 py-0.5 rounded-md border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                          {bike.latitude}, {bike.longitude}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsLocationPickerOpen(true)}
+                      className="text-xs text-emerald-700 dark:text-emerald-300 hover:underline inline-flex items-center gap-1 cursor-pointer font-bold ml-auto"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Change Pin on Map</span>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Compass className="w-3.5 h-3.5 text-primary" />
+                    <span>Click <strong>Set on Map</strong> to drag/search your exact station pin, or <strong>Live GPS</strong> to detect your current spot.</span>
+                  </p>
                 )}
               </div>
             </Field>
-
-            {bike.latitude && bike.longitude ? (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600">
-                <MapPin className="h-4 w-4 shrink-0" />
-                <span>Live GPS Pin Attached: ({bike.latitude}, {bike.longitude})</span>
-              </div>
-            ) : null}
           </div>
         </div>
       </Section>
@@ -522,80 +581,80 @@ const BikeForm = ({
       >
         <Field label="Upload Vehicle Photo" required error={errors.imageUrl}>
           <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <input
-              type="text"
-              value={newUrlInput}
-              onChange={(e) => setNewUrlInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAddUrl();
-                }
-              }}
-              className={inputClass("imageUrl")}
-              placeholder="Paste image URL (Unsplash, Imgur) and click Add Photo"
-            />
-            <button
-              type="button"
-              onClick={handleAddUrl}
-              className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-muted px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted/80 shrink-0"
-            >
-              <Plus className="h-4 w-4 text-primary" /> Add Photo URL
-            </button>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-xs font-bold text-primary transition hover:bg-primary/10 shrink-0"
-            >
-              <ImagePlus className="h-4 w-4" /> Upload Files
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImageFile} className="hidden" />
-          </div>
-
-          {/* Photo Gallery Grid */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 pt-2">
-            {(bike.imageUrls && bike.imageUrls.length > 0 ? bike.imageUrls : [bike.imageUrl]).filter(Boolean).map((url, idx) => (
-              <div
-                key={idx}
-                className="group relative h-32 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs transition hover:border-primary/50"
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+              <input
+                type="text"
+                value={newUrlInput}
+                onChange={(e) => setNewUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddUrl();
+                  }
+                }}
+                className={inputClass("imageUrl")}
+                placeholder="Paste image URL (Unsplash, Imgur) and click Add Photo"
+              />
+              <button
+                type="button"
+                onClick={handleAddUrl}
+                className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-muted px-4 py-3 text-xs font-bold text-foreground transition hover:bg-muted/80 shrink-0"
               >
-                <img
-                  src={url}
-                  alt={`Vehicle photo ${idx + 1}`}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
+                <Plus className="h-4 w-4 text-primary" /> Add Photo URL
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-xs font-bold text-primary transition hover:bg-primary/10 shrink-0"
+              >
+                <ImagePlus className="h-4 w-4" /> Upload Files
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImageFile} className="hidden" />
+            </div>
 
-                {url === bike.imageUrl && (
-                  <div className="absolute top-2 left-2 rounded-lg bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground shadow-xs">
-                    Primary
-                  </div>
-                )}
+            {/* Photo Gallery Grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 pt-2">
+              {(bike.imageUrls && bike.imageUrls.length > 0 ? bike.imageUrls : [bike.imageUrl]).filter(Boolean).map((url, idx) => (
+                <div
+                  key={idx}
+                  className="group relative h-32 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs transition hover:border-primary/50"
+                >
+                  <img
+                    src={url}
+                    alt={`Vehicle photo ${idx + 1}`}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
 
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 backdrop-blur-xs transition duration-200 group-hover:opacity-100">
-                  {url !== bike.imageUrl && (
+                  {url === bike.imageUrl && (
+                    <div className="absolute top-2 left-2 rounded-lg bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground shadow-xs">
+                      Primary
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 backdrop-blur-xs transition duration-200 group-hover:opacity-100">
+                    {url !== bike.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimaryImage(url)}
+                        title="Set as Primary Image"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-xs transition hover:scale-105"
+                      >
+                        <Star className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => handleSetPrimaryImage(url)}
-                      title="Set as Primary Image"
-                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-xs transition hover:scale-105"
+                      onClick={() => handleRemoveImage(idx)}
+                      title="Remove Photo"
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive text-white shadow-xs transition hover:scale-105"
                     >
-                      <Star className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    title="Remove Photo"
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive text-white shadow-xs transition hover:scale-105"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
         </Field>
       </Section>
 
@@ -639,6 +698,24 @@ const BikeForm = ({
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/*Style Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        initialLat={bike.latitude}
+        initialLng={bike.longitude}
+        initialLocationName={bike.location}
+        onSelectLocation={(data) => {
+          setBike((prev) => ({
+            ...prev,
+            location: data.locationName,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          }));
+          toast.success(`Location set to ${data.locationName} (${data.latitude}, ${data.longitude})`);
+        }}
+      />
     </form>
   );
 };

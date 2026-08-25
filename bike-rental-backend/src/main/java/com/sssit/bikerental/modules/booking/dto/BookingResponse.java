@@ -59,6 +59,12 @@ public class BookingResponse {
 
     private String qrCode;
 
+    private Double latitude;
+
+    private Double longitude;
+
+    private String location;
+
     private LocalDateTime bookingDate; // Kept for frontend compatibility
 
     private LocalDateTime createdAt; // Added as requested
