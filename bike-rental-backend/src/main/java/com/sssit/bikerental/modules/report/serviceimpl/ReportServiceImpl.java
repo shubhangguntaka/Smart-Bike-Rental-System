@@ -5,6 +5,7 @@ import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.booking.entity.Booking;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.entity.Payment;
+import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.report.service.ReportService;
 
@@ -94,21 +95,25 @@ public class ReportServiceImpl implements ReportService {
 
         for (Payment payment : paymentRepository.findAll()) {
 
-            if (!"SUCCESS".equalsIgnoreCase(payment.getStatus())) {
-                continue;
-            }
+        	if (payment.getPaymentStatus() != PaymentStatus.SUCCESS) {
+        	    continue;
+        	}
 
-            if (!isBetween(payment.getPaymentDate(), start, end)) {
-                continue;
-            }
+        	if (!isBetween(
+        	        payment.getPaidAt(),
+        	        start,
+        	        end)) {
+
+        	    continue;
+        	}
 
             Map<String, Object> row = new LinkedHashMap<>();
 
-            row.put("paymentId", payment.getId());
+            row.put("paymentId", payment.getPaymentId());
             row.put("bookingId", payment.getBookingId());
-            row.put("amount", payment.getAmount());
-            row.put("paymentDate", payment.getPaymentDate());
-            row.put("status", payment.getStatus());
+            row.put("amount", payment.getFinalAmount());
+            row.put("paymentDate", payment.getPaidAt());
+            row.put("status", payment.getPaymentStatus().name());
 
             report.add(row);
         }
@@ -173,17 +178,17 @@ public class ReportServiceImpl implements ReportService {
 
         for (Payment payment : paymentRepository.findAll()) {
 
-            if (!isBetween(payment.getPaymentDate(), start, end)) {
+            if (!isBetween(payment.getPaidAt(), start, end)) {
                 continue;
             }
 
             Map<String, Object> row = new LinkedHashMap<>();
 
-            row.put("paymentId", payment.getId());
+            row.put("paymentId", payment.getPaymentId());
             row.put("bookingId", payment.getBookingId());
-            row.put("amount", payment.getAmount());
-            row.put("status", payment.getStatus());
-            row.put("paymentDate", payment.getPaymentDate());
+            row.put("amount", payment.getFinalAmount());
+            row.put("status", payment.getPaymentStatus().name());
+            row.put("paymentDate", payment.getPaidAt());
             row.put("createdAt", payment.getCreatedAt());
 
             report.add(row);

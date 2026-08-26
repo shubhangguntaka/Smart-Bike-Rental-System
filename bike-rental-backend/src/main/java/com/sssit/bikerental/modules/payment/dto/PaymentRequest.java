@@ -1,17 +1,27 @@
 package com.sssit.bikerental.modules.payment.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class PaymentRequest {
-    private Long bookingId;
-    private BigDecimal amount;
-    private String status; // "SUCCESS" or "FAILED"
+
+    @NotNull
+    private Long paymentId;
+
+    @NotBlank
+    private String paymentMethod;
+
+    @NotBlank
+    private String razorpayOrderId;
+
+    @NotBlank
+    private String razorpayPaymentId;
+
+    @NotBlank
+    private String razorpaySignature;
 }

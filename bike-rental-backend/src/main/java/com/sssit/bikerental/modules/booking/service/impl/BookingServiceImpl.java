@@ -313,10 +313,15 @@ public BookingResponse confirmBooking(Long bookingId) {
                 "Customer must be verified before confirming booking."
         );
     }
-
-    // Payment is currently simulated by the application.
-    booking.setPaymentStatus(PaymentStatus.SUCCESS);
-
+    /*
+     * IMPORTANT:
+     *
+     * Owner approval / booking confirmation does NOT
+     * mean payment was completed.
+     *
+     * Payment will begin only after bike return.
+     */
+    booking.setPaymentStatus(PaymentStatus.PENDING);
     booking.setBookingStatus(BookingStatus.CONFIRMED);
 
     // Generate QR code if missing.
@@ -406,8 +411,14 @@ public BookingResponse confirmBooking(Long bookingId) {
             if (!checkVerificationStatus(booking.getCustomerId())) {
                 throw new VerificationRequiredException("Customer must be verified before confirming booking.");
             }
-            // Bypass payment validation check
-            booking.setPaymentStatus(PaymentStatus.SUCCESS);
+            
+            /*
+             * Payment is NOT completed here.
+             */
+            booking.setPaymentStatus(
+                    PaymentStatus.PENDING
+            );
+            
             // Generate QR code if missing
             if (booking.getQrCode() == null || booking.getQrCode().isEmpty()) {
                 String qrText = String.format("BOOKING-REF: BK-%d | Bike: %d | Renter: %d | Amount: %s",

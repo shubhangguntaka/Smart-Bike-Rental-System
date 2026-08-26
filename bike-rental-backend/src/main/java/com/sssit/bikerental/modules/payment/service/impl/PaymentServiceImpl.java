@@ -1,111 +1,393 @@
 package com.sssit.bikerental.modules.payment.service.impl;
 
-import com.sssit.bikerental.modules.booking.entity.Booking;
-import com.sssit.bikerental.modules.booking.enums.BookingStatus;
-import com.sssit.bikerental.modules.booking.enums.PaymentStatus;
-import com.sssit.bikerental.modules.booking.repository.BookingRepository;
-import com.sssit.bikerental.modules.booking.service.QRCodeService;
-import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
-import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
-import com.sssit.bikerental.modules.payment.entity.Payment;
-import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
-import com.sssit.bikerental.modules.payment.service.PaymentService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.sssit.bikerental.common.security.SecurityUtils;
+import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
+import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
+import com.sssit.bikerental.modules.payment.entity.Payment;
+import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
+import com.sssit.bikerental.modules.payment.gateway.RazorpayGateway;
+import com.sssit.bikerental.modules.payment.mapper.PaymentMapper;
+import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
+import com.sssit.bikerental.modules.payment.service.PaymentCalculationService;
+import com.sssit.bikerental.modules.payment.service.PaymentService;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 @Transactional
 public class PaymentServiceImpl implements PaymentService {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
-
     private final PaymentRepository paymentRepository;
-    private final BookingRepository bookingRepository;
-    private final QRCodeService qrCodeService;
+    private final PaymentCalculationService paymentCalculationService;
+    private final PaymentMapper paymentMapper;
+    private final RazorpayGateway razorpayGateway;
 
-    public PaymentServiceImpl(
-            PaymentRepository paymentRepository,
-            BookingRepository bookingRepository,
-            QRCodeService qrCodeService) {
-        this.paymentRepository = paymentRepository;
-        this.bookingRepository = bookingRepository;
-        this.qrCodeService = qrCodeService;
-    }
-
+    /**
+     * Prepare payment after confirmed bike return.
+     *
+     * The final amount is calculated completely
+     * by the backend.
+     */
     @Override
-    public PaymentResponse processPayment(PaymentRequest request) {
-        log.info("Executing processPayment for bookingId: {} with amount: {}", request.getBookingId(), request.getAmount());
+    @Transactional
+    public PaymentResponse preparePayment(
+            Long bookingId) {
 
-        Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> {
-                    log.error("Payment failed: BookingId: {} not found.", request.getBookingId());
-                    return new IllegalArgumentException("Booking not found with ID: " + request.getBookingId());
-                });
+        PaymentResponse calculation =
+                paymentCalculationService
+                        .calculatePayment(
+                                bookingId
+                        );
 
-        boolean isSuccess = "SUCCESS".equalsIgnoreCase(request.getStatus());
+        Payment payment =
+                paymentRepository
+                        .findByBookingId(bookingId)
+                        .orElse(null);
 
-        // 1. Persist the Payment record
-        Payment payment = Payment.builder()
-                .bookingId(request.getBookingId())
-                .amount(request.getAmount())
-                .status(isSuccess ? "SUCCESS" : "FAILED")
-                .paymentDate(LocalDateTime.now())
-                .build();
+        if (payment != null) {
 
-        payment = paymentRepository.save(payment);
-        log.info("Payment record created: ID: {}, Status: {}", payment.getId(), payment.getStatus());
+            validateCustomerOwnership(payment);
 
-        // 2. Transition booking and payment statuses based on outcome
-        if (isSuccess) {
-            booking.setBookingStatus(BookingStatus.PENDING);
-            booking.setPaymentStatus(PaymentStatus.SUCCESS);
-            log.info("BookingId: {} status set to PENDING and PaymentStatus to SUCCESS", booking.getId());
+            if (payment.getPaymentStatus()
+                    == PaymentStatus.SUCCESS) {
+
+                throw new RuntimeException(
+                        "Payment has already been completed"
+                );
+            }
+
+            if (payment.getPaymentStatus()
+                    == PaymentStatus.PENDING
+                    && payment.getRazorpayOrderId()
+                    != null) {
+
+                return paymentMapper
+                        .toResponse(payment);
+            }
+
         } else {
-            booking.setBookingStatus(BookingStatus.PENDING);
-            booking.setPaymentStatus(PaymentStatus.FAILED);
-            log.info("BookingId: {} payment failed, status set to PENDING / PaymentStatus to FAILED", booking.getId());
+
+            payment = Payment.builder()
+                    .bookingId(
+                            calculation.getBookingId())
+                    .customerId(
+                            calculation.getCustomerId())
+                    .baseRentalAmount(
+                            calculation.getBaseRentalAmount())
+                    .lateCharge(
+                            calculation.getLateCharge())
+                    .eligibleTransactionAmount(
+                            calculation
+                                    .getEligibleTransactionAmount())
+                    .platformFeePercent(
+                            calculation
+                                    .getPlatformFeePercent())
+                    .platformFeeAmount(
+                            calculation
+                                    .getPlatformFeeAmount())
+                    .taxAmount(
+                            calculation.getTaxAmount())
+                    .finalAmount(
+                            calculation.getFinalAmount())
+                    .paymentStatus(
+                            PaymentStatus.PENDING)
+                    .createdAt(
+                            LocalDateTime.now())
+                    .updatedAt(
+                            LocalDateTime.now())
+                    .build();
+
+            payment =
+                    paymentRepository.save(payment);
         }
 
-        bookingRepository.save(booking);
+        String razorpayOrderId;
 
-        return PaymentResponse.builder()
-                .paymentId(payment.getId())
-                .bookingId(payment.getBookingId())
-                .amount(payment.getAmount())
-                .status(payment.getStatus())
-                .paymentDate(payment.getPaymentDate())
-                .build();
+        try {
+
+            razorpayOrderId =
+                    razorpayGateway.createOrder(
+                            payment.getPaymentId(),
+                            payment.getFinalAmount(),
+                            "booking_" + bookingId
+                    );
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Unable to create Razorpay order",
+                    e
+            );
+        }
+
+        payment.setRazorpayOrderId(
+                razorpayOrderId);
+
+        payment.setPaymentStatus(
+                PaymentStatus.PENDING);
+
+        payment.setUpdatedAt(
+                LocalDateTime.now());
+
+        payment =
+                paymentRepository.save(payment);
+
+        return paymentMapper
+                .toResponse(payment);
+    }
+    @Override
+    @Transactional
+    public PaymentResponse processPayment(
+            PaymentRequest request) {
+
+        Payment payment =
+                paymentRepository
+                        .findById(
+                                request.getPaymentId()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Payment not found"
+                                ));
+
+        validateCustomerOwnership(payment);
+
+        if (payment.getPaymentStatus()
+                == PaymentStatus.SUCCESS) {
+
+            throw new RuntimeException(
+                    "Payment has already been completed"
+            );
+        }
+
+        if (!request.getRazorpayOrderId()
+                .equals(
+                    payment.getRazorpayOrderId())) {
+
+            throw new RuntimeException(
+                    "Razorpay order does not match"
+            );
+        }
+
+        boolean verified =
+                razorpayGateway.verifySignature(
+                        request.getRazorpayOrderId(),
+                        request.getRazorpayPaymentId(),
+                        request.getRazorpaySignature()
+                );
+
+        if (!verified) {
+
+            payment.setPaymentStatus(
+                    PaymentStatus.FAILED
+            );
+
+            payment.setUpdatedAt(
+                    LocalDateTime.now()
+            );
+
+            paymentRepository.save(payment);
+
+            throw new RuntimeException(
+                    "Payment verification failed"
+            );
+        }
+
+        payment.setPaymentStatus(
+                PaymentStatus.SUCCESS
+        );
+
+        payment.setRazorpayPaymentId(
+                request.getRazorpayPaymentId()
+        );
+
+        payment.setTransactionId(
+                request.getRazorpayPaymentId()
+        );
+
+        payment.setPaymentMethod(
+                request.getPaymentMethod()
+        );
+
+        payment.setPaidAt(
+                LocalDateTime.now()
+        );
+
+        payment.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        Payment saved =
+                paymentRepository.save(payment);
+
+        return paymentMapper.toResponse(saved);
     }
 
     /**
-     * Read-only payment query used by the Admin module.
-     *
-     * No payment status, amount or transaction is modified.
+     * Get payment by ID.
      */
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentById(
+            Long paymentId) {
+
+        Payment payment =
+                paymentRepository.findById(paymentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Payment not found with id: "
+                                                + paymentId
+                                ));
+
+        // Security check:
+        // Customer can only view their own payment.
+        validateCustomerOwnership(payment);
+
+        return paymentMapper
+                .toResponse(payment);
+    }
+
+    /**
+     * Get customer payment history.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentHistory(
+            Long customerId) {
+
+        Long currentUserId =
+                SecurityUtils.getCurrentUserId();
+
+        if (currentUserId == null) {
+
+            throw new AccessDeniedException(
+                    "Authentication required"
+            );
+        }
+
+        if (!currentUserId.equals(customerId)) {
+
+            throw new AccessDeniedException(
+                    "You are not authorized to access this payment history"
+            );
+        }
+
+        return paymentRepository
+                .findByCustomerIdOrderByCreatedAtDesc(
+                        customerId
+                )
+                .stream()
+                .map(paymentMapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Get payment for a booking.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentByBookingId(
+            Long bookingId) {
+
+        Payment payment =
+                paymentRepository
+                        .findByBookingId(bookingId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Payment not found for booking: "
+                                                + bookingId
+                                ));
+
+        // Security check:
+        // Customer can only view payment belonging
+        // to their own account.
+        validateCustomerOwnership(payment);
+
+        return paymentMapper
+                .toResponse(payment);
+    }
+
+    /**
+     * Retry a failed payment.
+     *
+     * Razorpay retry/order creation will be
+     * implemented later.
+     */
+    @Override
+    public PaymentResponse retryPayment(
+            Long paymentId) {
+
+        Payment payment =
+                paymentRepository.findById(paymentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Payment not found with id: "
+                                                + paymentId
+                                ));
+
+        // Security check:
+        // Only the owner of the payment can retry it.
+        validateCustomerOwnership(payment);
+
+        if (payment.getPaymentStatus()
+                != PaymentStatus.FAILED) {
+
+            throw new RuntimeException(
+                    "Only failed payments can be retried"
+            );
+        }
+
+        payment.setPaymentStatus(
+                PaymentStatus.PENDING
+        );
+
+        payment.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        Payment updatedPayment =
+                paymentRepository.save(payment);
+
+        return paymentMapper
+                .toResponse(updatedPayment);
+    }
+    
     @Override
     @Transactional(readOnly = true)
     public List<PaymentResponse> getAllPayments() {
 
         return paymentRepository.findAll()
                 .stream()
-                .map(this::toPaymentResponse)
+                .map(paymentMapper::toResponse)
                 .toList();
     }
-
-    private PaymentResponse toPaymentResponse(
+    
+    private void validateCustomerOwnership(
             Payment payment) {
 
-        return PaymentResponse.builder()
-                .paymentId(payment.getId())
-                .bookingId(payment.getBookingId())
-                .amount(payment.getAmount())
-                .status(payment.getStatus())
-                .paymentDate(payment.getPaymentDate())
-                .build();
+        Long currentUserId =
+                SecurityUtils.getCurrentUserId();
+
+        if (currentUserId == null) {
+            throw new AccessDeniedException(
+                    "Authentication required"
+            );
+        }
+
+        if (!currentUserId.equals(
+                payment.getCustomerId())) {
+
+            throw new AccessDeniedException(
+                    "You are not authorized to access this payment"
+            );
+        }
     }
 }

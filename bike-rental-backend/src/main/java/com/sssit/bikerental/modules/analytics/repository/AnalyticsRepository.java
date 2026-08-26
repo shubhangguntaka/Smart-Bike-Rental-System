@@ -75,11 +75,11 @@ public interface AnalyticsRepository extends JpaRepository<Booking, Long> {
   // =========================================================
 
   @Query("""
-      SELECT COALESCE(SUM(p.amount), 0)
+      SELECT COALESCE(SUM(p.finalAmount), 0)
       FROM Payment p
-      WHERE p.status = 'SUCCESS'
-        AND p.paymentDate >= :startDate
-        AND p.paymentDate < :endDate
+      WHERE p.paymentStatus = 'SUCCESS'
+        AND p.paidAt >= :startDate
+        AND p.paidAt < :endDate
       """)
   BigDecimal calculateSuccessfulPaymentRevenue(
       @Param("startDate") LocalDateTime startDate,
@@ -88,9 +88,9 @@ public interface AnalyticsRepository extends JpaRepository<Booking, Long> {
   @Query("""
       SELECT COUNT(p)
       FROM Payment p
-      WHERE p.status = 'SUCCESS'
-        AND p.paymentDate >= :startDate
-        AND p.paymentDate < :endDate
+      WHERE p.paymentStatus = 'SUCCESS'
+        AND p.paidAt >= :startDate
+        AND p.paidAt < :endDate
       """)
   long countSuccessfulPayments(
       @Param("startDate") LocalDateTime startDate,
@@ -99,9 +99,9 @@ public interface AnalyticsRepository extends JpaRepository<Booking, Long> {
       @Query("""
     SELECT COUNT(p)
     FROM Payment p
-    WHERE p.status = 'FAILED'
-      AND p.paymentDate >= :startDate
-      AND p.paymentDate < :endDate
+    WHERE p.paymentStatus = 'FAILED'
+      AND p.paidAt >= :startDate
+      AND p.paidAt < :endDate
     """)
 long countFailedPayments(
         @Param("startDate") LocalDateTime startDate,
@@ -271,14 +271,14 @@ List<Object[]> countRidesByDate(
   // =========================================================
 
   @Query("""
-      SELECT FUNCTION('DATE', p.paymentDate),
-             COALESCE(SUM(p.amount), 0)
+      SELECT FUNCTION('DATE', p.paidAt),
+             COALESCE(SUM(p.finalAmount), 0)
       FROM Payment p
-      WHERE p.status = 'SUCCESS'
-        AND p.paymentDate >= :startDate
-        AND p.paymentDate < :endDate
-      GROUP BY FUNCTION('DATE', p.paymentDate)
-      ORDER BY FUNCTION('DATE', p.paymentDate)
+      WHERE p.paymentStatus = 'SUCCESS'
+        AND p.paidAt >= :startDate
+        AND p.paidAt < :endDate
+      GROUP BY FUNCTION('DATE', p.paidAt)
+      ORDER BY FUNCTION('DATE', p.paidAt)
       """)
   List<Object[]> revenueByDate(
       @Param("startDate") LocalDateTime startDate,

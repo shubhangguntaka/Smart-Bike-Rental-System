@@ -26,12 +26,14 @@ import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.booking.entity.Booking;
 import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
 import com.sssit.bikerental.modules.booking.dto.BookingResponse;
 import com.sssit.bikerental.modules.booking.service.BookingService;
 import com.sssit.bikerental.modules.notification.entity.NotificationService;
+import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +71,7 @@ public class OwnerServiceImpl implements OwnerService {
 
         int totalBikes = (int) bikeRepository.countByOwnerId(ownerId);
         int totalBookings = (int) bookingRepository.countBookingsByOwnerId(ownerId);
-        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId,PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
         boolean verificationStatus = checkAadhaarVerified(ownerId);
 
         return OwnerMapper.toDTO(user, totalBikes, totalBookings, totalEarnings, verificationStatus);
@@ -90,7 +92,7 @@ public class OwnerServiceImpl implements OwnerService {
 
         int totalBikes = (int) bikeRepository.countByOwnerId(ownerId);
         int totalBookings = (int) bookingRepository.countBookingsByOwnerId(ownerId);
-        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId,PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
         boolean verificationStatus = checkAadhaarVerified(ownerId);
 
         return OwnerMapper.toDTO(user, totalBikes, totalBookings, totalEarnings, verificationStatus);
@@ -104,7 +106,7 @@ public class OwnerServiceImpl implements OwnerService {
                     Long ownerId = user.getId();
                     int totalBikes = (int) bikeRepository.countByOwnerId(ownerId);
                     int totalBookings = (int) bookingRepository.countBookingsByOwnerId(ownerId);
-                    BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+                    BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId,PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
                     boolean verificationStatus = checkAadhaarVerified(ownerId);
 
                     return OwnerMapper.toDTO(user, totalBikes, totalBookings, totalEarnings, verificationStatus);
@@ -129,12 +131,12 @@ public class OwnerServiceImpl implements OwnerService {
         int completedBookings = (int) bookingRepository.countBookingsByOwnerIdAndStatus(ownerId, "COMPLETED");
         int totalBookings = (int) bookingRepository.countBookingsByOwnerId(ownerId);
 
-        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId,PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
         
         LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
-        BigDecimal todayEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, todayStart)).orElse(BigDecimal.ZERO);
-        BigDecimal weeklyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, LocalDateTime.now().minusWeeks(1))).orElse(BigDecimal.ZERO);
-        BigDecimal monthlyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, LocalDateTime.now().minusMonths(1))).orElse(BigDecimal.ZERO);
+        BigDecimal todayEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, todayStart)).orElse(BigDecimal.ZERO);
+        BigDecimal weeklyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusWeeks(1))).orElse(BigDecimal.ZERO);
+        BigDecimal monthlyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusMonths(1))).orElse(BigDecimal.ZERO);
 
         BigDecimal pendingPayments = Optional.ofNullable(bookingRepository.sumPendingRentalAmountByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
 
@@ -159,11 +161,11 @@ public class OwnerServiceImpl implements OwnerService {
 
     @Override
     public EarningsDTO getOwnerEarnings(Long ownerId) {
-        BigDecimal total = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+        BigDecimal total = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId, PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
         LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
-        BigDecimal today = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, todayStart)).orElse(BigDecimal.ZERO);
-        BigDecimal weekly = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, LocalDateTime.now().minusWeeks(1))).orElse(BigDecimal.ZERO);
-        BigDecimal monthly = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, LocalDateTime.now().minusMonths(1))).orElse(BigDecimal.ZERO);
+        BigDecimal today = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, todayStart)).orElse(BigDecimal.ZERO);
+        BigDecimal weekly = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusWeeks(1))).orElse(BigDecimal.ZERO);
+        BigDecimal monthly = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusMonths(1))).orElse(BigDecimal.ZERO);
         BigDecimal pendingPayments = Optional.ofNullable(bookingRepository.sumPendingRentalAmountByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
 
         return EarningsDTO.builder()

@@ -1,24 +1,29 @@
 package com.sssit.bikerental.modules.payment.service;
 
+import java.util.List;
+
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 
-import java.util.List;
-
 public interface PaymentService {
 
-    /**
-     * Existing payment processing contract.
-     */
-    PaymentResponse processPayment(
-            PaymentRequest request
-    );
+	PaymentResponse preparePayment(
+	        Long bookingId);
 
-    /**
-     * Read-only payment history for administrative
-     * monitoring.
-     *
-     * This does not modify payment business logic.
-     */
-    List<PaymentResponse> getAllPayments();
+	PaymentResponse processPayment(
+	        PaymentRequest request);
+
+	PaymentResponse getPaymentById(
+	        Long paymentId);
+
+	PaymentResponse getPaymentByBookingId(
+	        Long bookingId);
+
+	List<PaymentResponse> getPaymentHistory(
+	        Long customerId);
+
+	PaymentResponse retryPayment(
+	        Long paymentId);
+
+	List<PaymentResponse> getAllPayments();
 }

@@ -1,274 +1,490 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Container, Card, CardContent, CardMedia, Typography, TextField, Button, Box, Alert, Grid, Divider, CircularProgress, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel } from "@mui/material";
-import CreditCardIcon from "@mui/icons-material/CreditCard";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import PaymentIcon from "@mui/icons-material/Payment";
-import { BookingService } from "../../services/bookingService";
-import bikeService from "../../services/bikeService";
-import { paymentService } from "../../services/paymentService";
-import type { Booking } from "../../types/booking";
-import type { Bike } from "../../types/bike";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  ShieldCheck,
+  ReceiptText,
+  AlertCircle,
+} from "lucide-react";
 
-const Payment = () => {
-  const { bookingId } = useParams();
+import paymentService from "@/services/paymentService";
+import type { PaymentResponse } from "@/types/payment";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
+const Payment: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
+  const { bookingId: bookingIdParam } = useParams();
 
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [bike, setBike] = useState<Bike | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const bookingId = Number(
+    bookingIdParam || location.state?.bookingId
+  );
 
-  // Payment states
-  const [paymentMethod, setPaymentMethod] = useState("card");
-  const [processing, setProcessing] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [payment, setPayment] =
+    useState<PaymentResponse | null>(null);
 
-  // Card details mock state
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const loadData = async () => {
-    if (!bookingId) return;
+  const [processing, setProcessing] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    if (!bookingId) {
+      setError("Booking ID is missing.");
+      setLoading(false);
+      return;
+    }
+
+    preparePayment();
+  }, [bookingId]);
+
+  const preparePayment = async () => {
     try {
       setLoading(true);
-      setError(null);
+      setError("");
 
-      // Fetch booking
-      const bookingData = await BookingService.getBookingById(Number(bookingId));
-      setBooking(bookingData);
+      const result =
+        await paymentService.preparePayment(
+          bookingId
+        );
 
-      // Fetch corresponding bike
-      if (bookingData?.bikeId) {
-        const bikeData = await bikeService.getBikeById(bookingData.bikeId);
-        setBike(bikeData);
-      }
+      setPayment(result);
     } catch (err: any) {
-      setError(err.message || "Failed to load booking and invoice data.");
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Unable to prepare payment."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [bookingId]);
-
-  const handlePayment = async (status: "SUCCESS" | "FAILED") => {
-    if (!booking) return;
-
-    // Basic Card Validation if selected
-    if (paymentMethod === "card" && status === "SUCCESS") {
-      if (!cardNumber || !cardExpiry || !cardCvv) {
-        setPaymentError("Please fill in all card details.");
-        return;
-      }
+  const handlePayment = () => {
+    if (!payment) {
+      return;
     }
 
-    setProcessing(true);
-    setPaymentError(null);
-
-    const rentalAmount = booking.rentalAmount || booking.totalAmount || 0;
-    const gstRate = 0.18;
-    const totalAmount = rentalAmount + (rentalAmount * gstRate);
-
-    try {
-      await paymentService.processPayment({
-        bookingId: booking.bookingId,
-        amount: totalAmount,
-        status: status
-      });
-
-      if (status === "SUCCESS") {
-        setPaymentSuccess(true);
-        setTimeout(() => {
-          navigate(`/customer/bookings/${booking.bookingId}`);
-        }, 1500);
-      } else {
-        setPaymentError("Simulated payment transaction failed. You can retry below.");
-      }
-    } catch (err: any) {
-      setPaymentError(err.response?.data?.message || err.message || "Payment processor error.");
-    } finally {
-      setProcessing(false);
+    if (!payment.razorpayKeyId) {
+      setError(
+        "Razorpay key is not available."
+      );
+      return;
     }
+
+    if (!payment.razorpayOrderId) {
+      setError(
+        "Razorpay order was not created."
+      );
+      return;
+    }
+
+    const razorpayOrderId = payment.razorpayOrderId;
+
+    if (!window.Razorpay) {
+      setError("Razorpay Checkout is unavailable. Please try again.");
+      return;
+    }
+
+    const options = {
+      key: payment.razorpayKeyId,
+
+      amount: Math.round(
+        payment.finalAmount * 100
+      ),
+
+      currency: "INR",
+
+      name: "Smart Bike Rental",
+
+      description:
+        `Bike rental payment - Booking #${payment.bookingId}`,
+
+      order_id:
+        razorpayOrderId,
+
+      handler: async (response: any) => {
+        try {
+          setProcessing(true);
+          setError("");
+
+          const verifiedPayment =
+            await paymentService.processPayment({
+              paymentId:
+                payment.paymentId,
+
+              paymentMethod:
+                "RAZORPAY",
+
+              razorpayOrderId:
+                razorpayOrderId,
+
+              razorpayPaymentId:
+                response.razorpay_payment_id,
+
+              razorpaySignature:
+                response.razorpay_signature,
+            });
+
+          navigate(
+            "/customer/payment/success",
+            {
+              state: {
+                payment:
+                  verifiedPayment,
+              },
+            }
+          );
+        } catch (err: any) {
+          navigate(
+            "/customer/payment/failed",
+            {
+              state: {
+                message:
+                  err?.response?.data
+                    ?.message ||
+                  "Payment verification failed.",
+              },
+            }
+          );
+        } finally {
+          setProcessing(false);
+        }
+      },
+
+      modal: {
+        ondismiss: () => {
+          setError(
+            "Payment was cancelled."
+          );
+        },
+      },
+
+      theme: {
+        color: "#3f8f6b",
+      },
+    };
+
+    const razorpay =
+      new window.Razorpay(options);
+
+    razorpay.on(
+      "payment.failed",
+      (response: any) => {
+        navigate(
+          "/customer/payment/failed",
+          {
+            state: {
+              message:
+                response?.error?.description ||
+                "Payment failed.",
+            },
+          }
+        );
+      }
+    );
+
+    razorpay.open();
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
-      </Box>
+      <div className="min-h-[70vh] flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+
+          <p className="text-sm font-semibold text-muted-foreground">
+            Preparing your payment...
+          </p>
+        </div>
+      </div>
     );
   }
 
-  if (error || !booking) {
+  if (error && !payment) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={loadData}>Retry</Button>}>
-          {error || "Booking details could not be found."}
-        </Alert>
-      </Container>
+      <div className="min-h-[70vh] flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertCircle className="h-6 w-6 text-destructive" />
+
+            <h2 className="text-lg font-bold text-foreground">
+              Payment Preparation Failed
+            </h2>
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-6">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(-1)
+            }
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:opacity-90 transition"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
     );
   }
 
-  const rentalAmount = booking.rentalAmount || booking.totalAmount || 0;
-  const gstRate = 0.18;
-  const gstAmount = rentalAmount * gstRate;
-  const totalAmount = rentalAmount + gstAmount;
+  if (!payment) {
+    return null;
+  }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-        <PaymentIcon color="primary" sx={{ fontSize: 36 }} />
-        <Typography variant="h4" fontWeight="black" color="primary">
-          Payment Checkout
-        </Typography>
-      </Box>
+    <div className="min-h-[80vh] bg-background px-4 py-8">
+      <div className="mx-auto max-w-5xl">
 
-      {paymentError && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setPaymentError(null)}>{paymentError}</Alert>}
-      {paymentSuccess && <Alert severity="success" sx={{ mb: 3 }}>Payment successful! Confirming booking and generating receipt...</Alert>}
+        {/* Header */}
 
-      <Grid container spacing={4}>
-        {/* Invoice details */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ boxShadow: 3, borderRadius: 2 }}>
-            {bike && (
-              <CardMedia
-                component="img"
-                height="180"
-                image={bike.imageUrl || "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800"}
-                alt={bike.bikeName}
-              />
-            )}
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                {bike?.bikeName || "Bike Rental"}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Booking ID: #{booking.bookingId}
-              </Typography>
+        <div className="mb-8">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(-1)
+            }
+            className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
 
-              <Divider sx={{ my: 2 }} />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">
+              Secure Checkout
+            </p>
 
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2" color="text.secondary">Rental Charges</Typography>
-                <Typography variant="body2" fontWeight="bold">₹{rentalAmount.toFixed(2)}</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2" color="text.secondary">GST (18%)</Typography>
-                <Typography variant="body2" fontWeight="bold">₹{gstAmount.toFixed(2)}</Typography>
-              </Box>
-              <Divider sx={{ my: 1.5, borderStyle: "dashed" }} />
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="subtitle1" fontWeight="black">Total Amount</Typography>
-                <Typography variant="subtitle1" fontWeight="black" color="primary">₹{totalAmount.toFixed(2)}</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black text-foreground">
+              Complete Your Payment
+            </h1>
 
-        {/* Payment options */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ boxShadow: 3, borderRadius: 2 }}>
-            <CardContent sx={{ p: 3 }}>
-              <FormControl component="fieldset" fullWidth>
-                <FormLabel component="legend" sx={{ fontWeight: "bold", mb: 2, color: "text.primary" }}>
-                  Select Payment Method
-                </FormLabel>
-                <RadioGroup value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} sx={{ mb: 3 }}>
-                  <FormControlLabel
-                    value="card"
-                    control={<Radio />}
-                    label={
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <CreditCardIcon color="action" />
-                        <Typography>Credit / Debit Card</Typography>
-                      </Box>
-                    }
-                  />
-                  <FormControlLabel
-                    value="upi"
-                    control={<Radio />}
-                    label={
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <AccountBalanceIcon color="action" />
-                        <Typography>UPI Pay</Typography>
-                      </Box>
-                    }
-                  />
-                </RadioGroup>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Booking #{payment.bookingId}
+            </p>
+          </div>
+        </div>
 
-                {paymentMethod === "card" ? (
-                  <Box mb={3}>
-                    <TextField
-                      fullWidth
-                      label="Card Number"
-                      placeholder="1234 5678 9101 1121"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      sx={{ mb: 2 }}
-                    />
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <TextField
-                          fullWidth
-                          label="Expiry Date"
-                          placeholder="MM/YY"
-                          value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)}
-                        />
-                      </Grid>
-                      <Grid item xs={6}>
-                        <TextField
-                          fullWidth
-                          label="CVV"
-                          placeholder="123"
-                          type="password"
-                          value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value)}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Box>
-                ) : (
-                  <Box mb={3}>
-                    <TextField fullWidth label="UPI Virtual Address" placeholder="username@upi" sx={{ mb: 2 }} />
-                  </Box>
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+
+          {/* Payment information */}
+
+          <div className="space-y-6">
+
+            {/* Status */}
+
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-start gap-4">
+
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                </div>
+
+                <div>
+                  <h2 className="font-bold text-foreground">
+                    Payment Ready
+                  </h2>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Your bike return has been confirmed.
+                    The amount below was calculated by
+                    the backend.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Breakdown */}
+
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+
+              <div className="mb-5 flex items-center gap-3">
+                <ReceiptText className="h-5 w-5 text-primary" />
+
+                <h2 className="font-bold text-foreground">
+                  Payment Summary
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Base rental amount
+                  </span>
+
+                  <span className="text-sm font-bold text-foreground">
+                    ₹{payment.baseRentalAmount.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Late return charge
+                  </span>
+
+                  <span className="text-sm font-bold text-foreground">
+                    ₹{payment.lateCharge.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Eligible transaction amount
+                  </span>
+
+                  <span className="text-sm font-bold text-foreground">
+                    ₹{payment.eligibleTransactionAmount.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Platform fee ({payment.platformFeePercent}%)
+                  </span>
+
+                  <span className="text-sm font-bold text-foreground">
+                    ₹{payment.platformFeeAmount.toFixed(2)}
+                  </span>
+                </div>
+
+                {payment.taxAmount > 0 && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      Tax
+                    </span>
+
+                    <span className="text-sm font-bold text-foreground">
+                      ₹{payment.taxAmount.toFixed(2)}
+                    </span>
+                  </div>
                 )}
 
-                <Box display="flex" flexDirection="column" gap={2}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    disabled={processing || paymentSuccess}
-                    onClick={() => handlePayment("SUCCESS")}
-                    startIcon={processing ? <CircularProgress size={20} /> : <PaymentIcon />}
-                  >
-                    {processing ? "Processing..." : `Pay ₹${totalAmount.toFixed(2)}`}
-                  </Button>
+                <div className="border-t border-border pt-4">
+                  <div className="flex justify-between items-center">
 
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    disabled={processing || paymentSuccess}
-                    onClick={() => handlePayment("FAILED")}
-                  >
-                    Simulate Payment Failure (Test Only)
-                  </Button>
-                </Box>
-              </FormControl>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Container>
+                    <span className="text-base font-bold text-foreground">
+                      Final Amount
+                    </span>
+
+                    <span className="text-2xl font-black text-primary">
+                      ₹{payment.finalAmount.toFixed(2)}
+                    </span>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Security */}
+
+            <div className="rounded-2xl border border-primary/15 bg-primary/5 p-5">
+
+              <div className="flex gap-3">
+
+                <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    Secure Razorpay Test Checkout
+                  </h3>
+
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Your payment is processed through Razorpay.
+                    Payment verification is performed securely
+                    by the backend.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Checkout card */}
+
+          <div className="h-fit rounded-2xl border border-border bg-card p-6 shadow-lg">
+
+            <div className="mb-6 flex items-center gap-3">
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
+                <CreditCard className="h-5 w-5 text-primary-foreground" />
+              </div>
+
+              <div>
+                <h2 className="font-bold text-foreground">
+                  Payment
+                </h2>
+
+                <p className="text-xs text-muted-foreground">
+                  Razorpay Test Mode
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mb-6 rounded-xl bg-muted p-4">
+              <p className="text-xs text-muted-foreground">
+                Amount payable
+              </p>
+
+              <p className="mt-1 text-3xl font-black text-foreground">
+                ₹{payment.finalAmount.toFixed(2)}
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
+                <p className="text-xs font-semibold text-destructive">
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePayment}
+              disabled={processing}
+              className="w-full rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-[0.99] transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {processing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying Payment...
+                </span>
+              ) : (
+                `Pay ₹${payment.finalAmount.toFixed(2)}`
+              )}
+            </button>
+
+            <p className="mt-4 text-center text-[11px] leading-4 text-muted-foreground">
+              You will be redirected to Razorpay Checkout
+              to complete the payment.
+            </p>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
   );
 };
 

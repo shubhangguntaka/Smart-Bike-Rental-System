@@ -28,6 +28,8 @@ import BookingHistory from "../pages/customer/BookingHistory";
 import RideTracking from "../pages/customer/RideTracking";
 import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
 import Payment from "../pages/customer/Payment";
+import PaymentSuccess from "@/pages/customer/PaymentSuccess";
+import PaymentFailed from "@/pages/customer/PaymentFailed";
 import Notifications from "../pages/customer/Notifications";
 import LiveGPS from "../pages/customer/LiveGPS";
 import RideHistory from "../pages/customer/RideHistory";
@@ -108,7 +110,10 @@ const AppRoutes = () => {
           <Route path="nearby-bikes" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
           <Route path="book/:bikeId" element={<Navigate to="/customer/explore-bikes" replace />} />
-          <Route path="bookings/:id" element={<BookingDetails />} />
+          <Route path="booking/:id" element={<BookingDetails />} />
+          <Route path="payment/:bookingId" element={<Payment />} />
+          <Route path="payment/success" element={<PaymentSuccess />} />
+          <Route path="payment/failed" element={<PaymentFailed />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="settings" element={<CustomerSettings />} />
           <Route path="book-bike" element={<Navigate to="/customer/explore-bikes" replace />} />
@@ -134,7 +139,6 @@ const AppRoutes = () => {
             element={<BookingQRCodePage />}
           />
           <Route path="payments" element={<ComingSoon />} />
-          <Route path="payment/:bookingId" element={<Payment />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="verification" element={<DocumentVerification />} />
