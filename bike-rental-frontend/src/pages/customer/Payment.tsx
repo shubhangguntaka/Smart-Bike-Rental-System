@@ -1,58 +1,187 @@
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import {
+  AlertCircle,
   ArrowLeft,
   CheckCircle2,
-  CreditCard,
   Loader2,
   ShieldCheck,
-  ReceiptText,
-  AlertCircle,
 } from "lucide-react";
 
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
 import paymentService from "@/services/paymentService";
-import type { PaymentResponse } from "@/types/payment";
+
+import type {
+  PaymentResponse,
+} from "@/types/payment";
+
+import PaymentSummary from "@/components/payment/PaymentSummary";
+
+import LateChargeBreakdown from "@/components/payment/LateChargeBreakdown";
+
+import PlatformFeeBreakdown from "@/components/payment/PlatformFeeBreakdown";
+
+import PaymentMethodSelector from "@/components/payment/PaymentMethodSelector";
+
+import PaymentForm from "@/components/payment/PaymentForm";
+
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (
+      options: RazorpayOptions
+    ) => RazorpayInstance;
   }
 }
 
+
+interface RazorpayOptions {
+  key: string;
+
+  amount: number;
+
+  currency: string;
+
+  name: string;
+
+  description: string;
+
+  order_id: string;
+
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+
+  notes?: {
+    bookingId?: string;
+    paymentId?: string;
+  };
+
+  theme?: {
+    color?: string;
+  };
+
+  modal?: {
+    ondismiss?: () => void;
+  };
+
+  handler: (
+    response: RazorpaySuccessResponse
+  ) => void;
+}
+
+
+interface RazorpaySuccessResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+
+interface RazorpayInstance {
+  open: () => void;
+
+  on: (
+    event: string,
+    callback: (response: any) => void
+  ) => void;
+}
+
+
+interface PaymentFailedResponse {
+  error?: {
+    description?: string;
+    reason?: string;
+    code?: string;
+  };
+}
+
+
 const Payment: React.FC = () => {
+
   const location = useLocation();
+
   const navigate = useNavigate();
-  const { bookingId: bookingIdParam } = useParams();
+
+  const { bookingId: bookingIdParam } =
+    useParams();
+
 
   const bookingId = Number(
-    bookingIdParam || location.state?.bookingId
+    bookingIdParam ||
+      location.state?.bookingId
   );
 
+
   const [payment, setPayment] =
-    useState<PaymentResponse | null>(null);
+    useState<PaymentResponse | null>(
+      null
+    );
+
+
+  const [paymentMethod, setPaymentMethod] =
+    useState("RAZORPAY");
+
 
   const [loading, setLoading] =
     useState(true);
 
+
   const [processing, setProcessing] =
     useState(false);
+
 
   const [error, setError] =
     useState("");
 
+
+  /*
+   * Prepare payment when page loads.
+   *
+   * Backend:
+   *
+   * confirmed return
+   *       ↓
+   * calculate final amount
+   *       ↓
+   * create Razorpay Test Order
+   *       ↓
+   * return payment details
+   */
   useEffect(() => {
+
     if (!bookingId) {
-      setError("Booking ID is missing.");
+
+      setError(
+        "Booking ID is missing."
+      );
+
       setLoading(false);
+
       return;
     }
 
     preparePayment();
+
   }, [bookingId]);
 
+
   const preparePayment = async () => {
+
     try {
+
       setLoading(true);
+
       setError("");
 
       const result =
@@ -61,337 +190,506 @@ const Payment: React.FC = () => {
         );
 
       setPayment(result);
+
     } catch (err: any) {
-      setError(
+
+      const message =
         err?.response?.data?.message ||
-          err?.message ||
-          "Unable to prepare payment."
+        err?.response?.data ||
+        err?.message ||
+        "Unable to prepare payment.";
+
+      setError(
+        typeof message === "string"
+          ? message
+          : "Unable to prepare payment."
       );
+
     } finally {
+
       setLoading(false);
+
     }
   };
 
+
   const handlePayment = () => {
+
     if (!payment) {
       return;
     }
 
-    if (!payment.razorpayKeyId) {
+
+    if (
+      paymentMethod !==
+      "RAZORPAY"
+    ) {
+
       setError(
-        "Razorpay key is not available."
+        "Please select Razorpay."
       );
+
       return;
     }
+
+
+    if (!payment.paymentId) {
+
+      setError(
+        "Payment ID is missing."
+      );
+
+      return;
+    }
+
+
+    if (!payment.razorpayKeyId) {
+
+      setError(
+        "Razorpay public key is not available."
+      );
+
+      return;
+    }
+
 
     if (!payment.razorpayOrderId) {
+
       setError(
-        "Razorpay order was not created."
+        "Razorpay order was not created by the backend."
       );
+
       return;
     }
 
-    const razorpayOrderId = payment.razorpayOrderId;
+
+    if (
+      !payment.finalAmount ||
+      payment.finalAmount <= 0
+    ) {
+
+      setError(
+        "Invalid final payable amount."
+      );
+
+      return;
+    }
+
 
     if (!window.Razorpay) {
-      setError("Razorpay Checkout is unavailable. Please try again.");
+
+      setError(
+        "Razorpay Checkout is unavailable. Please refresh the page and try again."
+      );
+
       return;
     }
 
-    const options = {
-      key: payment.razorpayKeyId,
 
-      amount: Math.round(
-        payment.finalAmount * 100
-      ),
+    setError("");
 
-      currency: "INR",
+    setProcessing(true);
 
-      name: "Smart Bike Rental",
+
+    /*
+     * IMPORTANT:
+     *
+     * The amount is taken from backend
+     * calculated finalAmount.
+     *
+     * The frontend does NOT calculate
+     * the rental amount.
+     */
+    const amountInPaise =
+      Math.round(
+        Number(
+          payment.finalAmount
+        ) * 100
+      );
+
+
+    const options: RazorpayOptions = {
+
+      key:
+        payment.razorpayKeyId,
+
+      amount:
+        amountInPaise,
+
+      currency:
+        "INR",
+
+      name:
+        "Smart Bike Rental",
 
       description:
         `Bike rental payment - Booking #${payment.bookingId}`,
 
       order_id:
-        razorpayOrderId,
+        payment.razorpayOrderId,
 
-      handler: async (response: any) => {
-        try {
-          setProcessing(true);
-          setError("");
 
-          const verifiedPayment =
-            await paymentService.processPayment({
-              paymentId:
-                payment.paymentId,
+      notes: {
+        bookingId:
+          String(payment.bookingId),
 
-              paymentMethod:
-                "RAZORPAY",
+        paymentId:
+          String(payment.paymentId),
+      },
 
-              razorpayOrderId:
-                razorpayOrderId,
 
-              razorpayPaymentId:
-                response.razorpay_payment_id,
+      theme: {
+        color:
+          "#3f8f6b",
+      },
 
-              razorpaySignature:
-                response.razorpay_signature,
-            });
 
-          navigate(
-            "/customer/payment/success",
-            {
-              state: {
-                payment:
-                  verifiedPayment,
-              },
-            }
+      modal: {
+
+        ondismiss: () => {
+
+          setProcessing(false);
+
+          setError(
+            "Payment was cancelled."
           );
-        } catch (err: any) {
+
+        },
+
+      },
+
+
+      handler:
+        async (
+          response
+        ) => {
+
+          try {
+
+            setError("");
+
+            /*
+             * Send Razorpay identifiers
+             * to backend.
+             *
+             * Backend verifies signature.
+             */
+            const verifiedPayment =
+              await paymentService.processPayment({
+
+                paymentId:
+                  payment.paymentId,
+
+                paymentMethod:
+                  "RAZORPAY",
+
+                razorpayOrderId:
+                  response.razorpay_order_id,
+
+                razorpayPaymentId:
+                  response.razorpay_payment_id,
+
+                razorpaySignature:
+                  response.razorpay_signature,
+
+              });
+
+
+            /*
+             * Backend must return SUCCESS.
+             */
+            if (
+              verifiedPayment.paymentStatus !==
+              "SUCCESS"
+            ) {
+
+              throw new Error(
+                "Payment verification did not return SUCCESS."
+              );
+
+            }
+
+
+            navigate(
+              "/customer/payment/success",
+              {
+                state: {
+                  payment:
+                    verifiedPayment,
+                },
+              }
+            );
+
+          } catch (err: any) {
+
+            navigate(
+              "/customer/payment/failed",
+              {
+                state: {
+
+                  message:
+                    err?.response?.data?.message ||
+                    err?.response?.data ||
+                    err?.message ||
+                    "Payment verification failed.",
+
+                },
+              }
+            );
+
+          } finally {
+
+            setProcessing(false);
+
+          }
+
+        },
+
+    };
+
+
+    try {
+
+      const razorpay =
+        new window.Razorpay(
+          options
+        );
+
+
+      /*
+       * Razorpay reports payment failure
+       * through this event.
+       */
+      razorpay.on(
+        "payment.failed",
+        (
+          response: PaymentFailedResponse
+        ) => {
+
+          setProcessing(false);
+
           navigate(
             "/customer/payment/failed",
             {
               state: {
+
                 message:
-                  err?.response?.data
-                    ?.message ||
-                  "Payment verification failed.",
+                  response?.error
+                    ?.description ||
+                  response?.error
+                    ?.reason ||
+                  "Payment failed.",
+
               },
             }
           );
-        } finally {
-          setProcessing(false);
+
         }
-      },
+      );
 
-      modal: {
-        ondismiss: () => {
-          setError(
-            "Payment was cancelled."
-          );
-        },
-      },
 
-      theme: {
-        color: "#3f8f6b",
-      },
-    };
+      razorpay.open();
 
-    const razorpay =
-      new window.Razorpay(options);
+    } catch (err: any) {
 
-    razorpay.on(
-      "payment.failed",
-      (response: any) => {
-        navigate(
-          "/customer/payment/failed",
-          {
-            state: {
-              message:
-                response?.error?.description ||
-                "Payment failed.",
-            },
-          }
-        );
-      }
-    );
+      setProcessing(false);
 
-    razorpay.open();
+      setError(
+        err?.message ||
+        "Unable to open Razorpay Checkout."
+      );
+
+    }
+
   };
 
+
+  /*
+   * Loading
+   */
   if (loading) {
+
     return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-background">
+      <div className="min-h-[70vh] flex items-center justify-center bg-background px-4">
+
         <div className="flex flex-col items-center gap-3">
+
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
 
           <p className="text-sm font-semibold text-muted-foreground">
-            Preparing your payment...
+            Preparing your final bill...
           </p>
+
         </div>
+
       </div>
     );
+
   }
 
-  if (error && !payment) {
+
+  /*
+   * Preparation error
+   */
+  if (
+    error &&
+    !payment
+  ) {
+
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-background px-4">
+
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
+
+          <div className="mb-4 flex items-center gap-3">
+
             <AlertCircle className="h-6 w-6 text-destructive" />
 
             <h2 className="text-lg font-bold text-foreground">
               Payment Preparation Failed
             </h2>
+
           </div>
 
-          <p className="text-sm text-muted-foreground mb-6">
+
+          <p className="mb-6 text-sm text-muted-foreground">
             {error}
           </p>
 
+
           <button
             type="button"
-            onClick={() =>
-              navigate(-1)
-            }
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:opacity-90 transition"
+            onClick={() => navigate(-1)}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
           >
             Go Back
           </button>
+
         </div>
+
       </div>
     );
+
   }
+
 
   if (!payment) {
     return null;
   }
 
+
   return (
     <div className="min-h-[80vh] bg-background px-4 py-8">
-      <div className="mx-auto max-w-5xl">
+
+      <div className="mx-auto max-w-6xl">
 
         {/* Header */}
 
         <div className="mb-8">
+
           <button
             type="button"
-            onClick={() =>
-              navigate(-1)
-            }
-            className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
+            onClick={() => navigate(-1)}
+            className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
           >
+
             <ArrowLeft className="h-4 w-4" />
+
             Back
+
           </button>
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">
-              Secure Checkout
-            </p>
 
-            <h1 className="mt-1 text-2xl sm:text-3xl font-black text-foreground">
-              Complete Your Payment
-            </h1>
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">
+            Secure Checkout
+          </p>
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              Booking #{payment.bookingId}
-            </p>
-          </div>
+
+          <h1 className="mt-1 text-2xl font-black text-foreground sm:text-3xl">
+            Complete Your Payment
+          </h1>
+
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Booking #{payment.bookingId}
+          </p>
+
         </div>
+
+
+        {/* General Error */}
+
+        {error && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+
+            <p className="text-sm text-foreground">
+              {error}
+            </p>
+
+          </div>
+        )}
+
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
 
-          {/* Payment information */}
+          {/* LEFT */}
 
           <div className="space-y-6">
 
-            {/* Status */}
+            {/* Return confirmed */}
 
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+
               <div className="flex items-start gap-4">
 
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+
                   <CheckCircle2 className="h-5 w-5 text-primary" />
+
                 </div>
+
 
                 <div>
+
                   <h2 className="font-bold text-foreground">
-                    Payment Ready
+                    Bike Return Confirmed
                   </h2>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     Your bike return has been confirmed.
-                    The amount below was calculated by
-                    the backend.
+                    The final payable amount has been
+                    calculated by the backend.
                   </p>
+
                 </div>
 
               </div>
+
             </div>
 
-            {/* Breakdown */}
 
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            {/* Final billing */}
 
-              <div className="mb-5 flex items-center gap-3">
-                <ReceiptText className="h-5 w-5 text-primary" />
+            <PaymentSummary
+              payment={payment}
+            />
 
-                <h2 className="font-bold text-foreground">
-                  Payment Summary
-                </h2>
-              </div>
 
-              <div className="space-y-4">
+            {/* Late charge */}
 
-                <div className="flex justify-between gap-4">
-                  <span className="text-sm text-muted-foreground">
-                    Base rental amount
-                  </span>
+            <LateChargeBreakdown
+              payment={payment}
+            />
 
-                  <span className="text-sm font-bold text-foreground">
-                    ₹{payment.baseRentalAmount.toFixed(2)}
-                  </span>
-                </div>
 
-                <div className="flex justify-between gap-4">
-                  <span className="text-sm text-muted-foreground">
-                    Late return charge
-                  </span>
+            {/* Platform fee */}
 
-                  <span className="text-sm font-bold text-foreground">
-                    ₹{payment.lateCharge.toFixed(2)}
-                  </span>
-                </div>
+            <PlatformFeeBreakdown
+              payment={payment}
+            />
 
-                <div className="flex justify-between gap-4">
-                  <span className="text-sm text-muted-foreground">
-                    Eligible transaction amount
-                  </span>
-
-                  <span className="text-sm font-bold text-foreground">
-                    ₹{payment.eligibleTransactionAmount.toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-4">
-                  <span className="text-sm text-muted-foreground">
-                    Platform fee ({payment.platformFeePercent}%)
-                  </span>
-
-                  <span className="text-sm font-bold text-foreground">
-                    ₹{payment.platformFeeAmount.toFixed(2)}
-                  </span>
-                </div>
-
-                {payment.taxAmount > 0 && (
-                  <div className="flex justify-between gap-4">
-                    <span className="text-sm text-muted-foreground">
-                      Tax
-                    </span>
-
-                    <span className="text-sm font-bold text-foreground">
-                      ₹{payment.taxAmount.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-
-                <div className="border-t border-border pt-4">
-                  <div className="flex justify-between items-center">
-
-                    <span className="text-base font-bold text-foreground">
-                      Final Amount
-                    </span>
-
-                    <span className="text-2xl font-black text-primary">
-                      ₹{payment.finalAmount.toFixed(2)}
-                    </span>
-
-                  </div>
-                </div>
-
-              </div>
-            </div>
 
             {/* Security */}
 
@@ -402,15 +700,19 @@ const Payment: React.FC = () => {
                 <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
 
                 <div>
+
                   <h3 className="text-sm font-bold text-foreground">
                     Secure Razorpay Test Checkout
                   </h3>
 
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Your payment is processed through Razorpay.
-                    Payment verification is performed securely
-                    by the backend.
+                    Your final amount is calculated by
+                    the backend. Razorpay payment
+                    verification is also performed on
+                    the backend before the payment is
+                    marked successful.
                   </p>
+
                 </div>
 
               </div>
@@ -419,71 +721,48 @@ const Payment: React.FC = () => {
 
           </div>
 
-          {/* Checkout card */}
 
-          <div className="h-fit rounded-2xl border border-border bg-card p-6 shadow-lg">
+          {/* RIGHT */}
 
-            <div className="mb-6 flex items-center gap-3">
+          <div className="space-y-6">
 
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
-                <CreditCard className="h-5 w-5 text-primary-foreground" />
-              </div>
+            <PaymentMethodSelector
+              value={paymentMethod}
+              onChange={
+                setPaymentMethod
+              }
+            />
 
-              <div>
-                <h2 className="font-bold text-foreground">
-                  Payment
-                </h2>
 
-                <p className="text-xs text-muted-foreground">
-                  Razorpay Test Mode
-                </p>
-              </div>
+            <PaymentForm
+              amount={
+                payment.finalAmount
+              }
 
-            </div>
+              paymentMethod={
+                paymentMethod
+              }
 
-            <div className="mb-6 rounded-xl bg-muted p-4">
-              <p className="text-xs text-muted-foreground">
-                Amount payable
-              </p>
+              processing={
+                processing
+              }
 
-              <p className="mt-1 text-3xl font-black text-foreground">
-                ₹{payment.finalAmount.toFixed(2)}
-              </p>
-            </div>
+              disabled={
+                !payment.razorpayOrderId ||
+                !payment.razorpayKeyId
+              }
 
-            {error && (
-              <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
-                <p className="text-xs font-semibold text-destructive">
-                  {error}
-                </p>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handlePayment}
-              disabled={processing}
-              className="w-full rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-[0.99] transition disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {processing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying Payment...
-                </span>
-              ) : (
-                `Pay ₹${payment.finalAmount.toFixed(2)}`
-              )}
-            </button>
-
-            <p className="mt-4 text-center text-[11px] leading-4 text-muted-foreground">
-              You will be redirected to Razorpay Checkout
-              to complete the payment.
-            </p>
+              onPay={
+                handlePayment
+              }
+            />
 
           </div>
 
         </div>
+
       </div>
+
     </div>
   );
 };
