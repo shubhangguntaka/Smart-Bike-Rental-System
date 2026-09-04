@@ -110,7 +110,8 @@ public class SecurityConfig {
                 
                 .requestMatchers(
                         "/api/reviews/**",
-                        "/api/notifications/**"
+                        "/api/notifications/**",
+                        "/api/payments/**"
                 ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
                 // All other APIs require authentication
                 .anyRequest().authenticated()

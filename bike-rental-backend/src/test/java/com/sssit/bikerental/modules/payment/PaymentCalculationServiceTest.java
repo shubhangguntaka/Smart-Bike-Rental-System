@@ -22,6 +22,7 @@ import com.sssit.bikerental.modules.booking.entity.Booking;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.config.PaymentProperties;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
+import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 import com.sssit.bikerental.modules.payment.service.impl.PaymentCalculationServiceImpl;
 import com.sssit.bikerental.modules.user.User;
 
@@ -90,6 +91,7 @@ class PaymentCalculationServiceTest {
 
         PaymentResponse response = paymentCalculationService.calculatePayment(1L);
 
+        assertEquals(PaymentStatus.READY_FOR_PAYMENT, response.getPaymentStatus());
         assertEquals(new BigDecimal("3"), response.getPlatformFeePercent());
         assertEquals(new BigDecimal("3.00"), response.getPlatformFeeAmount());
         assertEquals(new BigDecimal("103.00"), response.getFinalAmount());
@@ -133,5 +135,22 @@ class PaymentCalculationServiceTest {
         assertEquals(
                 "Payment platform fee configuration is missing: threshold, lower fee, and upper fee are required",
                 exception.getMessage());
+    }
+
+    @Test
+    void calculatePayment_shouldIncludeLateChargeWhenReturnedPastGracePeriod() {
+        // Scheduled: 12:00, Grace: 15 min -> Allowed: 12:15. Actual: 13:00 -> 45 min late (1 hour billed)
+        paymentProperties.setLateGraceMinutes(15);
+        paymentProperties.setLateChargeRate(new BigDecimal("50.00"));
+        booking.setActualReturnTime(booking.getReturnTime().plusMinutes(60));
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+        PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+        assertEquals(new BigDecimal("50.00"), response.getLateCharge());
+        // Base: 100, Late: 50 -> Eligible: 150. Platform fee 3%: 4.50 -> Final: 154.50
+        assertEquals(new BigDecimal("150.00"), response.getEligibleTransactionAmount());
+        assertEquals(new BigDecimal("4.50"), response.getPlatformFeeAmount());
+        assertEquals(new BigDecimal("154.50"), response.getFinalAmount());
     }
 }

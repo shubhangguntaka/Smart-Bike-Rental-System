@@ -24,6 +24,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.sssit.bikerental.common.enums.Role;
+import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.payment.dto.InvoiceDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 import com.sssit.bikerental.modules.payment.entity.Payment;
@@ -42,6 +44,12 @@ class PaymentServiceImplTest {
     private PaymentRepository paymentRepository;
 
     @Mock
+    private BookingRepository bookingRepository;
+
+    @Mock
+    private com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
+
+    @Mock
     private PaymentCalculationService paymentCalculationService;
 
     @Mock
@@ -56,6 +64,8 @@ class PaymentServiceImplTest {
     void setUp() {
         paymentService = new PaymentServiceImpl(
                 paymentRepository,
+                bookingRepository,
+                userRepository,
                 paymentCalculationService,
                 paymentMapper,
                 razorpayGateway);
@@ -103,7 +113,7 @@ class PaymentServiceImplTest {
 
         PaymentResponse response = paymentService.preparePayment(1L);
 
-        assertEquals(PaymentStatus.PENDING, response.getPaymentStatus());
+        assertEquals(PaymentStatus.READY_FOR_PAYMENT, response.getPaymentStatus());
         assertEquals("order_test_1", response.getRazorpayOrderId());
         verify(razorpayGateway).createOrder(
                 10L, new BigDecimal("125.00"), "booking_1");
@@ -136,7 +146,7 @@ class PaymentServiceImplTest {
     @Test
     void preparePayment_shouldRejectDifferentCustomer() throws Exception {
         PaymentResponse calculation = calculation(1L, 999L, "125.00");
-        Payment existingPayment = payment(10L, 999L, PaymentStatus.PENDING);
+        Payment existingPayment = payment(10L, 999L, PaymentStatus.READY_FOR_PAYMENT);
         when(paymentCalculationService.calculatePayment(1L))
                 .thenReturn(calculation);
         when(paymentRepository.findByBookingId(1L))
@@ -165,7 +175,7 @@ class PaymentServiceImplTest {
 
     @Test
     void processPayment_shouldMarkFailedWhenSignatureIsInvalid() {
-        Payment payment = payment(10L, 100L, PaymentStatus.PENDING);
+        Payment payment = payment(10L, 100L, PaymentStatus.READY_FOR_PAYMENT);
         when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
         when(razorpayGateway.verifySignature(
                 "order_test_1", "pay_test_1", "bad_signature"))
@@ -182,7 +192,7 @@ class PaymentServiceImplTest {
 
     @Test
     void processPayment_shouldPersistSuccessDetailsAfterValidSignature() {
-        Payment payment = payment(10L, 100L, PaymentStatus.PENDING);
+        Payment payment = payment(10L, 100L, PaymentStatus.READY_FOR_PAYMENT);
         when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
         when(razorpayGateway.verifySignature(
                 "order_test_1", "pay_test_1", "valid_signature"))
@@ -205,12 +215,170 @@ class PaymentServiceImplTest {
     @Test
     void processPayment_shouldRejectDifferentCustomer() {
         when(paymentRepository.findById(10L))
-                .thenReturn(Optional.of(payment(10L, 999L, PaymentStatus.PENDING)));
+                .thenReturn(Optional.of(payment(10L, 999L, PaymentStatus.READY_FOR_PAYMENT)));
 
         assertThrows(AccessDeniedException.class,
                 () -> paymentService.processPayment(request("valid_signature")));
 
         verify(razorpayGateway, never()).verifySignature(any(), any(), any());
+    }
+
+    @Test
+    void retryPayment_shouldCreateNewRazorpayOrderForFailedPayment() throws Exception {
+        Payment failedPayment = payment(10L, 100L, PaymentStatus.FAILED);
+        failedPayment.setRazorpayOrderId("old_order_id");
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(failedPayment));
+        when(razorpayGateway.createOrder(eq(10L), eq(new BigDecimal("125.00")), eq("retry_booking_1")))
+                .thenReturn("new_retry_order_id");
+        when(paymentRepository.save(failedPayment)).thenReturn(failedPayment);
+        when(paymentMapper.toResponse(failedPayment))
+                .thenAnswer(invocation -> response(invocation.getArgument(0)));
+
+        PaymentResponse response = paymentService.retryPayment(10L);
+
+        assertEquals(PaymentStatus.READY_FOR_PAYMENT, failedPayment.getPaymentStatus());
+        assertEquals("new_retry_order_id", failedPayment.getRazorpayOrderId());
+        verify(razorpayGateway).createOrder(10L, new BigDecimal("125.00"), "retry_booking_1");
+        verify(paymentRepository).save(failedPayment);
+    }
+
+    @Test
+    void retryPayment_shouldRejectNonFailedPayment() {
+        Payment pendingPayment = payment(10L, 100L, PaymentStatus.READY_FOR_PAYMENT);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(pendingPayment));
+
+        assertThrows(RuntimeException.class, () -> paymentService.retryPayment(10L));
+    }
+
+    @Test
+    void getPaymentHistory_shouldReturnHistoryForAuthorizedCustomer() {
+        Payment p1 = payment(10L, 100L, PaymentStatus.SUCCESS);
+        Payment p2 = payment(11L, 100L, PaymentStatus.FAILED);
+        when(paymentRepository.findByCustomerIdOrderByCreatedAtDesc(100L))
+                .thenReturn(java.util.List.of(p1, p2));
+        when(paymentMapper.toResponse(p1)).thenReturn(response(p1));
+        when(paymentMapper.toResponse(p2)).thenReturn(response(p2));
+
+        java.util.List<PaymentResponse> history = paymentService.getPaymentHistory(100L);
+
+        assertEquals(2, history.size());
+        verify(paymentRepository).findByCustomerIdOrderByCreatedAtDesc(100L);
+    }
+
+    @Test
+    void getPaymentHistory_shouldHandleEmptyHistory() {
+        when(paymentRepository.findByCustomerIdOrderByCreatedAtDesc(100L))
+                .thenReturn(java.util.List.of());
+
+        java.util.List<PaymentResponse> history = paymentService.getPaymentHistory(100L);
+
+        assertNotNull(history);
+        assertEquals(0, history.size());
+    }
+
+    @Test
+    void getPaymentHistory_shouldRejectUnauthorizedCustomer() {
+        assertThrows(AccessDeniedException.class,
+                () -> paymentService.getPaymentHistory(999L));
+        verify(paymentRepository, never()).findByCustomerIdOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    void getPaymentById_shouldReturnDetailsForAuthorizedCustomer() {
+        Payment payment = payment(10L, 100L, PaymentStatus.SUCCESS);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(paymentMapper.toResponse(payment)).thenReturn(response(payment));
+
+        PaymentResponse response = paymentService.getPaymentById(10L);
+
+        assertNotNull(response);
+        assertEquals(10L, response.getPaymentId());
+    }
+
+    @Test
+    void getPaymentById_shouldRejectUnauthorizedCustomer() {
+        Payment payment = payment(10L, 999L, PaymentStatus.SUCCESS);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+
+        assertThrows(AccessDeniedException.class,
+                () -> paymentService.getPaymentById(10L));
+    }
+
+    @Test
+    void getPaymentById_shouldThrowWhenNotFound() {
+        when(paymentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> paymentService.getPaymentById(999L));
+    }
+
+    @Test
+    void getInvoice_shouldReturnInvoiceWithCustomerDetailsForSuccessfulPayment() {
+        Payment successPayment = payment(10L, 100L, PaymentStatus.SUCCESS);
+        successPayment.setInvoiceNumber("INV-1-10");
+        User customer = User.builder()
+                .firstName("John")
+                .lastName("Doe")
+                .email("customer@example.com")
+                .phoneNumber("9876543210")
+                .build();
+        customer.setId(100L);
+
+        InvoiceDTO invoiceDTO = InvoiceDTO.builder()
+                .invoiceNumber("INV-1-10")
+                .paymentId(10L)
+                .bookingId(1L)
+                .customerId(100L)
+                .customerName("John Doe")
+                .customerEmail("customer@example.com")
+                .customerPhone("9876543210")
+                .finalAmount(new BigDecimal("125.00"))
+                .paymentStatus("SUCCESS")
+                .build();
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(successPayment));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(customer));
+        when(paymentMapper.toInvoiceDTO(successPayment, customer)).thenReturn(invoiceDTO);
+
+        InvoiceDTO result = paymentService.getInvoice(10L);
+
+        assertNotNull(result);
+        assertEquals("INV-1-10", result.getInvoiceNumber());
+        assertEquals(10L, result.getPaymentId());
+        assertEquals("John Doe", result.getCustomerName());
+        assertEquals("customer@example.com", result.getCustomerEmail());
+    }
+
+    @Test
+    void getInvoice_shouldRejectNonSuccessfulPayment() {
+        Payment pendingPayment = payment(10L, 100L, PaymentStatus.READY_FOR_PAYMENT);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(pendingPayment));
+
+        assertThrows(RuntimeException.class, () -> paymentService.getInvoice(10L));
+    }
+
+    @Test
+    void getInvoice_shouldRejectFailedPayment() {
+        Payment failedPayment = payment(10L, 100L, PaymentStatus.FAILED);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(failedPayment));
+
+        assertThrows(RuntimeException.class, () -> paymentService.getInvoice(10L));
+    }
+
+    @Test
+    void getInvoice_shouldRejectUnauthorizedCustomer() {
+        Payment payment = payment(10L, 999L, PaymentStatus.SUCCESS);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+
+        assertThrows(AccessDeniedException.class, () -> paymentService.getInvoice(10L));
+    }
+
+    @Test
+    void getInvoice_shouldThrowWhenPaymentNotFound() {
+        when(paymentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> paymentService.getInvoice(999L));
     }
 
     private PaymentResponse calculation(

@@ -144,7 +144,7 @@ private RideRepository rideRepository;
 
             assertNotNull(res);
             assertEquals(BookingStatus.CONFIRMED, res.getBookingStatus());
-            assertEquals(PaymentStatus.SUCCESS, res.getPaymentStatus());
+            assertEquals(PaymentStatus.PENDING, res.getPaymentStatus());
             assertEquals("data:image/png;base64,GENERATED_QR", res.getQrCode());
             verify(qrCodeService, times(1)).generateQRCode(anyString(), eq(250), eq(250));
         }

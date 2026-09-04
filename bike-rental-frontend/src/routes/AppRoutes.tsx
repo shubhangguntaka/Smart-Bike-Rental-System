@@ -30,6 +30,9 @@ import BookingQRCodePage from "../pages/customer/BookingQRCodePage";
 import Payment from "../pages/customer/Payment";
 import PaymentSuccess from "@/pages/customer/PaymentSuccess";
 import PaymentFailed from "@/pages/customer/PaymentFailed";
+import PaymentHistory from "@/pages/customer/PaymentHistory";
+import PaymentDetails from "@/pages/customer/PaymentDetails";
+import InvoicePage from "@/pages/customer/InvoicePage";
 import Notifications from "../pages/customer/Notifications";
 import LiveGPS from "../pages/customer/LiveGPS";
 import RideHistory from "../pages/customer/RideHistory";
@@ -138,7 +141,11 @@ const AppRoutes = () => {
             path="booking-qr/:id"
             element={<BookingQRCodePage />}
           />
-          <Route path="payments" element={<ComingSoon />} />
+          <Route path="payments" element={<PaymentHistory />} />
+          <Route path="payments/:id" element={<PaymentDetails />} />
+          <Route path="payments/:id/invoice" element={<InvoicePage />} />
+          <Route path="invoice/:id" element={<InvoicePage />} />
+          <Route path="payment-history" element={<Navigate to="/customer/payments" replace />} />
           <Route path="bikes/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="bike/:bikeId" element={<CustomerBikeDetails />} />
           <Route path="verification" element={<DocumentVerification />} />

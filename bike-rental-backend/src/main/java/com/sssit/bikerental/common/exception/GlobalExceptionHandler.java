@@ -231,9 +231,12 @@ public class GlobalExceptionHandler {
                         Exception ex) {
 
                 ex.printStackTrace();
+                String message = ex.getMessage() != null && !ex.getMessage().isBlank()
+                                ? ex.getMessage()
+                                : "Something went wrong. Please try again later.";
 
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                .body(ApiResponse.error("Something went wrong. Please try again later."));
+                                .body(ApiResponse.error(message));
         }
 
         @ExceptionHandler(RefreshTokenException.class)

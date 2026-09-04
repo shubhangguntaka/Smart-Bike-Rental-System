@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Clock, Shield, ShieldCheck, Sparkles, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
@@ -27,47 +27,92 @@ export default function RentBikeModal({
 
   const bike = rawBike ? normalizeBike(rawBike) : null;
 
-  // Time & Date State
-  const getTodayDateTimeString = () => {
+  // Smart initial dates tailored to bike operating hours and current time
+  const getSmartInitialTimes = (bikeObj?: any) => {
     const now = new Date();
-    now.setMinutes(0, 0, 0);
-    now.setHours(now.getHours() + 1);
-    const tzoffset = now.getTimezoneOffset() * 60000;
-    return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
+    let shiftStartH = 8;
+    let shiftStartM = 0;
+    let shiftEndH = 20;
+    let shiftEndM = 0;
+
+    if (bikeObj?.availableStartTime) {
+      const [sh, sm] = String(bikeObj.availableStartTime).split(":").map(Number);
+      if (!isNaN(sh)) {
+        shiftStartH = sh;
+        shiftStartM = sm || 0;
+      }
+    }
+    if (bikeObj?.availableEndTime) {
+      const [eh, em] = String(bikeObj.availableEndTime).split(":").map(Number);
+      if (!isNaN(eh)) {
+        shiftEndH = eh;
+        shiftEndM = em || 0;
+      }
+    }
+
+    const currentH = now.getHours();
+    const currentM = now.getMinutes();
+
+    let pickup = new Date(now);
+    // If current time is before shiftStart today, start at shiftStart
+    if (currentH < shiftStartH || (currentH === shiftStartH && currentM < shiftStartM)) {
+      pickup.setHours(shiftStartH, shiftStartM, 0, 0);
+    } else if (currentH >= shiftEndH - 1) {
+      // If current time is past or within 1h of shiftEnd today, schedule for tomorrow at shiftStart
+      pickup.setDate(pickup.getDate() + 1);
+      pickup.setHours(shiftStartH, shiftStartM, 0, 0);
+    } else {
+      // Within shift: round up to next 30-min block
+      const nextH = now.getMinutes() > 30 ? now.getHours() + 1 : now.getHours();
+      const nextM = now.getMinutes() > 30 ? 0 : 30;
+      pickup.setHours(nextH, nextM, 0, 0);
+    }
+
+    let ret = new Date(pickup);
+    ret.setHours(ret.getHours() + 2); // 2-hour default rental
+    if (ret.getDate() === pickup.getDate() && (ret.getHours() > shiftEndH || (ret.getHours() === shiftEndH && ret.getMinutes() > shiftEndM))) {
+      ret.setHours(shiftEndH, shiftEndM, 0, 0);
+    }
+
+    const toLocalISO = (d: Date) => {
+      const tzoffset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - tzoffset).toISOString().slice(0, 16);
+    };
+
+    return {
+      pickupStr: toLocalISO(pickup),
+      returnStr: toLocalISO(ret),
+    };
   };
 
-  const getReturnDateTimeString = () => {
-    const now = new Date();
-    now.setMinutes(0, 0, 0);
-    now.setHours(now.getHours() + 3);
-    const tzoffset = now.getTimezoneOffset() * 60000;
-    return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
-  };
+  const initialTimes = getSmartInitialTimes(bike);
+  const [initPDate, initPTime] = initialTimes.pickupStr.split("T");
+  const [initRDate, initRTime] = initialTimes.returnStr.split("T");
 
-  const [pickupDate, setPickupDate] = useState<string>(getTodayDateTimeString());
-  const [returnDate, setReturnDate] = useState<string>(getReturnDateTimeString());
+  const [pickupDate, setPickupDate] = useState<string>(initPDate || "");
+  const [pickupTime, setPickupTime] = useState<string>(initPTime || "09:00");
+  const [returnDate, setReturnDate] = useState<string>(initRDate || "");
+  const [returnTime, setReturnTime] = useState<string>(initRTime || "11:00");
 
   // Unavailable Dialog State
   const [isUnavailableModalOpen, setIsUnavailableModalOpen] = useState(false);
   const [unavailableMessage, setUnavailableMessage] = useState<string>("");
 
+  // Only initialize default times once when modal transitions from closed to open
+  const prevIsOpen = useRef(false);
   useEffect(() => {
-    if (isOpen) {
-      setPickupDate(getTodayDateTimeString());
-      setReturnDate(getReturnDateTimeString());
+    if (isOpen && !prevIsOpen.current) {
+      const times = getSmartInitialTimes(bike);
+      const [pDate, pTime] = times.pickupStr.split("T");
+      const [rDate, rTime] = times.returnStr.split("T");
+      setPickupDate(pDate || "");
+      setPickupTime(pTime || "09:00");
+      setReturnDate(rDate || "");
+      setReturnTime(rTime || "11:00");
       setConfirmLoading(false);
     }
+    prevIsOpen.current = isOpen;
   }, [isOpen]);
-
-  const getTimeString = (dateTimeStr: string) => {
-    if (!dateTimeStr) return "09:00";
-    const parts = dateTimeStr.split(/[T ]/);
-    if (parts.length > 1) {
-      const timePart = parts[1];
-      return timePart.substring(0, 5);
-    }
-    return "09:00";
-  };
 
   const timeSlots: { value: string; label: string }[] = [];
   for (let h = 0; h < 24; h++) {
@@ -84,24 +129,68 @@ export default function RentBikeModal({
     }
   }
 
-  const getFilteredTimeSlots = (selectedDateTimeStr: string) => {
-    if (!selectedDateTimeStr) return timeSlots;
-    const selectedDateStr = selectedDateTimeStr.split(/[T ]/)[0];
+  const getFilteredTimeSlots = (selectedDateStr?: string, currentSelectedTime?: string) => {
+    if (!selectedDateStr) return timeSlots;
     const todayDateStr = new Date().toISOString().split("T")[0];
 
-    if (selectedDateStr === todayDateStr) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
 
-      return timeSlots.filter((slot) => {
-        const [slotH, slotM] = slot.value.split(":").map(Number);
-        if (slotH > currentHour) return true;
-        if (slotH === currentHour && slotM >= currentMinute) return true;
-        return false;
-      });
+    let shiftStartH = 8;
+    let shiftStartM = 0;
+    let shiftEndH = 20;
+    let shiftEndM = 0;
+
+    if (bike?.availableStartTime) {
+      const [sh, sm] = String(bike.availableStartTime).split(":").map(Number);
+      if (!isNaN(sh)) {
+        shiftStartH = sh;
+        shiftStartM = sm || 0;
+      }
     }
-    return timeSlots;
+    if (bike?.availableEndTime) {
+      const [eh, em] = String(bike.availableEndTime).split(":").map(Number);
+      if (!isNaN(eh)) {
+        shiftEndH = eh;
+        shiftEndM = em || 0;
+      }
+    }
+
+    const isOvernight = shiftStartH > shiftEndH;
+
+    const filtered = timeSlots.filter((slot) => {
+      const [slotH, slotM] = slot.value.split(":").map(Number);
+
+      // Check if slot is in the past for today (give 5 min tolerance)
+      if (selectedDateStr === todayDateStr) {
+        if (slotH < currentHour || (slotH === currentHour && slotM < currentMinute - 5)) {
+          return false;
+        }
+      }
+
+      // Check if slot is within operational hours
+      if (!isOvernight) {
+        if (slotH < shiftStartH || (slotH === shiftStartH && slotM < shiftStartM)) return false;
+        if (slotH > shiftEndH || (slotH === shiftEndH && slotM > shiftEndM)) return false;
+      } else {
+        const inEvening = slotH > shiftStartH || (slotH === shiftStartH && slotM >= shiftStartM);
+        const inMorning = slotH < shiftEndH || (slotH === shiftEndH && slotM <= shiftEndM);
+        if (!inEvening && !inMorning) return false;
+      }
+
+      return true;
+    });
+
+    // Ensure currently selected time is always present in dropdown
+    if (currentSelectedTime && !filtered.some((s) => s.value === currentSelectedTime)) {
+      const existing = timeSlots.find((s) => s.value === currentSelectedTime);
+      if (existing) {
+        filtered.unshift(existing);
+      }
+    }
+
+    return filtered.length > 0 ? filtered : timeSlots;
   };
 
   const handleConfirmBooking = async () => {
@@ -113,19 +202,39 @@ export default function RentBikeModal({
     try {
       setConfirmLoading(true);
 
-      let finalPickup = pickupDate;
-      let finalReturn = returnDate;
-      const nowTime = new Date();
-      const pickupParsed = new Date(finalPickup);
-      if (isNaN(pickupParsed.getTime()) || pickupParsed < nowTime) {
-        finalPickup = getTodayDateTimeString();
-        const retParsed = new Date(finalReturn);
-        if (isNaN(retParsed.getTime()) || retParsed <= new Date(finalPickup)) {
-          finalReturn = getReturnDateTimeString();
-        }
+      if (!pickupDate || !pickupTime || !returnDate || !returnTime) {
+        toast.error("Please select pickup and return dates and times.");
+        setConfirmLoading(false);
+        return;
       }
 
-      // Check bike availability from backend
+      const finalPickup = `${pickupDate}T${pickupTime}:00`;
+      const finalReturn = `${returnDate}T${returnTime}:00`;
+
+      const pickupParsed = new Date(finalPickup);
+      const returnParsed = new Date(finalReturn);
+
+      if (isNaN(pickupParsed.getTime()) || isNaN(returnParsed.getTime())) {
+        toast.error("Please enter a valid pickup and return date and time.");
+        setConfirmLoading(false);
+        return;
+      }
+
+      const nowTime = new Date();
+      nowTime.setMinutes(nowTime.getMinutes() - 5);
+      if (pickupParsed < nowTime) {
+        toast.error("Pickup time cannot be in the past. Please select a future time.");
+        setConfirmLoading(false);
+        return;
+      }
+
+      if (returnParsed <= pickupParsed) {
+        toast.error("Return time must be after pickup time.");
+        setConfirmLoading(false);
+        return;
+      }
+
+      // Check bike availability from backend for the user-selected slot
       let isAvailable = true;
       try {
         isAvailable = await BookingService.checkAvailability(
@@ -142,14 +251,6 @@ export default function RentBikeModal({
           setConfirmLoading(false);
           return;
         }
-      }
-
-      if (bike.bikeStatus === "BOOKED") {
-        setUnavailableMessage("This slot is booked at that time. Bike is already accepted and reserved by the owner for another customer.");
-        onClose();
-        setIsUnavailableModalOpen(true);
-        setConfirmLoading(false);
-        return;
       }
 
       if (!isAvailable) {
@@ -212,8 +313,14 @@ export default function RentBikeModal({
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pickup Date</label>
                   <input
                     type="date"
-                    value={pickupDate.split(/[T ]/)[0]}
-                    onChange={(e) => setPickupDate(e.target.value + "T" + getTimeString(pickupDate))}
+                    min={new Date().toISOString().split("T")[0]}
+                    value={pickupDate}
+                    onChange={(e) => {
+                      setPickupDate(e.target.value);
+                      if (!returnDate || returnDate < e.target.value) {
+                        setReturnDate(e.target.value);
+                      }
+                    }}
                     className="w-full rounded-xl border border-border bg-card px-2.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
                   />
                 </div>
@@ -221,11 +328,11 @@ export default function RentBikeModal({
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pickup Time</label>
                   <div className="relative flex items-center">
                     <select
-                      value={getTimeString(pickupDate)}
-                      onChange={(e) => setPickupDate(pickupDate.split(/[T ]/)[0] + "T" + e.target.value)}
+                      value={pickupTime}
+                      onChange={(e) => setPickupTime(e.target.value)}
                       className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
                     >
-                      {getFilteredTimeSlots(pickupDate).map((slot) => (
+                      {getFilteredTimeSlots(pickupDate, pickupTime).map((slot) => (
                         <option key={slot.value} value={slot.value}>
                           {slot.label}
                         </option>
@@ -238,8 +345,9 @@ export default function RentBikeModal({
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Return Date</label>
                   <input
                     type="date"
-                    value={returnDate.split(/[T ]/)[0]}
-                    onChange={(e) => setReturnDate(e.target.value + "T" + getTimeString(returnDate))}
+                    min={pickupDate || new Date().toISOString().split("T")[0]}
+                    value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)}
                     className="w-full rounded-xl border border-border bg-card px-2.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
                   />
                 </div>
@@ -247,11 +355,11 @@ export default function RentBikeModal({
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Return Time</label>
                   <div className="relative flex items-center">
                     <select
-                      value={getTimeString(returnDate)}
-                      onChange={(e) => setReturnDate(returnDate.split(/[T ]/)[0] + "T" + e.target.value)}
+                      value={returnTime}
+                      onChange={(e) => setReturnTime(e.target.value)}
                       className="w-full rounded-xl border border-border bg-card pl-2.5 pr-8 py-2 text-xs text-foreground focus:border-primary focus:outline-none appearance-none cursor-pointer"
                     >
-                      {getFilteredTimeSlots(returnDate).map((slot) => (
+                      {getFilteredTimeSlots(returnDate, returnTime).map((slot) => (
                         <option key={slot.value} value={slot.value}>
                           {slot.label}
                         </option>
@@ -281,11 +389,12 @@ export default function RentBikeModal({
                   <span>Estimated Total</span>
                   <span className="text-primary font-black">
                     ₹{(() => {
-                      const start = new Date(pickupDate);
-                      const end = new Date(returnDate);
-                      const diffTime = Math.abs(end.getTime() - start.getTime());
-                      const diffHours = diffTime / (1000 * 60 * 60);
-                      return Math.round(diffHours * bike.price);
+                      if (!pickupDate || !pickupTime || !returnDate || !returnTime) return 0;
+                      const start = new Date(`${pickupDate}T${pickupTime}:00`);
+                      const end = new Date(`${returnDate}T${returnTime}:00`);
+                      const diffHours = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+                      const rate = bike.hourlyRate || bike.price || Math.round((bike.rentalPrice || 480) / 8);
+                      return Math.round(diffHours * rate);
                     })()}
                   </span>
                 </div>

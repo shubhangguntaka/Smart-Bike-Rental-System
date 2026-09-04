@@ -1,5 +1,5 @@
 import api from "@/api/axios";
-import type { PaymentRequest, PaymentResponse } from "@/types/payment";
+import type { InvoiceDTO, PaymentRequest, PaymentResponse } from "@/types/payment";
 
 const paymentService = {
 
@@ -8,7 +8,7 @@ const paymentService = {
     ): Promise<PaymentResponse> => {
 
         const response = await api.post(
-            `/api/payments/prepare/${bookingId}`
+            `/payments/prepare/${bookingId}`
         );
 
         return response.data;
@@ -19,7 +19,7 @@ const paymentService = {
     ): Promise<PaymentResponse> => {
 
         const response = await api.post(
-            "/api/payments/process",
+            "/payments/process",
             request
         );
 
@@ -31,7 +31,7 @@ const paymentService = {
     ): Promise<PaymentResponse> => {
 
         const response = await api.get(
-            `/api/payments/${paymentId}`
+            `/payments/${paymentId}`
         );
 
         return response.data;
@@ -42,7 +42,7 @@ const paymentService = {
     ): Promise<PaymentResponse> => {
 
         const response = await api.get(
-            `/api/payments/booking/${bookingId}`
+            `/payments/booking/${bookingId}`
         );
 
         return response.data;
@@ -51,7 +51,7 @@ const paymentService = {
     getPaymentHistory: async (): Promise<PaymentResponse[]> => {
 
         const response = await api.get(
-            "/api/payments/history"
+            "/payments/history"
         );
 
         return response.data;
@@ -62,7 +62,18 @@ const paymentService = {
     ): Promise<PaymentResponse> => {
 
         const response = await api.post(
-            `/api/payments/${paymentId}/retry`
+            `/payments/${paymentId}/retry`
+        );
+
+        return response.data;
+    },
+
+    getInvoice: async (
+        paymentId: number
+    ): Promise<InvoiceDTO> => {
+
+        const response = await api.get(
+            `/payments/${paymentId}/invoice`
         );
 
         return response.data;

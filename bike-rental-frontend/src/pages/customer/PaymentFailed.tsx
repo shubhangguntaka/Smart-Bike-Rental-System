@@ -3,15 +3,27 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 interface PaymentFailedState {
   message?: string;
+  bookingId?: number;
+  paymentId?: number;
 }
 
 const PaymentFailed = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const message = (location.state as PaymentFailedState | null)?.message;
+  const state = location.state as PaymentFailedState | null;
+  const message = state?.message;
+  const bookingId = state?.bookingId;
+
+  const handleTryAgain = () => {
+    if (bookingId) {
+      navigate(`/customer/payment/${bookingId}`);
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
-    <div className="min-h-[70vh] bg-background px-4 py-10">
+    <div className="min-h-[70vh] px-4 py-10">
       <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-8 text-center shadow-lg">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="h-8 w-8 text-destructive" />
@@ -26,7 +38,7 @@ const PaymentFailed = () => {
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={handleTryAgain}
             className="w-full rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
           >
             Try again

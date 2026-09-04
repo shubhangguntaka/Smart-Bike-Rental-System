@@ -57,5 +57,34 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Could not alter rides status column: {}", e.getMessage());
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE payments MODIFY COLUMN payment_status VARCHAR(50) NOT NULL DEFAULT 'NOT_STARTED'");
+            log.info("Payments table payment_status column migration completed successfully.");
+        } catch (Exception e) {
+            log.debug("Could not alter payments payment_status column: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE payments MODIFY COLUMN amount DECIMAL(12,2) NULL DEFAULT NULL");
+            log.info("Payments table amount column migration completed successfully.");
+        } catch (Exception e) {
+            log.debug("Could not alter payments amount column: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE payments MODIFY COLUMN payment_date DATETIME NULL DEFAULT NULL");
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE payments MODIFY COLUMN status VARCHAR(50) NULL DEFAULT NULL");
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE bookings MODIFY COLUMN payment_status VARCHAR(50) NULL DEFAULT 'NOT_STARTED'");
+            log.info("Bookings table payment_status column migration completed successfully.");
+        } catch (Exception e) {
+            log.debug("Could not alter bookings payment_status column: {}", e.getMessage());
+        }
     }
 }

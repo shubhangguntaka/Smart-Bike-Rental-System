@@ -291,13 +291,25 @@ export default function CustomerBookings() {
                       <button
                         type="button"
                         onClick={() => setDirectionBooking(booking)}
-                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none flex items-center gap-1.5 shadow-sm active:scale-95 ring-2 ring-emerald-500/20"
+                        className="px-3 py-2 rounded-xl bg-primary hover:bg-primary/60 text-white text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none flex items-center gap-1.5 shadow-sm active:scale-95 ring-2 ring-emerald-500/20"
                         title="Directions to Accepted Bike"
                       >
                         <Navigation className="h-3.5 w-3.5" />
                         <span>Directions</span>
                       </button>
                     </div>
+                  )}
+
+                  {bStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/customer/payment/${bId}`)}
+                      className="px-3 py-2 rounded-xl bg-primary hover:bg-primary/60 text-white text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 ring-2 ring-primary/20"
+                      title="Proceed to Payment"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span>Pay Now</span>
+                    </button>
                   )}
 
                   {bStatus === "COMPLETED" && (() => {
@@ -309,7 +321,7 @@ export default function CustomerBookings() {
                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
                           rev
                             ? "border border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
-                            : "bg-primary text-primary-foreground hover:opacity-90 active:scale-95 shadow-xs"
+                            : "border border-primary text-primary hover:opacity-90 active:scale-95 shadow-xs"
                         }`}
                       >
                         <Star className={`h-4 w-4 ${rev ? "fill-amber-500 text-amber-500" : ""}`} />

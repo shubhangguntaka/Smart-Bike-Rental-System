@@ -95,6 +95,12 @@ const BookingQRCodePage = () => {
       const data = await BookingService.getBookingById(Number(id));
       setBooking(data);
 
+      // When owner scans QR and confirms bike return, redirect customer to payment page
+      if (data && data.bookingStatus === "COMPLETED" && data.paymentStatus !== "SUCCESS") {
+        navigate(`/customer/payment/${data.bookingId}`);
+        return;
+      }
+
       // Check if ride already exists for this booking
       if (data?.bookingId) {
         try {
@@ -115,19 +121,19 @@ const BookingQRCodePage = () => {
         setLoading(false);
       }
     }
-  }, [id, restoreActiveRide]);
+  }, [id, restoreActiveRide, navigate]);
 
   useEffect(() => {
     loadBookingAndRide();
   }, [loadBookingAndRide]);
 
-  // Polling for owner return scan when booking is active
+  // Polling for owner handover/return scan while booking is confirmed or active
   useEffect(() => {
-    if (!booking || booking.bookingStatus !== "ACTIVE") return;
+    if (!booking || (booking.bookingStatus !== "ACTIVE" && booking.bookingStatus !== "CONFIRMED")) return;
 
     const interval = setInterval(() => {
       loadBookingAndRide(true);
-    }, 4000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [booking?.bookingStatus, loadBookingAndRide]);
@@ -186,7 +192,7 @@ const BookingQRCodePage = () => {
               <button
                 type="button"
                 onClick={() => setShowDirections(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 cursor-pointer shadow-md active:scale-95 ring-2 ring-emerald-500/20"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary/80 text-white text-xs font-bold transition-all duration-200 cursor-pointer shadow-md active:scale-95 ring-2 ring-primary/20"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span>Directions to Bike</span>
@@ -560,6 +566,17 @@ const BookingQRCodePage = () => {
                     {booking.bookingStatus !== "CONFIRMED" && booking.bookingStatus !== "ACTIVE" && booking.bookingStatus !== "COMPLETED" && "Keep this booking pass ready for validation."}
                   </p>
                 </div>
+
+                {booking.bookingStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/customer/payment/${booking.bookingId}`)}
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Bike Returned — Proceed to Payment</span>
+                  </button>
+                )}
               </div>
             </div>
 

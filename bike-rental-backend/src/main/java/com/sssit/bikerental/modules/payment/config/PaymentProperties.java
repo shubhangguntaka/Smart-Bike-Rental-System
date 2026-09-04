@@ -14,13 +14,13 @@ import lombok.Setter;
 @ConfigurationProperties(prefix = "payment")
 public class PaymentProperties {
 
-    private BigDecimal platformFeeThreshold;
+    private BigDecimal platformFeeThreshold = new BigDecimal("1000");
 
-    private BigDecimal lowerPlatformFeePercent;
+    private BigDecimal lowerPlatformFeePercent = new BigDecimal("3");
 
-    private BigDecimal upperPlatformFeePercent;
+    private BigDecimal upperPlatformFeePercent = new BigDecimal("5");
 
-    private BigDecimal lateChargeRate;
+    private BigDecimal lateChargeRate = new BigDecimal("50.00");
 
-    private Integer lateGraceMinutes;
+    private Integer lateGraceMinutes = 15;
 }

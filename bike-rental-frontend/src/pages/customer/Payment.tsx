@@ -191,6 +191,18 @@ const Payment: React.FC = () => {
 
       setPayment(result);
 
+      if (result.paymentStatus === "SUCCESS") {
+        navigate(
+          "/customer/payment/success",
+          {
+            state: {
+              payment: result,
+            },
+          }
+        );
+        return;
+      }
+
     } catch (err: any) {
 
       const message =
@@ -426,13 +438,15 @@ const Payment: React.FC = () => {
               "/customer/payment/failed",
               {
                 state: {
-
+                  bookingId:
+                    payment.bookingId,
+                  paymentId:
+                    payment.paymentId,
                   message:
                     err?.response?.data?.message ||
                     err?.response?.data ||
                     err?.message ||
                     "Payment verification failed.",
-
                 },
               }
             );
@@ -472,14 +486,16 @@ const Payment: React.FC = () => {
             "/customer/payment/failed",
             {
               state: {
-
+                bookingId:
+                  payment.bookingId,
+                paymentId:
+                  payment.paymentId,
                 message:
                   response?.error
                     ?.description ||
                   response?.error
                     ?.reason ||
                   "Payment failed.",
-
               },
             }
           );
@@ -537,7 +553,7 @@ const Payment: React.FC = () => {
   ) {
 
     return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-background px-4">
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
 
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg">
 
@@ -552,18 +568,30 @@ const Payment: React.FC = () => {
           </div>
 
 
-          <p className="mb-6 text-sm text-muted-foreground">
-            {error}
+          <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+            {!bookingId
+              ? "Please select a completed booking to proceed with checkout."
+              : error || "Unable to prepare payment. Please check that bike return has been confirmed."}
           </p>
 
-
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
-          >
-            Go Back
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex-1 rounded-xl border border-border px-4 py-2.5 text-xs font-bold text-foreground transition hover:bg-muted cursor-pointer"
+            >
+              Go Back
+            </button>
+            {bookingId && (
+              <button
+                type="button"
+                onClick={preparePayment}
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 active:scale-95 cursor-pointer shadow-xs"
+              >
+                Try Again
+              </button>
+            )}
+          </div>
 
         </div>
 
@@ -579,7 +607,7 @@ const Payment: React.FC = () => {
 
 
   return (
-    <div className="min-h-[80vh] bg-background px-4 py-8">
+    <div className="min-h-[80vh] px-4 py-8">
 
       <div className="mx-auto max-w-6xl">
 

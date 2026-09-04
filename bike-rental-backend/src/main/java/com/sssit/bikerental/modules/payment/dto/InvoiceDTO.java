@@ -20,6 +20,12 @@ public class InvoiceDTO {
 
     private Long customerId;
 
+    private String customerName;
+
+    private String customerEmail;
+
+    private String customerPhone;
+
     private BigDecimal baseRentalAmount;
 
     private BigDecimal lateCharge;
@@ -41,4 +47,6 @@ public class InvoiceDTO {
     private String paymentMethod;
 
     private LocalDateTime paidAt;
+
+    private LocalDateTime createdAt;
 }

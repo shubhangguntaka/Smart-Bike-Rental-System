@@ -64,33 +64,80 @@ public class BookingServiceImpl implements BookingService {
     private void checkBikeAvailability(Bike bike, LocalDateTime startTime, LocalDateTime endTime, Long currentBookingId) {
         // 1. Check permanent status
         if (bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
-            throw new BookingNotAvailableException("Bike is not available during the selected time.");
+            throw new BookingNotAvailableException("Bike is currently under maintenance or not available for booking.");
         }
 
         // 2. Check bike owner availability window (operational shift)
-        if (bike.getAvailableStartTime() != null) {
-            java.time.LocalTime reqStartLocal = startTime.toLocalTime();
-            if (reqStartLocal.isBefore(bike.getAvailableStartTime())) {
-                throw new BookingNotAvailableException("Bike is not available during the selected time.");
+        if (bike.getAvailableStartTime() != null && bike.getAvailableEndTime() != null) {
+            java.time.LocalTime shiftStart = bike.getAvailableStartTime();
+            java.time.LocalTime shiftEnd = bike.getAvailableEndTime();
+            java.time.LocalTime reqStart = startTime.toLocalTime();
+            java.time.LocalTime reqEnd = endTime.toLocalTime();
+
+            if (!shiftStart.isAfter(shiftEnd)) {
+                // Daytime shift (e.g. 08:00 - 20:00)
+                if (reqStart.isBefore(shiftStart) || reqStart.isAfter(shiftEnd)) {
+                    throw new BookingNotAvailableException(String.format(
+                            "Pickup time (%s) is outside bike operational hours (%s - %s).",
+                            reqStart, shiftStart, shiftEnd));
+                }
+                if (reqEnd.isBefore(shiftStart) || reqEnd.isAfter(shiftEnd)) {
+                    throw new BookingNotAvailableException(String.format(
+                            "Return time (%s) is outside bike operational hours (%s - %s).",
+                            reqEnd, shiftStart, shiftEnd));
+                }
+            } else {
+                // Overnight shift (e.g. 18:00 - 06:00)
+                boolean startValid = !reqStart.isBefore(shiftStart) || !reqStart.isAfter(shiftEnd);
+                if (!startValid) {
+                    throw new BookingNotAvailableException(String.format(
+                            "Pickup time (%s) is outside bike operational hours (%s - %s).",
+                            reqStart, shiftStart, shiftEnd));
+                }
+                boolean endValid = !reqEnd.isBefore(shiftStart) || !reqEnd.isAfter(shiftEnd);
+                if (!endValid) {
+                    throw new BookingNotAvailableException(String.format(
+                            "Return time (%s) is outside bike operational hours (%s - %s).",
+                            reqEnd, shiftStart, shiftEnd));
+                }
             }
-        }
-        if (bike.getAvailableEndTime() != null) {
-            java.time.LocalTime reqEndLocal = endTime.toLocalTime();
-            if (reqEndLocal.isAfter(bike.getAvailableEndTime())) {
-                throw new BookingNotAvailableException("Bike is not available during the selected time.");
+        } else if (bike.getAvailableStartTime() != null) {
+            java.time.LocalTime reqStart = startTime.toLocalTime();
+            if (reqStart.isBefore(bike.getAvailableStartTime())) {
+                throw new BookingNotAvailableException(String.format(
+                        "Pickup time (%s) is before bike opening time (%s).",
+                        reqStart, bike.getAvailableStartTime()));
+            }
+        } else if (bike.getAvailableEndTime() != null) {
+            java.time.LocalTime reqEnd = endTime.toLocalTime();
+            if (reqEnd.isAfter(bike.getAvailableEndTime())) {
+                throw new BookingNotAvailableException(String.format(
+                        "Return time (%s) is after bike closing time (%s).",
+                        reqEnd, bike.getAvailableEndTime()));
             }
         }
 
         // 3. Check for overlapping bookings
         java.util.List<Booking> activeBookings = bookingRepository.findByBikeId(bike.getBikeId());
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
         for (Booking existing : activeBookings) {
             // Exclude current booking if we are updating it
             if (currentBookingId != null && existing.getId().equals(currentBookingId)) {
                 continue;
             }
 
-            // Approved, Confirmed, Active, or Pending bookings block overlapping customer requests
             BookingStatus status = existing.getBookingStatus();
+            // Completed, cancelled, or rejected bookings do not block
+            if (status == BookingStatus.COMPLETED || status == BookingStatus.CANCELLED || status == BookingStatus.REJECTED) {
+                continue;
+            }
+
+            // If actual return has already been confirmed, this ride is finished and bike is returned
+            if (existing.getActualReturnTime() != null) {
+                continue;
+            }
+
             if (status == BookingStatus.APPROVED
                     || status == BookingStatus.CONFIRMED
                     || status == BookingStatus.ACTIVE
@@ -100,6 +147,11 @@ public class BookingServiceImpl implements BookingService {
                 java.time.LocalDateTime extEnd = existing.getReturnTime() != null ? existing.getReturnTime() : existing.getReturnDate();
 
                 if (extStart != null && extEnd != null) {
+                    // Ignore expired PENDING bookings whose scheduled return time has already passed
+                    if (status == BookingStatus.PENDING && extEnd.isBefore(now)) {
+                        continue;
+                    }
+
                     // Overlap condition: (Start1 < End2) AND (Start2 < End1)
                     if (startTime.isBefore(extEnd) && extStart.isBefore(endTime)) {
                         log.warn("Overlap detected with existing booking ID: {} (Status: {})", existing.getId(), status);

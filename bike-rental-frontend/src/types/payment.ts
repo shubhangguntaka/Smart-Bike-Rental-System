@@ -21,7 +21,7 @@ export interface PaymentResponse {
     taxAmount: number;
     finalAmount: number;
 
-    paymentStatus: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
+    paymentStatus: "NOT_STARTED" | "READY_FOR_PAYMENT" | "PROCESSING" | "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
     transactionId?: string;
     paymentMethod?: string;
@@ -34,4 +34,31 @@ export interface PaymentResponse {
     createdAt?: string;
 
     razorpayKeyId?: string;
+}
+
+export interface InvoiceDTO {
+    invoiceNumber: string;
+    paymentId: number;
+    bookingId: number;
+    customerId: number;
+
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+
+    baseRentalAmount: number;
+    lateCharge: number;
+    eligibleTransactionAmount: number;
+
+    platformFeePercent: number;
+    platformFeeAmount: number;
+
+    taxAmount: number;
+    finalAmount: number;
+
+    paymentStatus: string;
+    transactionId?: string;
+    paymentMethod?: string;
+    paidAt?: string;
+    createdAt?: string;
 }

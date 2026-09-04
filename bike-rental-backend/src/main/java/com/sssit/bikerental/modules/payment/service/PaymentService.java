@@ -2,6 +2,7 @@ package com.sssit.bikerental.modules.payment.service;
 
 import java.util.List;
 
+import com.sssit.bikerental.modules.payment.dto.InvoiceDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 
@@ -26,4 +27,7 @@ public interface PaymentService {
 	        Long paymentId);
 
 	List<PaymentResponse> getAllPayments();
+
+	InvoiceDTO getInvoice(
+	        Long paymentId);
 }

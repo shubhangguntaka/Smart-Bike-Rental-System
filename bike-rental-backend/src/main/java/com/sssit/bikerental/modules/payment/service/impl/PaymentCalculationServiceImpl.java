@@ -134,7 +134,7 @@ public class PaymentCalculationServiceImpl
                 )
                 .taxAmount(taxAmount)
                 .finalAmount(finalAmount)
-                .paymentStatus(PaymentStatus.PENDING)
+                .paymentStatus(PaymentStatus.READY_FOR_PAYMENT)
                 .build();
     }
 
@@ -146,6 +146,13 @@ public class PaymentCalculationServiceImpl
             Booking booking) {
 
         if (booking.getActualReturnTime() == null) {
+            if (booking.getBookingStatus() == com.sssit.bikerental.modules.booking.enums.BookingStatus.COMPLETED) {
+                java.time.LocalDateTime ret = booking.getReturnTime() != null ? booking.getReturnTime() :
+                        (booking.getReturnDate() != null ? booking.getReturnDate() : java.time.LocalDateTime.now());
+                booking.setActualReturnTime(ret);
+                bookingRepository.save(booking);
+                return;
+            }
 
             throw new RuntimeException(
                     "Payment cannot be prepared before bike return is confirmed"
@@ -246,21 +253,19 @@ public class PaymentCalculationServiceImpl
             );
         }
 
+        BigDecimal rate = paymentProperties.getLateChargeRate();
+        if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(
+                    2,
+                    RoundingMode.HALF_UP
+            );
+        }
+
         /*
-         * IMPORTANT:
-         *
-         * The exact late-charge calculation has NOT
-         * been specified in your project requirements.
-         *
-         * Therefore we do not invent a business rule.
-         *
-         * Day 2 currently returns zero until the team
-         * configures the actual late-charge rule.
+         * Apply configured late charge rate directly without assuming unconfirmed
+         * hourly or partial-hour billing rules.
          */
-        return BigDecimal.ZERO.setScale(
-                2,
-                RoundingMode.HALF_UP
-        );
+        return rate.setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -359,6 +364,10 @@ public class PaymentCalculationServiceImpl
             throw new AccessDeniedException(
                     "Authentication required"
             );
+        }
+
+        if (SecurityUtils.getCurrentRole() == com.sssit.bikerental.common.enums.Role.ADMIN) {
+            return;
         }
 
         if (!currentUserId.equals(

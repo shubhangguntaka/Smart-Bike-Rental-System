@@ -17,9 +17,13 @@ import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 public interface PaymentRepository
         extends JpaRepository<Payment, Long> {
 
-    Optional<Payment> findByBookingId(
+    Optional<Payment> findFirstByBookingIdOrderByPaymentIdDesc(
             Long bookingId
     );
+
+    default Optional<Payment> findByBookingId(Long bookingId) {
+        return findFirstByBookingIdOrderByPaymentIdDesc(bookingId);
+    }
 
     List<Payment> findByCustomerIdOrderByCreatedAtDesc(
             Long customerId

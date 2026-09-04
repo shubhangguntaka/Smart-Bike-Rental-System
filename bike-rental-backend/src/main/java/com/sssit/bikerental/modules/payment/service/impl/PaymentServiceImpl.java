@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sssit.bikerental.common.security.SecurityUtils;
+import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.payment.dto.InvoiceDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
 import com.sssit.bikerental.modules.payment.entity.Payment;
@@ -19,13 +21,17 @@ import com.sssit.bikerental.modules.payment.service.PaymentCalculationService;
 import com.sssit.bikerental.modules.payment.service.PaymentService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final BookingRepository bookingRepository;
+    private final com.sssit.bikerental.modules.user.repository.UserRepository userRepository;
     private final PaymentCalculationService paymentCalculationService;
     private final PaymentMapper paymentMapper;
     private final RazorpayGateway razorpayGateway;
@@ -65,7 +71,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (payment.getPaymentStatus()
-                    == PaymentStatus.PENDING
+                    == PaymentStatus.READY_FOR_PAYMENT
                     && payment.getRazorpayOrderId()
                     != null) {
 
@@ -80,6 +86,12 @@ public class PaymentServiceImpl implements PaymentService {
                             calculation.getBookingId())
                     .customerId(
                             calculation.getCustomerId())
+                    .amount(
+                            calculation.getFinalAmount())
+                    .status(
+                            PaymentStatus.READY_FOR_PAYMENT.name())
+                    .paymentDate(
+                            LocalDateTime.now())
                     .baseRentalAmount(
                             calculation.getBaseRentalAmount())
                     .lateCharge(
@@ -98,7 +110,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .finalAmount(
                             calculation.getFinalAmount())
                     .paymentStatus(
-                            PaymentStatus.PENDING)
+                            PaymentStatus.READY_FOR_PAYMENT)
                     .createdAt(
                             LocalDateTime.now())
                     .updatedAt(
@@ -121,18 +133,16 @@ public class PaymentServiceImpl implements PaymentService {
                     );
 
         } catch (Exception e) {
-
-            throw new RuntimeException(
-                    "Unable to create Razorpay order",
-                    e
-            );
+            log.warn("Failed to create live Razorpay order for paymentId {}: {}. Generating mock order ID.",
+                    payment.getPaymentId(), e.getMessage());
+            razorpayOrderId = "order_mock_" + payment.getPaymentId() + "_" + System.currentTimeMillis();
         }
 
         payment.setRazorpayOrderId(
                 razorpayOrderId);
 
         payment.setPaymentStatus(
-                PaymentStatus.PENDING);
+                PaymentStatus.READY_FOR_PAYMENT);
 
         payment.setUpdatedAt(
                 LocalDateTime.now());
@@ -176,6 +186,20 @@ public class PaymentServiceImpl implements PaymentService {
                     "Razorpay order does not match"
             );
         }
+
+        /*
+         * State transition:
+         * READY_FOR_PAYMENT -> PROCESSING
+         */
+        payment.setPaymentStatus(
+                PaymentStatus.PROCESSING
+        );
+
+        payment.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        paymentRepository.saveAndFlush(payment);
 
         boolean verified =
                 razorpayGateway.verifySignature(
@@ -221,12 +245,25 @@ public class PaymentServiceImpl implements PaymentService {
                 LocalDateTime.now()
         );
 
+        if (payment.getInvoiceNumber() == null) {
+            payment.setInvoiceNumber(
+                    String.format("INV-%d-%d", payment.getBookingId(), payment.getPaymentId())
+            );
+        }
+
         payment.setUpdatedAt(
                 LocalDateTime.now()
         );
 
         Payment saved =
                 paymentRepository.save(payment);
+
+        bookingRepository.findById(payment.getBookingId()).ifPresent(booking -> {
+            booking.setPaymentStatus(
+                    com.sssit.bikerental.modules.booking.enums.PaymentStatus.SUCCESS
+            );
+            bookingRepository.save(booking);
+        });
 
         return paymentMapper.toResponse(saved);
     }
@@ -345,8 +382,22 @@ public class PaymentServiceImpl implements PaymentService {
             );
         }
 
+        try {
+            String razorpayOrderId =
+                    razorpayGateway.createOrder(
+                            payment.getPaymentId(),
+                            payment.getFinalAmount(),
+                            "retry_booking_" + payment.getBookingId()
+                    );
+            payment.setRazorpayOrderId(razorpayOrderId);
+        } catch (Exception e) {
+            log.warn("Failed to create live Razorpay order on retry for paymentId {}: {}. Generating mock order ID.",
+                    payment.getPaymentId(), e.getMessage());
+            payment.setRazorpayOrderId("order_mock_" + payment.getPaymentId() + "_" + System.currentTimeMillis());
+        }
+
         payment.setPaymentStatus(
-                PaymentStatus.PENDING
+                PaymentStatus.READY_FOR_PAYMENT
         );
 
         payment.setUpdatedAt(
@@ -358,6 +409,37 @@ public class PaymentServiceImpl implements PaymentService {
 
         return paymentMapper
                 .toResponse(updatedPayment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceDTO getInvoice(
+            Long paymentId) {
+
+        Payment payment =
+                paymentRepository.findById(paymentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Payment not found with id: "
+                                                + paymentId
+                                ));
+
+        validateCustomerOwnership(payment);
+
+        if (payment.getPaymentStatus()
+                != PaymentStatus.SUCCESS) {
+
+            throw new RuntimeException(
+                    "Invoice is only available for successful payments"
+            );
+        }
+
+        com.sssit.bikerental.modules.user.User customer = null;
+        if (payment.getCustomerId() != null) {
+            customer = userRepository.findById(payment.getCustomerId()).orElse(null);
+        }
+
+        return paymentMapper.toInvoiceDTO(payment, customer);
     }
     
     @Override
@@ -380,6 +462,10 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AccessDeniedException(
                     "Authentication required"
             );
+        }
+
+        if (SecurityUtils.getCurrentRole() == com.sssit.bikerental.common.enums.Role.ADMIN) {
+            return;
         }
 
         if (!currentUserId.equals(

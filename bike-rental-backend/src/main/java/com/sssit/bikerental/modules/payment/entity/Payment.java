@@ -26,6 +26,9 @@ public class Payment {
     @Column(nullable = false)
     private Long customerId;
 
+    @Column(precision = 12, scale = 2)
+    private BigDecimal amount;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal baseRentalAmount;
 
@@ -48,8 +51,14 @@ public class Payment {
     private BigDecimal finalAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "payment_status", nullable = false, length = 50)
     private PaymentStatus paymentStatus;
+
+    @Column(name = "status", length = 50)
+    private String status;
+
+    @Column(name = "payment_date")
+    private LocalDateTime paymentDate;
 
     private String transactionId;
 
@@ -68,4 +77,37 @@ public class Payment {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+        if (paymentDate == null) {
+            paymentDate = createdAt;
+        }
+        if (amount == null && finalAmount != null) {
+            amount = finalAmount;
+        }
+        if (status == null && paymentStatus != null) {
+            status = paymentStatus.name();
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+        if (amount == null && finalAmount != null) {
+            amount = finalAmount;
+        }
+        if (paymentStatus != null) {
+            status = paymentStatus.name();
+        }
+        if (paidAt != null) {
+            paymentDate = paidAt;
+        }
+    }
 }

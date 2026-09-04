@@ -613,36 +613,6 @@ export default function Bikes() {
         isAvailable = true;
       }
 
-      let isPendingBooking = false;
-      try {
-        const localBookings = [
-          ...(JSON.parse(localStorage.getItem("customer_bookings") || "[]")),
-          ...(JSON.parse(localStorage.getItem("user_bookings") || "[]")),
-          ...(JSON.parse(localStorage.getItem("custom_user_bookings") || "[]")),
-        ];
-        isPendingBooking = (localBookings || []).some((b: any) => {
-          const isBike = (b.bikeId || b.id) && Number(b.bikeId || b.id) === Number(bookingBike.id);
-          const isPending = (b.bookingStatus || b.status || "").toUpperCase() === "PENDING";
-          return isBike && isPending;
-        });
-      } catch (e) {}
-
-      if (isPendingBooking) {
-        setUnavailableMessage("Acceptance pending by owner for this time slot. A reservation request is awaiting approval by the owner.");
-        setIsBookingOpen(false);
-        setIsUnavailableModalOpen(true);
-        setConfirmLoading(false);
-        return;
-      }
-
-      if (bookingBike.bikeStatus === "BOOKED") {
-        setUnavailableMessage("This slot is booked at that time. Bike is already accepted and reserved by the owner for another customer.");
-        setIsBookingOpen(false);
-        setIsUnavailableModalOpen(true);
-        setConfirmLoading(false);
-        return;
-      }
-
       if (!isAvailable) {
         setIsBookingOpen(false);
         setIsUnavailableModalOpen(true);

@@ -13,7 +13,7 @@ const PaymentSuccess = () => {
   const payment = (location.state as PaymentSuccessState | null)?.payment;
 
   return (
-    <div className="min-h-[70vh] bg-background px-4 py-10">
+    <div className="min-h-[70vh] px-4 py-10">
       <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-8 text-center shadow-lg">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <CheckCircle2 className="h-8 w-8 text-primary" />
@@ -51,13 +51,24 @@ const PaymentSuccess = () => {
             )}
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => navigate("/customer/booking-history")}
-          className="mt-7 w-full rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
-        >
-          View booking history
-        </button>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          {payment?.paymentId && (
+            <button
+              type="button"
+              onClick={() => navigate(`/customer/payments/${payment.paymentId}/invoice`)}
+              className="w-full rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90 cursor-pointer shadow-xs"
+            >
+              View Invoice
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate("/customer/payments")}
+            className="w-full rounded-xl border border-border px-5 py-3 text-sm font-bold text-foreground transition hover:bg-muted cursor-pointer"
+          >
+            Payment History
+          </button>
+        </div>
       </div>
     </div>
   );

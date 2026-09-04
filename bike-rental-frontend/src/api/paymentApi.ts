@@ -1,10 +1,11 @@
 import axios from "./axios";
 import type {
+  InvoiceDTO,
   PaymentRequest,
   PaymentResponse,
 } from "@/types/payment";
 
-const BASE_URL = "/api/payments";
+const BASE_URL = "/payments";
 
 export const preparePayment = async (
   bookingId: number
@@ -62,6 +63,16 @@ export const retryPayment = async (
 ): Promise<PaymentResponse> => {
   const response = await axios.post(
     `${BASE_URL}/${paymentId}/retry`
+  );
+
+  return response.data;
+};
+
+export const getInvoice = async (
+  paymentId: number
+): Promise<InvoiceDTO> => {
+  const response = await axios.get(
+    `${BASE_URL}/${paymentId}/invoice`
   );
 
   return response.data;
