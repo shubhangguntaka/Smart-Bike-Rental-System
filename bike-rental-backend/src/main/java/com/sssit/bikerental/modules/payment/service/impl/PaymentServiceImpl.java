@@ -158,6 +158,10 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse processPayment(
             PaymentRequest request) {
 
+        if (request == null || request.getPaymentId() == null) {
+            throw new RuntimeException("Invalid payment request");
+        }
+
         Payment payment =
                 paymentRepository
                         .findById(
@@ -178,7 +182,8 @@ public class PaymentServiceImpl implements PaymentService {
             );
         }
 
-        if (!request.getRazorpayOrderId()
+        if (request.getRazorpayOrderId() == null
+                || !request.getRazorpayOrderId()
                 .equals(
                     payment.getRazorpayOrderId())) {
 
@@ -310,7 +315,8 @@ public class PaymentServiceImpl implements PaymentService {
             );
         }
 
-        if (!currentUserId.equals(customerId)) {
+        if (SecurityUtils.getCurrentRole() != com.sssit.bikerental.common.enums.Role.ADMIN
+                && !currentUserId.equals(customerId)) {
 
             throw new AccessDeniedException(
                     "You are not authorized to access this payment history"

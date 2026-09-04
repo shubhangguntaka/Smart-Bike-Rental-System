@@ -146,14 +146,6 @@ public class PaymentCalculationServiceImpl
             Booking booking) {
 
         if (booking.getActualReturnTime() == null) {
-            if (booking.getBookingStatus() == com.sssit.bikerental.modules.booking.enums.BookingStatus.COMPLETED) {
-                java.time.LocalDateTime ret = booking.getReturnTime() != null ? booking.getReturnTime() :
-                        (booking.getReturnDate() != null ? booking.getReturnDate() : java.time.LocalDateTime.now());
-                booking.setActualReturnTime(ret);
-                bookingRepository.save(booking);
-                return;
-            }
-
             throw new RuntimeException(
                     "Payment cannot be prepared before bike return is confirmed"
             );
