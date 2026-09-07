@@ -93,7 +93,8 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/api/admin/**",
                         "/api/users/**",
-                        "/api/reports/**"
+                        "/api/reports/**",
+                        "/api/analytics/**"
                 ).hasRole("ADMIN")
                 // OWNER
                 .requestMatchers(

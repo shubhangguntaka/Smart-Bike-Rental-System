@@ -24,6 +24,7 @@ import VerificationReviewModal from "@/components/admin/VerificationReviewModal"
 export default function AdminVerification() {
   const [userSummaries, setUserSummaries] = useState<UserVerificationSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Filters state
   const [activeTab, setActiveTab] = useState<string>("ALL");
@@ -39,12 +40,14 @@ export default function AdminVerification() {
   const fetchVerifications = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await getGroupedUserVerifications();
       if (Array.isArray(data)) {
         setUserSummaries(data);
       }
     } catch (err) {
       console.warn("Could not fetch user verifications:", err);
+      setError("Failed to load verification records. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -293,6 +296,20 @@ export default function AdminVerification() {
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                     Loading user verifications...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-destructive font-medium">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <span>{error}</span>
+                      <button
+                        onClick={fetchVerifications}
+                        className="px-3 py-1 bg-destructive/10 text-destructive rounded-md text-xs font-semibold hover:bg-destructive/20 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : paginatedData.length === 0 ? (

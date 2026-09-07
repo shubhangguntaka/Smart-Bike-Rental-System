@@ -3,6 +3,7 @@ package com.sssit.bikerental.modules.payment;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -28,6 +29,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.sssit.bikerental.common.enums.Role;
 import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.dto.InvoiceDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
@@ -235,8 +237,8 @@ class PaymentServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should gracefully handle Razorpay gateway failure with fallback mock order")
-        void preparePayment_shouldGracefullyFallbackToMockOrder_whenGatewayFails() throws Exception {
+        @DisplayName("Should reject and fail when Razorpay gateway fails during order creation (no mock orders)")
+        void preparePayment_shouldFail_whenGatewayFails() throws Exception {
             PaymentResponse calculation = calculation(1L, 100L, "125.00");
             when(paymentCalculationService.calculatePayment(1L))
                     .thenReturn(calculation);
@@ -250,13 +252,12 @@ class PaymentServiceImplTest {
                     });
             when(razorpayGateway.createOrder(any(), any(), any()))
                     .thenThrow(new RuntimeException("Gateway connection error"));
-            when(paymentMapper.toResponse(any(Payment.class)))
-                    .thenAnswer(invocation -> response(invocation.getArgument(0)));
 
-            PaymentResponse response = paymentService.preparePayment(1L);
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> paymentService.preparePayment(1L));
 
-            assertEquals(PaymentStatus.READY_FOR_PAYMENT, response.getPaymentStatus());
-            assertNotNull(response.getRazorpayOrderId());
+            assertTrue(ex.getMessage().contains("Failed to create Razorpay payment order"));
+            verify(paymentMapper, never()).toResponse(any());
         }
 
         @Test
@@ -354,6 +355,8 @@ class PaymentServiceImplTest {
             Payment payment = payment(10L, 100L, PaymentStatus.READY_FOR_PAYMENT);
             Booking booking = new Booking();
             booking.setId(1L);
+            booking.setBookingStatus(BookingStatus.COMPLETED);
+            booking.setActualReturnTime(LocalDateTime.now());
 
             when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
             when(razorpayGateway.verifySignature(
@@ -525,19 +528,18 @@ class PaymentServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should fallback gracefully when gateway fails during retry")
-        void retryPayment_shouldGracefullyFallbackToMockOrder_whenGatewayFailsOnRetry() throws Exception {
+        @DisplayName("Should fail when gateway fails during retry (no mock order fallback)")
+        void retryPayment_shouldFail_whenGatewayFailsOnRetry() throws Exception {
             Payment failedPayment = payment(10L, 100L, PaymentStatus.FAILED);
             when(paymentRepository.findById(10L)).thenReturn(Optional.of(failedPayment));
             when(razorpayGateway.createOrder(any(), any(), any()))
                     .thenThrow(new RuntimeException("Gateway error"));
-            when(paymentRepository.save(failedPayment)).thenReturn(failedPayment);
-            when(paymentMapper.toResponse(failedPayment)).thenReturn(response(failedPayment));
 
-            PaymentResponse response = paymentService.retryPayment(10L);
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> paymentService.retryPayment(10L));
 
-            assertEquals(PaymentStatus.READY_FOR_PAYMENT, failedPayment.getPaymentStatus());
-            assertNotNull(failedPayment.getRazorpayOrderId());
+            assertTrue(ex.getMessage().contains("Failed to create Razorpay payment order for retry"));
+            verify(paymentRepository, never()).save(failedPayment);
         }
 
         @Test

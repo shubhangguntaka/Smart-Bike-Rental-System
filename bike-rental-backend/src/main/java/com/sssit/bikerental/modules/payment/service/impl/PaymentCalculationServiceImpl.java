@@ -216,7 +216,8 @@ public class PaymentCalculationServiceImpl implements PaymentCalculationService 
                     "Payment cannot be prepared for a cancelled booking"
             );
         }
-        if (booking.getActualReturnTime() == null) {
+        if (booking.getBookingStatus() == com.sssit.bikerental.modules.booking.enums.BookingStatus.ACTIVE
+                || booking.getActualReturnTime() == null) {
             throw new RuntimeException(
                     "Payment cannot be prepared before bike return is confirmed"
             );

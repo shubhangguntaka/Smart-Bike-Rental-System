@@ -69,10 +69,6 @@ public class RazorpayGatewayImpl
             String razorpayPaymentId,
             String razorpaySignature) {
 
-        if (razorpayOrderId != null && razorpayOrderId.startsWith("order_mock_")) {
-            return true;
-        }
-
         try {
 
             JSONObject options =

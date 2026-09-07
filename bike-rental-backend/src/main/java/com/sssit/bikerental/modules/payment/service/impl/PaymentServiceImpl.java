@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sssit.bikerental.common.security.SecurityUtils;
+import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
 import com.sssit.bikerental.modules.payment.dto.InvoiceDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentRequest;
@@ -133,9 +135,9 @@ public class PaymentServiceImpl implements PaymentService {
                     );
 
         } catch (Exception e) {
-            log.warn("Failed to create live Razorpay order for paymentId {}: {}. Generating mock order ID.",
+            log.error("Failed to create Razorpay order for paymentId {}: {}",
                     payment.getPaymentId(), e.getMessage());
-            razorpayOrderId = "order_mock_" + payment.getPaymentId() + "_" + System.currentTimeMillis();
+            throw new RuntimeException("Failed to create Razorpay payment order: " + e.getMessage(), e);
         }
 
         payment.setRazorpayOrderId(
@@ -191,6 +193,15 @@ public class PaymentServiceImpl implements PaymentService {
                     "Razorpay order does not match"
             );
         }
+
+        bookingRepository.findById(payment.getBookingId()).ifPresent(booking -> {
+            if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+                throw new IllegalStateException("Payment cannot be processed for a cancelled booking");
+            }
+            if (booking.getBookingStatus() == BookingStatus.ACTIVE || booking.getActualReturnTime() == null) {
+                throw new RuntimeException("Payment cannot be processed before bike return is confirmed");
+            }
+        });
 
         /*
          * State transition:
@@ -263,11 +274,11 @@ public class PaymentServiceImpl implements PaymentService {
         Payment saved =
                 paymentRepository.save(payment);
 
-        bookingRepository.findById(payment.getBookingId()).ifPresent(booking -> {
-            booking.setPaymentStatus(
+        bookingRepository.findById(payment.getBookingId()).ifPresent(b -> {
+            b.setPaymentStatus(
                     com.sssit.bikerental.modules.booking.enums.PaymentStatus.SUCCESS
             );
-            bookingRepository.save(booking);
+            bookingRepository.save(b);
         });
 
         return paymentMapper.toResponse(saved);
@@ -397,9 +408,9 @@ public class PaymentServiceImpl implements PaymentService {
                     );
             payment.setRazorpayOrderId(razorpayOrderId);
         } catch (Exception e) {
-            log.warn("Failed to create live Razorpay order on retry for paymentId {}: {}. Generating mock order ID.",
+            log.error("Failed to create Razorpay order on retry for paymentId {}: {}",
                     payment.getPaymentId(), e.getMessage());
-            payment.setRazorpayOrderId("order_mock_" + payment.getPaymentId() + "_" + System.currentTimeMillis());
+            throw new RuntimeException("Failed to create Razorpay payment order for retry: " + e.getMessage(), e);
         }
 
         payment.setPaymentStatus(
