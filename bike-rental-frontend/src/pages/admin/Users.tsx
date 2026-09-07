@@ -6,16 +6,16 @@ import React, {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
+  Filter,
+  Layers,
   RotateCcw,
   Search,
-  ShieldCheck,
   UserCheck,
   UserRound,
   UserRoundCog,
   Users,
   UserX,
-  Layers,
-  Filter,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -83,6 +83,7 @@ export default function AdminUsers() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -214,8 +215,23 @@ export default function AdminUsers() {
       }
 
       return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        return Number(b.userId || 0) - Number(a.userId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        return Number(a.userId || 0) - Number(b.userId || 0);
+      }
+      if (sortBy === "NAME_AZ") {
+        return (a.fullName || "").localeCompare(b.fullName || "");
+      }
+      if (sortBy === "NAME_ZA") {
+        return (b.fullName || "").localeCompare(a.fullName || "");
+      }
+      return Number(b.userId || 0) - Number(a.userId || 0);
     });
-  }, [users, search, activeTab, roleFilter, statusFilter]);
+  }, [users, search, activeTab, roleFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredUsers.slice(
@@ -424,6 +440,24 @@ export default function AdminUsers() {
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-1.5 pl-1 border-l border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+              >
+                <option value="NEWEST">Sort: Newest First</option>
+                <option value="OLDEST">Sort: Oldest First</option>
+                <option value="NAME_AZ">Name: A to Z</option>
+                <option value="NAME_ZA">Name: Z to A</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

@@ -48,8 +48,11 @@ public class ReportServiceImpl implements ReportService {
         List<Map<String, Object>> report = new ArrayList<>();
 
         for (Booking booking : bookingRepository.findAll()) {
+            LocalDateTime bookingTime = booking.getCreatedAt() != null 
+                ? booking.getCreatedAt() 
+                : (booking.getStartTime() != null ? booking.getStartTime() : booking.getPickupDate());
 
-            if (!isBetween(booking.getCreatedAt(), start, end)) {
+            if (bookingTime != null && !isBetween(bookingTime, start, end)) {
                 continue;
             }
 
@@ -95,25 +98,28 @@ public class ReportServiceImpl implements ReportService {
 
         for (Payment payment : paymentRepository.findAll()) {
 
-        	if (payment.getPaymentStatus() != PaymentStatus.SUCCESS) {
-        	    continue;
-        	}
+            if (payment.getPaymentStatus() != PaymentStatus.SUCCESS && 
+                !"SUCCESS".equalsIgnoreCase(payment.getStatus()) && 
+                !"COMPLETED".equalsIgnoreCase(payment.getStatus()) && 
+                !"PAID".equalsIgnoreCase(payment.getStatus())) {
+                continue;
+            }
 
-        	if (!isBetween(
-        	        payment.getPaidAt(),
-        	        start,
-        	        end)) {
+            LocalDateTime paymentTime = payment.getPaidAt() != null 
+                ? payment.getPaidAt() 
+                : (payment.getPaymentDate() != null ? payment.getPaymentDate() : payment.getCreatedAt());
 
-        	    continue;
-        	}
+            if (paymentTime != null && !isBetween(paymentTime, start, end)) {
+                continue;
+            }
 
             Map<String, Object> row = new LinkedHashMap<>();
 
             row.put("paymentId", payment.getPaymentId());
             row.put("bookingId", payment.getBookingId());
-            row.put("amount", payment.getFinalAmount());
-            row.put("paymentDate", payment.getPaidAt());
-            row.put("status", payment.getPaymentStatus().name());
+            row.put("amount", payment.getFinalAmount() != null ? payment.getFinalAmount() : payment.getAmount());
+            row.put("paymentDate", paymentTime);
+            row.put("status", payment.getPaymentStatus() != null ? payment.getPaymentStatus().name() : payment.getStatus());
 
             report.add(row);
         }
@@ -132,8 +138,8 @@ public class ReportServiceImpl implements ReportService {
         List<Map<String, Object>> report = new ArrayList<>();
 
         for (Bike bike : bikeRepository.findAll()) {
-
-            if (!isBetween(bike.getCreatedAt(), start, end)) {
+            LocalDateTime bikeTime = bike.getCreatedAt();
+            if (bikeTime != null && !isBetween(bikeTime, start, end)) {
                 continue;
             }
 
@@ -177,8 +183,11 @@ public class ReportServiceImpl implements ReportService {
         List<Map<String, Object>> report = new ArrayList<>();
 
         for (Payment payment : paymentRepository.findAll()) {
+            LocalDateTime paymentTime = payment.getPaidAt() != null 
+                ? payment.getPaidAt() 
+                : (payment.getPaymentDate() != null ? payment.getPaymentDate() : payment.getCreatedAt());
 
-            if (!isBetween(payment.getPaidAt(), start, end)) {
+            if (paymentTime != null && !isBetween(paymentTime, start, end)) {
                 continue;
             }
 
@@ -186,9 +195,9 @@ public class ReportServiceImpl implements ReportService {
 
             row.put("paymentId", payment.getPaymentId());
             row.put("bookingId", payment.getBookingId());
-            row.put("amount", payment.getFinalAmount());
-            row.put("status", payment.getPaymentStatus().name());
-            row.put("paymentDate", payment.getPaidAt());
+            row.put("amount", payment.getFinalAmount() != null ? payment.getFinalAmount() : payment.getAmount());
+            row.put("status", payment.getPaymentStatus() != null ? payment.getPaymentStatus().name() : payment.getStatus());
+            row.put("paymentDate", paymentTime);
             row.put("createdAt", payment.getCreatedAt());
 
             report.add(row);

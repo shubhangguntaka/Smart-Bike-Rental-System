@@ -155,14 +155,64 @@ export const adminService = {
   },
 
   async getPayments(): Promise<PaymentAdmin[]> {
-    const response =
-      await api.get("/admin/payments");
+    const response = await api.get("/admin/payments");
 
-    const data = unwrapData<PaymentAdmin[]>(
-      response.data
-    );
+    const data = unwrapData<any[]>(response.data);
 
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+
+    return data
+      .map((p: any): PaymentAdmin => {
+        const amountVal =
+          p.finalAmount != null
+            ? p.finalAmount
+            : p.amount != null
+            ? p.amount
+            : p.eligibleTransactionAmount != null
+            ? p.eligibleTransactionAmount
+            : p.baseRentalAmount != null
+            ? p.baseRentalAmount
+            : 0;
+
+        const rawStatus = p.paymentStatus ?? p.status ?? "PENDING";
+        const normalizedStatus = String(rawStatus).toUpperCase();
+
+        const rawDate = p.paidAt ?? p.paymentDate ?? p.createdAt ?? "";
+
+        return {
+          paymentId: Number(p.paymentId ?? p.id ?? 0),
+          bookingId: Number(p.bookingId ?? 0),
+          customerId: p.customerId ? Number(p.customerId) : undefined,
+          amount: Number(amountVal),
+          finalAmount: p.finalAmount != null ? Number(p.finalAmount) : undefined,
+          baseRentalAmount:
+            p.baseRentalAmount != null ? Number(p.baseRentalAmount) : undefined,
+          lateCharge: p.lateCharge != null ? Number(p.lateCharge) : undefined,
+          taxAmount: p.taxAmount != null ? Number(p.taxAmount) : undefined,
+          platformFeeAmount:
+            p.platformFeeAmount != null ? Number(p.platformFeeAmount) : undefined,
+          platformFeePercent:
+            p.platformFeePercent != null ? Number(p.platformFeePercent) : undefined,
+          status: normalizedStatus,
+          paymentStatus: normalizedStatus,
+          paymentDate: String(rawDate),
+          paidAt: p.paidAt ? String(p.paidAt) : undefined,
+          createdAt: p.createdAt ? String(p.createdAt) : undefined,
+          transactionId: p.transactionId ?? p.razorpayPaymentId,
+          paymentMethod: p.paymentMethod ?? "ONLINE",
+          razorpayOrderId: p.razorpayOrderId,
+          razorpayPaymentId: p.razorpayPaymentId,
+          invoiceNumber: p.invoiceNumber,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.paidAt || a.paymentDate || a.createdAt || 0).getTime();
+        const dateB = new Date(b.paidAt || b.paymentDate || b.createdAt || 0).getTime();
+        if (dateA && dateB && dateA !== dateB) {
+          return dateB - dateA;
+        }
+        return Number(b.paymentId || 0) - Number(a.paymentId || 0);
+      });
   },
 
   async getActivity(): Promise<AdminActivity[]> {

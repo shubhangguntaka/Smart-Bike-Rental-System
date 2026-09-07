@@ -46,8 +46,26 @@ export default function Dashboard() {
       ]);
 
       setStats(statsData);
-      setRecentBookings(Array.isArray(bookingsData) ? bookingsData.slice(0, 5) : []);
-      setRecentActivities(Array.isArray(activityData) ? activityData.slice(0, 5) : []);
+      
+      const sortedBookings = Array.isArray(bookingsData)
+        ? [...bookingsData].sort((a, b) => {
+            const timeA = new Date(a.createdAt || a.startTime || 0).getTime();
+            const timeB = new Date(b.createdAt || b.startTime || 0).getTime();
+            if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+            return (b.bookingId || 0) - (a.bookingId || 0);
+          })
+        : [];
+      setRecentBookings(sortedBookings.slice(0, 5));
+
+      const sortedActivities = Array.isArray(activityData)
+        ? [...activityData].sort((a, b) => {
+            const timeA = new Date(a.timestamp || 0).getTime();
+            const timeB = new Date(b.timestamp || 0).getTime();
+            if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+            return (Number(b.id) || 0) - (Number(a.id) || 0);
+          })
+        : [];
+      setRecentActivities(sortedActivities.slice(0, 5));
     } catch (err) {
       console.error("Failed to load admin dashboard:", err);
       setError("Unable to load dashboard data. Please try again.");
@@ -146,9 +164,6 @@ export default function Dashboard() {
       {/* Header */}
       <header className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between shadow-xs">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-            Member 3 — Admin Operations
-          </span>
           <h1 className="text-2xl font-serif font-bold tracking-tight text-foreground mt-0.5">
             Platform Operations Dashboard
           </h1>

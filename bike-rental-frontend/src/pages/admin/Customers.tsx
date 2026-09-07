@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
   BadgeCheck,
   Clock,
   Filter,
@@ -80,6 +81,7 @@ export default function AdminCustomers() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [kycFilter, setKycFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -193,8 +195,26 @@ export default function AdminCustomers() {
       }
 
       return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        return Number(b.customerId || 0) - Number(a.customerId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        return Number(a.customerId || 0) - Number(b.customerId || 0);
+      }
+      if (sortBy === "BOOKINGS_HIGH") {
+        return Number(b.totalBookings ?? 0) - Number(a.totalBookings ?? 0);
+      }
+      if (sortBy === "SPENT_HIGH") {
+        return Number(b.totalRentalAmount ?? 0) - Number(a.totalRentalAmount ?? 0);
+      }
+      if (sortBy === "NAME_AZ") {
+        return (a.customerName || "").localeCompare(b.customerName || "");
+      }
+      return Number(b.customerId || 0) - Number(a.customerId || 0);
     });
-  }, [customers, search, activeTab, kycFilter, statusFilter]);
+  }, [customers, search, activeTab, kycFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(
     1,
@@ -392,6 +412,25 @@ export default function AdminCustomers() {
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-1.5 pl-1 border-l border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+              >
+                <option value="NEWEST">Sort: Newest First</option>
+                <option value="OLDEST">Sort: Oldest First</option>
+                <option value="BOOKINGS_HIGH">Bookings: High to Low</option>
+                <option value="SPENT_HIGH">Spent: High to Low</option>
+                <option value="NAME_AZ">Name: A to Z</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

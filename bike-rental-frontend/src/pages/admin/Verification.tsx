@@ -10,6 +10,7 @@ import {
   Clock,
   XCircle,
   Filter,
+  ArrowUpDown,
   Layers,
   UserCheck,
   Trash2,
@@ -29,6 +30,7 @@ export default function AdminVerification() {
   // Filters state
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [dateFilter, setDateFilter] = useState<string>("ALL");
@@ -118,15 +120,36 @@ export default function AdminVerification() {
       return true;
     });
 
-    // Sort by latest upload date descending
+    // Sort by selected option
     result.sort((a, b) => {
       const dateA = a.latestUploadedAt ? new Date(a.latestUploadedAt).getTime() : 0;
       const dateB = b.latestUploadedAt ? new Date(b.latestUploadedAt).getTime() : 0;
-      return dateB - dateA;
+
+      if (sortBy === "NEWEST") {
+        if (dateA && dateB && dateA !== dateB) {
+          return dateB - dateA;
+        }
+        return (b.userId || 0) - (a.userId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        if (dateA && dateB && dateA !== dateB) {
+          return dateA - dateB;
+        }
+        return (a.userId || 0) - (b.userId || 0);
+      }
+      if (sortBy === "NAME_AZ") {
+        return (a.userName || "").localeCompare(b.userName || "");
+      }
+      if (sortBy === "DOCS_COUNT") {
+        const countA = (a.aadhaarVerification ? 1 : 0) + (a.secondaryVerification ? 1 : 0);
+        const countB = (b.aadhaarVerification ? 1 : 0) + (b.secondaryVerification ? 1 : 0);
+        return countB - countA;
+      }
+      return 0;
     });
 
     return result;
-  }, [userSummaries, activeTab, roleFilter, search, dateFilter]);
+  }, [userSummaries, activeTab, roleFilter, search, dateFilter, sortBy]);
 
   const itemsPerPage = 8;
   const totalPages = Math.ceil(filteredSummaries.length / itemsPerPage) || 1;
@@ -274,6 +297,24 @@ export default function AdminVerification() {
               <option value="TODAY">Uploaded Today</option>
               <option value="WEEK">Past 7 Days</option>
               <option value="MONTH">Past 30 Days</option>
+            </select>
+
+            <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground ml-1">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+              <span>Sort:</span>
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+            >
+              <option value="NEWEST">Newest Uploads First</option>
+              <option value="OLDEST">Oldest Uploads First</option>
+              <option value="NAME_AZ">User Name (A - Z)</option>
+              <option value="DOCS_COUNT">Most Documents Uploaded</option>
             </select>
           </div>
         </div>

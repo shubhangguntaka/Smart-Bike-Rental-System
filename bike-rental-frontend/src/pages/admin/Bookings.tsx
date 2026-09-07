@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -80,6 +81,7 @@ export default function AdminBookings() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [bookingStatusFilter, setBookingStatusFilter] = useState<string>("ALL");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [detailBooking, setDetailBooking] = useState<BookingAdmin | null>(null);
@@ -192,8 +194,29 @@ export default function AdminBookings() {
       }
 
       return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        const dateA = new Date(a.createdAt || a.startTime || 0).getTime();
+        const dateB = new Date(b.createdAt || b.startTime || 0).getTime();
+        if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+        return Number(b.bookingId || 0) - Number(a.bookingId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        const dateA = new Date(a.createdAt || a.startTime || 0).getTime();
+        const dateB = new Date(b.createdAt || b.startTime || 0).getTime();
+        if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+        return Number(a.bookingId || 0) - Number(b.bookingId || 0);
+      }
+      if (sortBy === "AMOUNT_HIGH") {
+        return Number(b.totalAmount ?? b.rentalAmount ?? 0) - Number(a.totalAmount ?? a.rentalAmount ?? 0);
+      }
+      if (sortBy === "AMOUNT_LOW") {
+        return Number(a.totalAmount ?? a.rentalAmount ?? 0) - Number(b.totalAmount ?? b.rentalAmount ?? 0);
+      }
+      return Number(b.bookingId || 0) - Number(a.bookingId || 0);
     });
-  }, [bookings, search, activeTab, bookingStatusFilter, paymentStatusFilter]);
+  }, [bookings, search, activeTab, bookingStatusFilter, paymentStatusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
   const paginatedBookings = filteredBookings.slice(
@@ -356,6 +379,24 @@ export default function AdminBookings() {
               <option value="PENDING">Pending</option>
               <option value="FAILED">Failed</option>
             </select>
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-1.5 pl-1 border-l border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+              >
+                <option value="NEWEST">Sort: Newest First</option>
+                <option value="OLDEST">Sort: Oldest First</option>
+                <option value="AMOUNT_HIGH">Amount: High to Low</option>
+                <option value="AMOUNT_LOW">Amount: Low to High</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

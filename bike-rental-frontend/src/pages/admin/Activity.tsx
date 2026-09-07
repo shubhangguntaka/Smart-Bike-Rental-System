@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowUpDown,
   BadgeCheck,
   Bike,
   CheckCircle2,
@@ -22,6 +22,7 @@ import { Pagination } from "@/components/common/Pagination";
 import AdminDetailModal from "@/components/admin/AdminDetailModal";
 import adminService from "@/services/adminService";
 import type { AdminActivity } from "@/types/admin";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const PAGE_SIZE = 10;
 
@@ -80,6 +81,7 @@ export default function AdminActivityPage() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [actionFilter, setActionFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [detailActivity, setDetailActivity] = useState<AdminActivity | null>(null);
 
   const loadActivities = useCallback(async (isRefresh = false) => {
@@ -182,8 +184,31 @@ export default function AdminActivityPage() {
       }
 
       return true;
+    }).sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime();
+      const timeB = new Date(b.timestamp || 0).getTime();
+
+      if (sortBy === "NEWEST") {
+        if (timeA && timeB && timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return Number(b.id || 0) - Number(a.id || 0);
+      }
+      if (sortBy === "OLDEST") {
+        if (timeA && timeB && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        return Number(a.id || 0) - Number(b.id || 0);
+      }
+      if (sortBy === "ACTION_AZ") {
+        return (a.action || "").localeCompare(b.action || "");
+      }
+      if (sortBy === "ACTOR_AZ") {
+        return (a.performedBy || "").localeCompare(b.performedBy || "");
+      }
+      return 0;
     });
-  }, [activities, search, activeTab, actionFilter, statusFilter]);
+  }, [activities, search, activeTab, actionFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredActivities.length / PAGE_SIZE));
   const paginatedActivities = filteredActivities.slice(
@@ -344,6 +369,24 @@ export default function AdminActivityPage() {
               <option value="ALL">Status: All</option>
               <option value="SUCCESS">Success</option>
               <option value="FAILED">Failed</option>
+            </select>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold ml-1">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+              <span>Sort:</span>
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+            >
+              <option value="NEWEST">Newest Logs First</option>
+              <option value="OLDEST">Oldest Logs First</option>
+              <option value="ACTION_AZ">Action (A - Z)</option>
+              <option value="ACTOR_AZ">Actor (A - Z)</option>
             </select>
           </div>
         </div>

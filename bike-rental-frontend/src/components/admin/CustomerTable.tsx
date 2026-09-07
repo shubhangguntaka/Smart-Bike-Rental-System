@@ -140,15 +140,15 @@ export default function CustomerTable({
                       <div className="space-y-1">
                         <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                           <CalendarCheck className="h-3.5 w-3.5 text-primary" />
-                          {customer.totalBookings} total
+                          {customer.totalBookings ?? 0} total
                         </span>
 
                         <div className="flex gap-2 text-[10px]">
                           <span className="text-green-500 font-medium">
-                            {customer.completedBookings} completed
+                            {customer.completedBookings ?? 0} completed
                           </span>
                           <span className="text-destructive font-medium">
-                            {customer.cancelledBookings} cancelled
+                            {customer.cancelledBookings ?? 0} cancelled
                           </span>
                         </div>
                       </div>

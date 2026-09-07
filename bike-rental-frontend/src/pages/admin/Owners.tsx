@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
   BadgeCheck,
   Bike,
   Clock,
@@ -81,6 +82,7 @@ export default function AdminOwners() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [kycFilter, setKycFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [detailOwner, setDetailOwner] = useState<OwnerAdmin | null>(null);
@@ -196,8 +198,28 @@ export default function AdminOwners() {
       }
 
       return true;
+    }).sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        return (b.ownerId || 0) - (a.ownerId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        return (a.ownerId || 0) - (b.ownerId || 0);
+      }
+      if (sortBy === "EARNINGS_HIGH") {
+        return Number(b.totalEarnings || 0) - Number(a.totalEarnings || 0);
+      }
+      if (sortBy === "EARNINGS_LOW") {
+        return Number(a.totalEarnings || 0) - Number(b.totalEarnings || 0);
+      }
+      if (sortBy === "BIKES_HIGH") {
+        return (b.totalBikes || 0) - (a.totalBikes || 0);
+      }
+      if (sortBy === "NAME_AZ") {
+        return (a.ownerName || "").localeCompare(b.ownerName || "");
+      }
+      return 0;
     });
-  }, [owners, search, activeTab, kycFilter, statusFilter]);
+  }, [owners, search, activeTab, kycFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOwners.length / PAGE_SIZE));
   const paginatedOwners = filteredOwners.slice(
@@ -351,6 +373,26 @@ export default function AdminOwners() {
               <option value="ALL">Status: All</option>
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
+            </select>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold ml-1">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+              <span>Sort:</span>
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+            >
+              <option value="NEWEST">Newest Host First</option>
+              <option value="OLDEST">Oldest Host First</option>
+              <option value="EARNINGS_HIGH">Highest Earnings</option>
+              <option value="EARNINGS_LOW">Lowest Earnings</option>
+              <option value="BIKES_HIGH">Largest Fleet</option>
+              <option value="NAME_AZ">Name (A - Z)</option>
             </select>
           </div>
         </div>

@@ -22,5 +22,7 @@ export type NotificationType =
   | "PAYMENT"
   | "VERIFICATION"
   | "BIKE_RC"
+  | "BIKE"
   | "RIDE"
-  | "REVIEW";
+  | "REVIEW"
+  | "SYSTEM";

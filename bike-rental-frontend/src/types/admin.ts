@@ -130,9 +130,24 @@ export interface BookingAdmin {
 export interface PaymentAdmin {
   paymentId: number;
   bookingId: number;
+  customerId?: number;
   amount: number;
+  finalAmount?: number;
+  baseRentalAmount?: number;
+  lateCharge?: number;
+  taxAmount?: number;
+  platformFeePercent?: number;
+  platformFeeAmount?: number;
   status: string;
+  paymentStatus?: string;
   paymentDate: string;
+  paidAt?: string;
+  createdAt?: string;
+  transactionId?: string;
+  paymentMethod?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  invoiceNumber?: string;
 }
 
 export interface AdminActivity {

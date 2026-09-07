@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowUpDown,
   Bike,
   CheckCircle2,
   Clock,
@@ -80,6 +81,7 @@ export default function AdminBikes() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("NEWEST");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -212,8 +214,30 @@ export default function AdminBikes() {
       }
 
       return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        return Number(b.bikeId || 0) - Number(a.bikeId || 0);
+      }
+      if (sortBy === "OLDEST") {
+        return Number(a.bikeId || 0) - Number(b.bikeId || 0);
+      }
+      if (sortBy === "PRICE_HIGH") {
+        const pA = a.hourlyRate ?? a.rentalPrice ?? 0;
+        const pB = b.hourlyRate ?? b.rentalPrice ?? 0;
+        return pB - pA;
+      }
+      if (sortBy === "PRICE_LOW") {
+        const pA = a.hourlyRate ?? a.rentalPrice ?? 0;
+        const pB = b.hourlyRate ?? b.rentalPrice ?? 0;
+        return pA - pB;
+      }
+      if (sortBy === "NAME_AZ") {
+        return (a.bikeName || "").localeCompare(b.bikeName || "");
+      }
+      return Number(b.bikeId || 0) - Number(a.bikeId || 0);
     });
-  }, [bikes, search, activeTab, statusFilter, categoryFilter]);
+  }, [bikes, search, activeTab, statusFilter, categoryFilter, sortBy]);
 
   const totalPages = Math.max(
     1,
@@ -426,6 +450,25 @@ export default function AdminBikes() {
               <option value="UNDER_MAINTENANCE">Maintenance</option>
               <option value="NOT_AVAILABLE">Unavailable</option>
             </select>
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-1.5 pl-1 border-l border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+              >
+                <option value="NEWEST">Sort: Newest First</option>
+                <option value="OLDEST">Sort: Oldest First</option>
+                <option value="PRICE_HIGH">Price: High to Low</option>
+                <option value="PRICE_LOW">Price: Low to High</option>
+                <option value="NAME_AZ">Name: A to Z</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
