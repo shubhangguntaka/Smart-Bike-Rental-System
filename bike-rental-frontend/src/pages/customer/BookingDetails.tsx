@@ -24,6 +24,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CloseIcon from "@mui/icons-material/Close";
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import PaymentIcon from "@mui/icons-material/Payment";
 
 import BookingQRCode from "../../components/booking/BookingQRCode";
 import BookingReceipt from "../../components/booking/BookingReceipt";
@@ -305,6 +306,17 @@ const BookingDetails = () => {
                                 </Box>
 
                                 <Box mt={3} display="flex" gap={2}>
+                                    {booking.bookingStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            startIcon={<PaymentIcon />}
+                                            onClick={() => navigate(`/customer/payment/${booking.bookingId}`)}
+                                        >
+                                            Pay Now
+                                        </Button>
+                                    )}
+
                                     {(booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "COMPLETED" || booking.bookingStatus === "ACTIVE") && (
                                         <Button
                                             variant="contained"
