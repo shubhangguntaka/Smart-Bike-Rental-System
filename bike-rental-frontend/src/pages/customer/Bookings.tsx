@@ -10,6 +10,7 @@ import { BookingService } from "@/services/bookingService";
 import reviewService from "@/services/reviewService";
 import ReviewForm from "@/components/review/ReviewForm";
 import BikeDirectionsModal from "@/components/booking/BikeDirectionsModal";
+import CancelBookingDialog from "@/components/booking/CancelBookingDialog";
 import type { Review, ReviewDTO } from "@/types/review";
 
 export default function CustomerBookings() {
@@ -21,6 +22,8 @@ export default function CustomerBookings() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [directionBooking, setDirectionBooking] = useState<any | null>(null);
+  const [cancelTargetBooking, setCancelTargetBooking] = useState<any | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("request-desc");
 
@@ -48,7 +51,15 @@ export default function CustomerBookings() {
         </span>
       );
     }
-    if (s === "REJECTED" || s === "CANCELLED") {
+    if (s === "CANCELLED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-zinc-500/10 text-zinc-600 border border-zinc-500/20">
+          <XCircle className="h-3.5 w-3.5" />
+          Booking Cancelled
+        </span>
+      );
+    }
+    if (s === "REJECTED") {
       return (
         <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-red-500/10 text-red-600 border border-red-500/20">
           <XCircle className="h-3.5 w-3.5" />
@@ -99,6 +110,33 @@ export default function CustomerBookings() {
       console.error("Failed to load customer bookings:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isBookingCancellable = (status: string) => {
+    const s = (status || "").toUpperCase();
+    return s === "PENDING" || s === "VERIFICATION_REQUIRED" || s === "APPROVED" || s === "CONFIRMED";
+  };
+
+  const handleConfirmCancel = async (reason: string) => {
+    if (!cancelTargetBooking) return;
+    const bId = Number(cancelTargetBooking.bookingId || cancelTargetBooking.id);
+    try {
+      setCancelling(true);
+      await BookingService.cancelBooking(bId, reason);
+      toast.success("Booking cancelled successfully.");
+      setCancelTargetBooking(null);
+      if (selectedBooking && Number(selectedBooking.bookingId || selectedBooking.id) === bId) {
+        setSelectedBooking((prev: any) =>
+          prev ? { ...prev, bookingStatus: "CANCELLED", status: "CANCELLED", cancellationReason: reason } : null
+        );
+      }
+      fetchCustomerBookings();
+    } catch (err: any) {
+      console.error("Failed to cancel booking:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to cancel booking.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -268,6 +306,13 @@ export default function CustomerBookings() {
                       <span>Return Time: {formatDateTime(booking.returnTime || booking.returnDate)}</span>
                     </div>
                   </div>
+
+                  {bStatus === "CANCELLED" && booking.cancellationReason && (
+                    <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive">
+                      <span className="font-bold">Cancellation Reason:</span> {booking.cancellationReason}
+                      {booking.cancelledBy && <span className="text-[11px] text-muted-foreground ml-1">({booking.cancelledBy})</span>}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
@@ -298,6 +343,18 @@ export default function CustomerBookings() {
                         <span>Directions</span>
                       </button>
                     </div>
+                  )}
+
+                  {isBookingCancellable(bStatus) && (
+                    <button
+                      type="button"
+                      onClick={() => setCancelTargetBooking(booking)}
+                      className="px-3 py-2 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-white text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95"
+                      title="Cancel Booking"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      <span>Cancel</span>
+                    </button>
                   )}
 
                   {bStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
@@ -398,6 +455,29 @@ export default function CustomerBookings() {
                 </div>
               </div>
 
+              {((selectedBooking.bookingStatus || selectedBooking.status) === "CANCELLED") && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-destructive">
+                    <XCircle className="h-4 w-4" />
+                    <span>Cancellation Details</span>
+                  </div>
+                  <p className="text-foreground">
+                    <span className="text-muted-foreground">Reason:</span>{" "}
+                    {selectedBooking.cancellationReason || "No reason specified"}
+                  </p>
+                  {selectedBooking.cancelledBy && (
+                    <p className="text-foreground">
+                      <span className="text-muted-foreground">Cancelled By:</span> {selectedBooking.cancelledBy}
+                    </p>
+                  )}
+                  {selectedBooking.cancelledAt && (
+                    <p className="text-foreground">
+                      <span className="text-muted-foreground">Cancelled At:</span> {formatDateTime(selectedBooking.cancelledAt)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-xl border border-border p-4 bg-muted/40 flex justify-between items-center">
                 <div className="flex gap-2.5 items-center">
                   <CreditCard className="h-5 w-5 text-primary" />
@@ -420,6 +500,19 @@ export default function CustomerBookings() {
           )}
         </ModalBody>
         <ModalFooter>
+          {selectedBooking && isBookingCancellable(selectedBooking.bookingStatus || selectedBooking.status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setCancelTargetBooking(selectedBooking);
+                setIsDetailsOpen(false);
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <XCircle className="h-4 w-4" />
+              <span>Cancel Booking</span>
+            </button>
+          )}
           {selectedBooking && (selectedBooking.bookingStatus === "CONFIRMED" || selectedBooking.bookingStatus === "ACTIVE" || selectedBooking.status === "CONFIRMED" || selectedBooking.status === "ACTIVE") && (
             <button
               type="button"
@@ -469,6 +562,20 @@ export default function CustomerBookings() {
         isOpen={!!directionBooking}
         onClose={() => setDirectionBooking(null)}
         booking={directionBooking}
+      />
+
+      {/* Cancel Booking Dialog */}
+      <CancelBookingDialog
+        open={Boolean(cancelTargetBooking)}
+        onClose={() => setCancelTargetBooking(null)}
+        onConfirm={handleConfirmCancel}
+        isOwner={false}
+        loading={cancelling}
+        bookingTitle={
+          cancelTargetBooking
+            ? cancelTargetBooking.bikeName || `#${cancelTargetBooking.bookingId || cancelTargetBooking.id}`
+            : ""
+        }
       />
     </div>
   );
