@@ -2,6 +2,8 @@ package com.sssit.bikerental.modules.owner.controller;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -110,12 +112,8 @@ public class OwnerController {
     @PostMapping("/cancel/{bookingId}")
     public ResponseEntity<ApiResponse<BookingResponse>> cancelBooking(
             @PathVariable Long bookingId,
-            @RequestBody(required = false) CancelBookingRequest request) {
+            @Valid @RequestBody CancelBookingRequest request) {
         getAuthenticatedOwner();
-        if (request == null) {
-            request = new CancelBookingRequest();
-            request.setReason("Cancelled by owner");
-        }
         BookingResponse response = bookingService.cancelBooking(bookingId, request);
         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", response));
     }

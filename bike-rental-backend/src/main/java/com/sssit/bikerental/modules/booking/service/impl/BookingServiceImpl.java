@@ -450,6 +450,9 @@ public BookingResponse confirmBooking(Long bookingId) {
         if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
             throw new IllegalArgumentException("Cancellation reason is required.");
         }
+        if (request.getReason().trim().length() > 500) {
+            throw new IllegalArgumentException("Cancellation reason cannot exceed 500 characters.");
+        }
 
         Booking booking = findBooking(bookingId);
 
@@ -504,12 +507,10 @@ public BookingResponse confirmBooking(Long bookingId) {
         booking.setCancelledBy(cancelledBy);
         booking.setCancelledAt(LocalDateTime.now());
 
-        // Free up the bike
-        bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-            bike.setBikeStatus(BikeStatus.AVAILABLE);
-            bikeRepository.save(bike);
-            log.info("BikeId: {} returned to AVAILABLE state due to cancellation of bookingId: {}", bike.getBikeId(), booking.getId());
-        });
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // Update bike availability according to legitimate booking state
+        updateBikeAvailabilityOnBookingChange(booking.getBikeId());
 
         // Send notification
         try {
@@ -521,16 +522,7 @@ public BookingResponse confirmBooking(Long bookingId) {
             log.warn("Failed to send cancellation notification for bookingId {}: {}", booking.getId(), e.getMessage());
         }
 
-        Booking savedBooking = bookingRepository.save(booking);
         return convertToResponse(savedBooking);
-    }
-
-    @Override
-    public BookingResponse cancelBooking(Long bookingId) {
-        log.info("Request received to cancel bookingId: {} without explicit request body", bookingId);
-        CancelBookingRequest request = new CancelBookingRequest();
-        request.setReason("Cancelled by user");
-        return cancelBooking(bookingId, request);
     }
 
     @Override
@@ -569,7 +561,7 @@ public BookingResponse confirmBooking(Long bookingId) {
 
         booking.setBookingStatus(bookingStatus);
 
-        // If status changes to CANCELLED, free up the bike
+        // If status changes to CANCELLED, update bike availability
         if (bookingStatus == BookingStatus.CANCELLED) {
             if (booking.getCancellationReason() == null) {
                 booking.setCancellationReason("Status updated to CANCELLED");
@@ -587,11 +579,8 @@ public BookingResponse confirmBooking(Long bookingId) {
                     booking.setCancelledBy(CancelledBy.CUSTOMER);
                 }
             }
-            bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-                bike.setBikeStatus(BikeStatus.AVAILABLE);
-                bikeRepository.save(bike);
-                log.info("BikeId: {} returned to AVAILABLE state due to cancellation", bike.getBikeId());
-            });
+            bookingRepository.save(booking);
+            updateBikeAvailabilityOnBookingChange(booking.getBikeId());
         }
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -892,20 +881,49 @@ bikeRepository.save(bike);
         log.info("Request received to delete bookingId: {}", bookingId);
         Booking booking = findBooking(bookingId);
         validateBookingAccess(booking);
-
-        // Free up the bike regardless of the booking's current status (PENDING/CONFIRMED/ACTIVE all
-        // set bikeStatus to BOOKED at creation time), otherwise the bike would be stuck as BOOKED
-        // forever once this booking record is gone.
-        bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
-            if (bike.getBikeStatus() == BikeStatus.BOOKED) {
-                bike.setBikeStatus(BikeStatus.AVAILABLE);
-                bikeRepository.save(bike);
-                log.info("BikeId: {} returned to AVAILABLE state due to booking deletion", bike.getBikeId());
-            }
-        });
-
+        Long bikeId = booking.getBikeId();
         bookingRepository.delete(booking);
         log.info("BookingId: {} successfully deleted.", bookingId);
+
+        // Update bike availability according to remaining booking state
+        updateBikeAvailabilityOnBookingChange(bikeId);
+    }
+
+    /**
+     * Update bike availability taking into account whether any other active or confirmed
+     * booking requires the bike.
+     */
+    private void updateBikeAvailabilityOnBookingChange(Long bikeId) {
+        if (bikeId == null) {
+            return;
+        }
+        bikeRepository.findById(bikeId).ifPresent(bike -> {
+            if (bike.getBikeStatus() == BikeStatus.UNDER_MAINTENANCE || bike.getBikeStatus() == BikeStatus.NOT_AVAILABLE) {
+                return;
+            }
+            List<Booking> otherBookings = bookingRepository.findByBikeId(bikeId);
+            boolean hasActiveOrConfirmed = otherBookings != null && otherBookings.stream().anyMatch(b -> {
+                if (b.getBookingStatus() == BookingStatus.CANCELLED
+                        || b.getBookingStatus() == BookingStatus.COMPLETED
+                        || b.getBookingStatus() == BookingStatus.REJECTED) {
+                    return false;
+                }
+                if (b.getActualReturnTime() != null) {
+                    return false;
+                }
+                return b.getBookingStatus() == BookingStatus.ACTIVE
+                        || b.getBookingStatus() == BookingStatus.CONFIRMED
+                        || b.getBookingStatus() == BookingStatus.APPROVED;
+            });
+
+            if (hasActiveOrConfirmed) {
+                bike.setBikeStatus(BikeStatus.BOOKED);
+            } else {
+                bike.setBikeStatus(BikeStatus.AVAILABLE);
+            }
+            bikeRepository.save(bike);
+            log.info("BikeId: {} status updated to {} following booking state change", bike.getBikeId(), bike.getBikeStatus());
+        });
     }
 
     private Booking findBooking(Long bookingId) {

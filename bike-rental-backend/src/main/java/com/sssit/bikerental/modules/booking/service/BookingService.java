@@ -25,11 +25,6 @@ public interface BookingService {
     BookingResponse cancelBooking(Long bookingId, com.sssit.bikerental.modules.booking.dto.CancelBookingRequest request);
 
     /**
-     * Cancel an existing booking.
-     */
-    BookingResponse cancelBooking(Long bookingId);
-
-    /**
      * Get booking details by ID.
      */
     BookingResponse getBooking(Long bookingId);

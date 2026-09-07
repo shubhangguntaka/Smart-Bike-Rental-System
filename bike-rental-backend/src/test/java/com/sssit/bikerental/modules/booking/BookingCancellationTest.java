@@ -326,4 +326,49 @@ class BookingCancellationTest {
             assertEquals("Administrative cancellation due to policy", testBooking.getCancellationReason());
         }
     }
+
+    @Test
+    @DisplayName("19. Excessive cancellation reason > 500 characters is rejected")
+    void testExcessiveReasonRejected() {
+        try (MockedStatic<SecurityUtils> sec = mockStatic(SecurityUtils.class)) {
+            sec.when(SecurityUtils::getCurrentUserId).thenReturn(100L);
+            sec.when(SecurityUtils::getCurrentRole).thenReturn(Role.CUSTOMER);
+
+            String longReason = "A".repeat(501);
+            CancelBookingRequest req = new CancelBookingRequest(longReason);
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                    bookingService.cancelBooking(1L, req));
+
+            assertTrue(ex.getMessage().contains("cannot exceed 500 characters"));
+        }
+    }
+
+    @Test
+    @DisplayName("20. Cancellation does not set bike to AVAILABLE if another active booking exists")
+    void testCancellationPreservesBookedStatusIfAnotherActiveBookingExists() {
+        try (MockedStatic<SecurityUtils> sec = mockStatic(SecurityUtils.class)) {
+            sec.when(SecurityUtils::getCurrentUserId).thenReturn(100L);
+            sec.when(SecurityUtils::getCurrentRole).thenReturn(Role.CUSTOMER);
+
+            Booking otherActiveBooking = Booking.builder()
+                    .customerId(101L)
+                    .bikeId(10L)
+                    .bookingStatus(BookingStatus.ACTIVE)
+                    .startTime(LocalDateTime.now().minusHours(1))
+                    .returnTime(LocalDateTime.now().plusHours(3))
+                    .build();
+            otherActiveBooking.setId(2L);
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+            when(bikeRepository.findById(10L)).thenReturn(Optional.of(testBike));
+            when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(bookingRepository.findByBikeId(10L)).thenReturn(java.util.List.of(testBooking, otherActiveBooking));
+
+            CancelBookingRequest req = new CancelBookingRequest("Plans cancelled");
+            bookingService.cancelBooking(1L, req);
+
+            assertEquals(BikeStatus.BOOKED, testBike.getBikeStatus());
+            verify(bikeRepository).save(testBike);
+        }
+    }
 }

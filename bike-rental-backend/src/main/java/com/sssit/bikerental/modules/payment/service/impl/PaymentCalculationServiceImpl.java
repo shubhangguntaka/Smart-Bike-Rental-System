@@ -161,9 +161,10 @@ public class PaymentCalculationServiceImpl implements PaymentCalculationService 
             return scheduledRentalAmount;
         }
 
-        double actualHours = (double) actualMinutes / 60.0;
-        BigDecimal actualUsageAmount = hourlyRate.multiply(BigDecimal.valueOf(actualHours))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal actualMinutesBd = BigDecimal.valueOf(actualMinutes);
+        BigDecimal actualUsageAmount = hourlyRate
+                .multiply(actualMinutesBd)
+                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
 
         // An early return should reduce the charge and not exceed scheduled rental amount
         if (actualUsageAmount.compareTo(scheduledRentalAmount) < 0) {
@@ -196,10 +197,9 @@ public class PaymentCalculationServiceImpl implements PaymentCalculationService 
         if (booking.getStartTime() != null && booking.getReturnTime() != null && booking.getRentalAmount() != null) {
             long scheduledMinutes = Duration.between(booking.getStartTime(), booking.getReturnTime()).toMinutes();
             if (scheduledMinutes > 0) {
-                double scheduledHours = (double) scheduledMinutes / 60.0;
-                if (scheduledHours > 0) {
-                    return booking.getRentalAmount().divide(BigDecimal.valueOf(scheduledHours), 4, RoundingMode.HALF_UP);
-                }
+                return booking.getRentalAmount()
+                        .multiply(BigDecimal.valueOf(60))
+                        .divide(BigDecimal.valueOf(scheduledMinutes), 4, RoundingMode.HALF_UP);
             }
         }
 
