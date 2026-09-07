@@ -68,4 +68,10 @@ public class BookingResponse {
     private LocalDateTime bookingDate; // Kept for frontend compatibility
 
     private LocalDateTime createdAt; // Added as requested
+
+    private String cancellationReason;
+
+    private com.sssit.bikerental.modules.booking.enums.CancelledBy cancelledBy;
+
+    private LocalDateTime cancelledAt;
 }

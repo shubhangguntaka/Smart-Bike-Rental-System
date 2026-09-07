@@ -150,7 +150,7 @@ class PaymentBookingLifecycleIntegrationTest {
                 .bikeId(10L)
                 .customerId(100L)
                 .startTime(LocalDateTime.now().minusHours(2))
-                .returnTime(LocalDateTime.now().plusHours(2))
+                .returnTime(LocalDateTime.now())
                 .rentalAmount(new BigDecimal("200.00"))
                 .bookingStatus(BookingStatus.ACTIVE)
                 .paymentStatus(com.sssit.bikerental.modules.booking.enums.PaymentStatus.PENDING)
@@ -500,5 +500,50 @@ class PaymentBookingLifecycleIntegrationTest {
         authenticateAs(999L, Role.CUSTOMER);
 
         assertThrows(AccessDeniedException.class, () -> paymentService.preparePayment(1L));
+    }
+
+    @Test
+    @DisplayName("Stage 9: Early return flow calculates reduced amount and prepares Razorpay order with adjusted total")
+    void lifecycle_stage9_earlyReturnFlowReducesPaymentAmount() throws Exception {
+        // Booking scheduled for 4 hours (now - 2h to now + 2h) at 200.00 (50/hr)
+        booking.setReturnTime(LocalDateTime.now().plusHours(2));
+
+        // Owner returns bike early (after 2 hours)
+        authenticateAs(200L, Role.OWNER);
+        when(bookingRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(booking));
+        when(bikeRepository.findById(10L)).thenReturn(Optional.of(testBike));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(customer));
+        when(userRepository.findById(200L)).thenReturn(Optional.of(owner));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(i -> i.getArgument(0));
+
+        bookingService.returnBooking(1L);
+
+        // Customer prepares payment for early return
+        authenticateAs(100L, Role.CUSTOMER);
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+        when(paymentRepository.findByBookingId(1L)).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+            Payment p = invocation.getArgument(0);
+            if (p.getPaymentId() == null) {
+                p.setPaymentId(55L);
+            }
+            return p;
+        });
+        when(razorpayGateway.createOrder(eq(55L), eq(new BigDecimal("103.00")), eq("booking_1")))
+                .thenReturn("order_rzp_early_55");
+
+        PaymentResponse response = paymentService.preparePayment(1L);
+
+        assertNotNull(response);
+        assertEquals(PaymentStatus.READY_FOR_PAYMENT, response.getPaymentStatus());
+        assertEquals(new BigDecimal("100.00"), response.getBaseRentalAmount());
+        assertEquals(new BigDecimal("0.00"), response.getLateCharge());
+        assertEquals(new BigDecimal("100.00"), response.getEligibleTransactionAmount());
+        assertEquals(new BigDecimal("3"), response.getPlatformFeePercent());
+        assertEquals(new BigDecimal("3.00"), response.getPlatformFeeAmount());
+        assertEquals(new BigDecimal("103.00"), response.getFinalAmount());
+        assertEquals("order_rzp_early_55", response.getRazorpayOrderId());
+
+        verify(razorpayGateway).createOrder(55L, new BigDecimal("103.00"), "booking_1");
     }
 }

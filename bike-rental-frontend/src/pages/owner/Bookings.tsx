@@ -5,6 +5,7 @@ import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 import BookingQRScanner from "../../components/owner/BookingQRScanner";
+import CancelBookingDialog from "../../components/booking/CancelBookingDialog";
 import { gpsService } from "@/services/gpsService";
 import { 
     Calendar, 
@@ -52,6 +53,7 @@ export default function OwnerBookings() {
         fetchBookingRequests, 
         approveBooking, 
         rejectBooking,
+        cancelBooking,
         fetchDashboard
     } = useOwnerStore();
 
@@ -65,6 +67,7 @@ export default function OwnerBookings() {
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [actioningId, setActioningId] = useState<number | null>(null);
     const [trackingLoadingId, setTrackingLoadingId] = useState<number | null>(null);
+    const [cancelTargetBooking, setCancelTargetBooking] = useState<any>(null);
 
     const handleTrackBike = async (bookingId: number) => {
         setTrackingLoadingId(bookingId);
@@ -114,6 +117,25 @@ export default function OwnerBookings() {
             }
         } catch (err: any) {
             const errorMsg = err.response?.data?.message || err.message || "Failed to reject booking.";
+            toast.error(errorMsg);
+        } finally {
+            setActioningId(null);
+        }
+    };
+
+    const handleConfirmCancel = async (reason: string) => {
+        if (!cancelTargetBooking) return;
+        const id = cancelTargetBooking.bookingId;
+        setActioningId(id);
+        try {
+            await cancelBooking(id, reason);
+            toast.success("Booking cancelled successfully.");
+            setCancelTargetBooking(null);
+            if (selectedBooking && selectedBooking.bookingId === id) {
+                setSelectedBooking((prev: any) => prev ? { ...prev, bookingStatus: "CANCELLED" } : null);
+            }
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.message || err.message || "Failed to cancel booking.";
             toast.error(errorMsg);
         } finally {
             setActioningId(null);
@@ -405,6 +427,18 @@ export default function OwnerBookings() {
                                             </button>
                                         </>
                                     )}
+
+                                    {(booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "APPROVED") && (
+                                        <button
+                                            type="button"
+                                            disabled={actioningId !== null}
+                                            onClick={() => setCancelTargetBooking(booking)}
+                                            className="px-3.5 py-2 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                                        >
+                                            <XCircle className="h-4 w-4" />
+                                            Cancel Booking
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -524,6 +558,29 @@ export default function OwnerBookings() {
                             </button>
                         </div>
                     )}
+                    {selectedBooking && (selectedBooking.bookingStatus === "CONFIRMED" || selectedBooking.bookingStatus === "APPROVED") && (
+                        <div className="flex gap-2 w-full justify-between items-center">
+                            <button
+                                type="button"
+                                disabled={actioningId !== null}
+                                onClick={() => {
+                                    setCancelTargetBooking(selectedBooking);
+                                    setIsDetailsOpen(false);
+                                }}
+                                className="px-4 py-2.5 text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                                <XCircle className="h-4 w-4" />
+                                Cancel Booking
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsDetailsOpen(false)}
+                                className="px-4 py-2.5 text-xs font-bold bg-muted hover:bg-muted/80 text-foreground rounded-xl transition-all cursor-pointer"
+                            >
+                                Close Details
+                            </button>
+                        </div>
+                    )}
                     {selectedBooking && selectedBooking.bookingStatus === "ACTIVE" && (
                         <div className="flex gap-2 w-full justify-between items-center">
                             <button
@@ -551,7 +608,7 @@ export default function OwnerBookings() {
                             </button>
                         </div>
                     )}
-                    {(!selectedBooking || (selectedBooking.bookingStatus !== "PENDING" && selectedBooking.bookingStatus !== "ACTIVE")) && (
+                    {(!selectedBooking || (selectedBooking.bookingStatus !== "PENDING" && selectedBooking.bookingStatus !== "CONFIRMED" && selectedBooking.bookingStatus !== "APPROVED" && selectedBooking.bookingStatus !== "ACTIVE")) && (
                         <button
                             type="button"
                             onClick={() => setIsDetailsOpen(false)}
@@ -570,6 +627,16 @@ export default function OwnerBookings() {
                     <BookingQRScanner onClose={() => setIsScannerOpen(false)} />
                 </ModalBody>
             </Modal>
+
+            {/* Owner Cancel Booking Dialog */}
+            <CancelBookingDialog
+                open={Boolean(cancelTargetBooking)}
+                onClose={() => setCancelTargetBooking(null)}
+                onConfirm={handleConfirmCancel}
+                isOwner={true}
+                loading={actioningId !== null}
+                bookingTitle={cancelTargetBooking ? (cancelTargetBooking.bikeName || `#${cancelTargetBooking.bookingId}`) : ""}
+            />
         </div>
     );
 }

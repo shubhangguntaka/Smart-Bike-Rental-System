@@ -31,6 +31,7 @@ import BookingReceipt from "../../components/booking/BookingReceipt";
 import type { Booking } from "../../types/booking";
 import { BookingService } from "../../services/bookingService";
 import useAuth from "../../hooks/useAuth";
+import CancelBookingDialog from "@/components/booking/CancelBookingDialog";
 
 const BookingDetails = () => {
     const { user } = useAuth();
@@ -47,6 +48,10 @@ const BookingDetails = () => {
 
     const [success, setSuccess] =
         useState(false);
+
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
 
     const [showReceipt, setShowReceipt] = useState(false);
 
@@ -87,26 +92,27 @@ const BookingDetails = () => {
 
     }
 
-    const cancelBooking = async () => {
-
+    const handleConfirmCancel = async (reason: string) => {
         if (!booking) return;
 
         try {
-
+            setCancelling(true);
             await BookingService.cancelBooking(
-                booking.bookingId
+                booking.bookingId,
+                reason
             );
 
             setSuccess(true);
-
+            setCancelDialogOpen(false);
             loadBooking(
                 booking.bookingId
             );
 
-        } catch (error) {
-
+        } catch (error: any) {
             console.error(error);
-
+            setErrorMsg(error?.response?.data?.message || (error instanceof Error ? error.message : "Failed to cancel booking."));
+        } finally {
+            setCancelling(false);
         }
 
     };
@@ -305,6 +311,27 @@ const BookingDetails = () => {
                                     />
                                 </Box>
 
+                                {booking.bookingStatus === "CANCELLED" && (
+                                    <Box sx={{ mt: 2.5, p: 2, bgcolor: "#fff1f0", borderRadius: 2, border: "1px solid #ffa39e" }}>
+                                        <Typography variant="subtitle2" color="error.main" fontWeight="bold" gutterBottom>
+                                            Cancellation Details
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                            <strong>Reason:</strong> {booking.cancellationReason || "No reason specified"}
+                                        </Typography>
+                                        {booking.cancelledBy && (
+                                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                                <strong>Cancelled By:</strong> {booking.cancelledBy}
+                                            </Typography>
+                                        )}
+                                        {booking.cancelledAt && (
+                                            <Typography variant="body2">
+                                                <strong>Cancelled At:</strong> {formatDateTime(booking.cancelledAt)}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                )}
+
                                 <Box mt={3} display="flex" gap={2}>
                                     {booking.bookingStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
                                         <Button
@@ -328,12 +355,12 @@ const BookingDetails = () => {
                                         </Button>
                                     )}
 
-                                    {booking.bookingStatus !== "CANCELLED" && booking.bookingStatus !== "COMPLETED" && booking.bookingStatus !== "ACTIVE" && (
+                                    {(booking.bookingStatus === "PENDING" || booking.bookingStatus === "VERIFICATION_REQUIRED" || booking.bookingStatus === "APPROVED" || booking.bookingStatus === "CONFIRMED") && (
                                         <Button
                                             color="error"
                                             variant="contained"
                                             startIcon={<CancelIcon />}
-                                            onClick={cancelBooking}
+                                            onClick={() => setCancelDialogOpen(true)}
                                         >
                                             Cancel Booking
                                         </Button>
@@ -369,20 +396,33 @@ const BookingDetails = () => {
             </Box>
 
             <Snackbar
-
                 open={success}
-
                 autoHideDuration={3000}
-
+                onClose={() => setSuccess(false)}
             >
-
                 <Alert severity="success">
-
                     Booking cancelled successfully.
-
                 </Alert>
-
             </Snackbar>
+
+            <Snackbar
+                open={Boolean(errorMsg)}
+                autoHideDuration={4000}
+                onClose={() => setErrorMsg(null)}
+            >
+                <Alert severity="error" onClose={() => setErrorMsg(null)}>
+                    {errorMsg}
+                </Alert>
+            </Snackbar>
+
+            <CancelBookingDialog
+                open={cancelDialogOpen}
+                onClose={() => setCancelDialogOpen(false)}
+                onConfirm={handleConfirmCancel}
+                isOwner={false}
+                loading={cancelling}
+                bookingTitle={booking.bikeName || `#${booking.bookingId}`}
+            />
 
             <Dialog open={showReceipt} onClose={() => setShowReceipt(false)} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ m: 0, p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

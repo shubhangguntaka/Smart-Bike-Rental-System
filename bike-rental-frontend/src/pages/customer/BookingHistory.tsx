@@ -9,6 +9,7 @@ import { BookingService } from "../../services/bookingService";
 import bikeService from "../../services/bikeService";
 import useAuth from "../../hooks/useAuth";
 import BookingStatusChip from "../../components/booking/BookingStatusChip";
+import CancelBookingDialog from "../../components/booking/CancelBookingDialog";
 import type { Booking } from "../../types/booking";
 import type { Bike } from "../../types/bike";
 
@@ -22,6 +23,7 @@ const BookingHistory = () => {
   const [bikesMap, setBikesMap] = useState<Record<number, Bike>>({});
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Search & Filter state
@@ -88,15 +90,21 @@ const BookingHistory = () => {
     setFilteredBookings(result);
   }, [searchTerm, statusFilter, bookings, bikesMap]);
 
-  const handleCancelBooking = async (bookingId: number) => {
-    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+  const handleConfirmCancel = async (reason: string) => {
+    if (!cancelTarget) return;
+    const targetId = cancelTarget.bookingId;
 
-    setCancellingId(bookingId);
+    setCancellingId(targetId);
     try {
-      await BookingService.cancelBooking(bookingId);
+      await BookingService.cancelBooking(targetId, reason);
       setBookings((prev) =>
-        prev.map((b) => (b.bookingId === bookingId ? { ...b, bookingStatus: "CANCELLED" } : b))
+        prev.map((b) =>
+          b.bookingId === targetId
+            ? { ...b, bookingStatus: "CANCELLED", cancellationReason: reason, cancelledBy: "CUSTOMER", cancelledAt: new Date().toISOString() }
+            : b
+        )
       );
+      setCancelTarget(null);
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
       const message = errorObj?.response?.data?.message || (err instanceof Error ? err.message : "Failed to cancel booking.");
@@ -222,7 +230,11 @@ const BookingHistory = () => {
         <Grid container spacing={3}>
           {filteredBookings.map((booking) => {
             const bike = booking.bikeId ? bikesMap[booking.bikeId] : undefined;
-            const isPending = booking.bookingStatus === "PENDING" || booking.bookingStatus === "VERIFICATION_REQUIRED";
+            const isCancellable =
+              booking.bookingStatus === "PENDING" ||
+              booking.bookingStatus === "VERIFICATION_REQUIRED" ||
+              booking.bookingStatus === "APPROVED" ||
+              booking.bookingStatus === "CONFIRMED";
 
             return (
               <Grid item xs={12} key={booking.bookingId}>
@@ -272,6 +284,15 @@ const BookingHistory = () => {
                           <Typography variant="body2">{formatDateTime(booking.returnTime)}</Typography>
                         </Grid>
                       </Grid>
+
+                      {booking.bookingStatus === "CANCELLED" && booking.cancellationReason && (
+                        <Box sx={{ mt: 1.5, p: 1.5, bgcolor: "#fff1f0", borderRadius: 1.5, border: "1px solid #ffa39e" }}>
+                          <Typography variant="caption" color="error.main" fontWeight="bold" display="block">
+                            Cancellation Reason: {booking.cancellationReason}
+                            {booking.cancelledBy ? ` (by ${booking.cancelledBy})` : ""}
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
 
                     <Divider sx={{ my: 2 }} />
@@ -292,14 +313,14 @@ const BookingHistory = () => {
                         >
                           View Details
                         </Button>
-                        {isPending && (
+                        {isCancellable && (
                           <Button
                             variant="outlined"
                             color="error"
                             size="small"
                             startIcon={cancellingId === booking.bookingId ? <Skeleton variant="circular" width={16} height={16} /> : <CancelIcon />}
                             disabled={cancellingId !== null}
-                            onClick={() => handleCancelBooking(booking.bookingId)}
+                            onClick={() => setCancelTarget(booking)}
                           >
                             Cancel
                           </Button>
@@ -313,6 +334,15 @@ const BookingHistory = () => {
           })}
         </Grid>
       )}
+
+      <CancelBookingDialog
+        open={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleConfirmCancel}
+        isOwner={false}
+        loading={cancellingId !== null}
+        bookingTitle={cancelTarget ? (cancelTarget.bikeName || `#${cancelTarget.bookingId}`) : ""}
+      />
     </Container>
   );
 };

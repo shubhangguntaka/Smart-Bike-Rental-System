@@ -36,8 +36,8 @@ export const BookingService = {
     return Array.isArray(data) ? data : [];
   },
 
-  cancelBooking: async (bookingId: number): Promise<Booking> => {
-    const response = await BookingApi.cancelBooking(bookingId);
+  cancelBooking: async (bookingId: number, reason?: string): Promise<Booking> => {
+    const response = await BookingApi.cancelBooking(bookingId, reason);
     return response.data?.data ?? response.data;
   },
 

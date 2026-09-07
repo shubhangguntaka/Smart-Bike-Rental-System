@@ -513,4 +513,164 @@ class PaymentCalculationServiceTest {
                     () -> paymentCalculationService.calculatePayment(1L));
         }
     }
+
+    @Nested
+    @DisplayName("Early Return and Actual Duration Billing Tests")
+    class EarlyReturnAndActualUsageTests {
+
+        @Test
+        @DisplayName("Scenario 1: 4-hour booking returned after 2 hours should calculate reduced rental charge")
+        void earlyReturn_4HourBookingReturnedAfter2Hours_shouldReduceRentalAmount() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00")); // 50.00/hour
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 12, 0)); // 2 hours used
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("100.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("0.00"), response.getLateCharge());
+            assertEquals(new BigDecimal("100.00"), response.getEligibleTransactionAmount());
+            assertEquals(new BigDecimal("3"), response.getPlatformFeePercent());
+            assertEquals(new BigDecimal("3.00"), response.getPlatformFeeAmount());
+            assertEquals(new BigDecimal("103.00"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 2: Booking returned exactly at scheduled return time charges full scheduled amount")
+        void onTimeReturn_shouldChargeFullScheduledAmount() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00"));
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("200.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("0.00"), response.getLateCharge());
+            assertEquals(new BigDecimal("200.00"), response.getEligibleTransactionAmount());
+            assertEquals(new BigDecimal("6.00"), response.getPlatformFeeAmount());
+            assertEquals(new BigDecimal("206.00"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 3: Booking returned 1 minute before scheduled return calculates accurate duration")
+        void earlyReturn_oneMinuteBeforeScheduledReturn_shouldCalculateAccurateAmount() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0)); // 240 mins
+            booking.setRentalAmount(new BigDecimal("200.00")); // 50.00/hour
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 13, 59)); // 239 mins
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            // 239 / 60 * 50 = 199.1666... -> 199.17
+            assertEquals(new BigDecimal("199.17"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("0.00"), response.getLateCharge());
+            assertEquals(new BigDecimal("199.17"), response.getEligibleTransactionAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 4: Booking returned after scheduled return but within grace period has no late charge")
+        void returnWithinGracePeriod_shouldChargeScheduledAmount_withoutLateCharge() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00"));
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 14, 10)); // within 15 min grace
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("200.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("0.00"), response.getLateCharge());
+            assertEquals(new BigDecimal("200.00"), response.getEligibleTransactionAmount());
+            assertEquals(new BigDecimal("206.00"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 5: Booking returned after grace period charges scheduled amount plus late charge")
+        void lateReturnPastGracePeriod_shouldChargeScheduledAmount_plusLateCharge() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00"));
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 14, 30)); // 30 min late
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("200.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("50.00"), response.getLateCharge());
+            assertEquals(new BigDecimal("250.00"), response.getEligibleTransactionAmount());
+            assertEquals(new BigDecimal("7.50"), response.getPlatformFeeAmount()); // 3% of 250
+            assertEquals(new BigDecimal("257.50"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 6: Very short actual rental duration calculates proportionally")
+        void earlyReturn_veryShortRentalDuration_shouldChargeAccurately() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00"));
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 10, 0)); // 0 minutes
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("0.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("0.00"), response.getEligibleTransactionAmount());
+            assertEquals(new BigDecimal("0.00"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 7: Missing actualPickupTime safely falls back to scheduled startTime")
+        void earlyReturn_missingActualPickupTime_fallsBackToScheduledStartTime() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 26, 14, 0));
+            booking.setRentalAmount(new BigDecimal("200.00"));
+            booking.setActualPickupTime(null); // missing pickup time
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 12, 0)); // 2 hours
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("100.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("103.00"), response.getFinalAmount());
+        }
+
+        @Test
+        @DisplayName("Scenario 8: Early return causing eligible amount to cross below threshold applies lower platform fee tier")
+        void earlyReturn_crossingThreshold_appliesLowerPlatformFeeTier() {
+            booking.setStartTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setReturnTime(LocalDateTime.of(2026, 8, 27, 10, 0)); // 24 hours
+            booking.setRentalAmount(new BigDecimal("1200.00")); // 50/hour, above 1000 threshold
+            booking.setActualPickupTime(LocalDateTime.of(2026, 8, 26, 10, 0));
+            booking.setActualReturnTime(LocalDateTime.of(2026, 8, 26, 20, 0)); // 10 hours used = 500.00
+
+            when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
+
+            PaymentResponse response = paymentCalculationService.calculatePayment(1L);
+
+            assertEquals(new BigDecimal("500.00"), response.getBaseRentalAmount());
+            assertEquals(new BigDecimal("500.00"), response.getEligibleTransactionAmount());
+            // 500.00 is <= 1000 threshold, so 3% applies instead of 5%
+            assertEquals(new BigDecimal("3"), response.getPlatformFeePercent());
+            assertEquals(new BigDecimal("15.00"), response.getPlatformFeeAmount());
+            assertEquals(new BigDecimal("515.00"), response.getFinalAmount());
+        }
+    }
 }

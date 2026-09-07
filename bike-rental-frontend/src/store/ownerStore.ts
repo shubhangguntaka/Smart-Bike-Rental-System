@@ -15,6 +15,7 @@ interface OwnerStoreState {
   fetchBookingRequests: (force?: boolean) => Promise<void>;
   approveBooking: (bookingId: number) => Promise<boolean>;
   rejectBooking: (bookingId: number) => Promise<boolean>;
+  cancelBooking: (bookingId: number, reason?: string) => Promise<boolean>;
 }
 
 export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
@@ -130,6 +131,20 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
       return true;
     } catch (err) {
       console.error("Failed to reject booking", err);
+      throw err;
+    }
+  },
+
+  cancelBooking: async (bookingId: number, reason?: string) => {
+    try {
+      await ownerService.cancelBooking(bookingId, reason);
+      await Promise.all([
+        get().fetchBookingRequests(true),
+        get().fetchDashboard(true),
+      ]);
+      return true;
+    } catch (err) {
+      console.error("Failed to cancel booking", err);
       throw err;
     }
   },

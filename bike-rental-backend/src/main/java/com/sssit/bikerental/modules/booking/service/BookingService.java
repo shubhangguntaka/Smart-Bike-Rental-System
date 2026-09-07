@@ -20,6 +20,11 @@ public interface BookingService {
     BookingResponse updateBooking(Long bookingId, BookingRequest request);
 
     /**
+     * Cancel an existing booking with a reason.
+     */
+    BookingResponse cancelBooking(Long bookingId, com.sssit.bikerental.modules.booking.dto.CancelBookingRequest request);
+
+    /**
      * Cancel an existing booking.
      */
     BookingResponse cancelBooking(Long bookingId);

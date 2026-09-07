@@ -11,6 +11,9 @@ import com.sssit.bikerental.common.exception.ResourceOwnershipException;
 import com.sssit.bikerental.common.exception.UnauthorizedException;
 import com.sssit.bikerental.common.response.ApiResponse;
 import com.sssit.bikerental.common.security.SecurityUtils;
+import com.sssit.bikerental.modules.booking.dto.BookingResponse;
+import com.sssit.bikerental.modules.booking.dto.CancelBookingRequest;
+import com.sssit.bikerental.modules.booking.service.BookingService;
 import com.sssit.bikerental.modules.owner.dto.OwnerDTO;
 import com.sssit.bikerental.modules.owner.dto.OwnerDashboardDTO;
 import com.sssit.bikerental.modules.owner.dto.BookingRequestDTO;
@@ -27,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class OwnerController {
 
     private final OwnerService ownerService;
+    private final BookingService bookingService;
 
     private User getAuthenticatedOwner() {
         User user = SecurityUtils.getCurrentUser();
@@ -101,6 +105,19 @@ public class OwnerController {
         getAuthenticatedOwner();
         ownerService.rejectBooking(bookingId);
         return ResponseEntity.ok(ApiResponse.success("Booking rejected successfully"));
+    }
+
+    @PostMapping("/cancel/{bookingId}")
+    public ResponseEntity<ApiResponse<BookingResponse>> cancelBooking(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) CancelBookingRequest request) {
+        getAuthenticatedOwner();
+        if (request == null) {
+            request = new CancelBookingRequest();
+            request.setReason("Cancelled by owner");
+        }
+        BookingResponse response = bookingService.cancelBooking(bookingId, request);
+        return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", response));
     }
 }
 

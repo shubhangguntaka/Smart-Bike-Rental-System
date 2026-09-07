@@ -44,6 +44,9 @@ public final class BookingMapper {
                 .actualReturnTime(booking.getActualReturnTime())
                 .bookingDate(booking.getCreatedAt())
                 .createdAt(booking.getCreatedAt())
+                .cancellationReason(booking.getCancellationReason())
+                .cancelledBy(booking.getCancelledBy())
+                .cancelledAt(booking.getCancelledAt())
                 .build();
     }
 

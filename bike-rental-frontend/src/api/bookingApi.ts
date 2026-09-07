@@ -21,8 +21,8 @@ export const getCustomerBookings = (customerId: number) =>
 export const getBookingsByStatus = (status: string) =>
   axios.get(`${BASE_URL}/status/${status}`);
 
-export const cancelBooking = (bookingId: number) =>
-  axios.put(`${BASE_URL}/${bookingId}/cancel`);
+export const cancelBooking = (bookingId: number, reason?: string) =>
+  axios.put(`${BASE_URL}/${bookingId}/cancel`, reason ? { reason } : undefined);
 
 export const updateBookingStatus = (
   bookingId: number,

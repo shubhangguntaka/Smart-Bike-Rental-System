@@ -28,6 +28,9 @@ export const ownerService = {
   rejectBooking: (bookingId: number) =>
     api.post<ApiResponse<void>>(`${BASE_URL}/reject/${bookingId}`),
 
+  cancelBooking: (bookingId: number, reason?: string) =>
+    api.post<ApiResponse<any>>(`${BASE_URL}/cancel/${bookingId}`, reason ? { reason } : undefined),
+
   getOwnerEarnings: () =>
     api.get<ApiResponse<Earnings>>(`${BASE_URL}/earnings`),
 

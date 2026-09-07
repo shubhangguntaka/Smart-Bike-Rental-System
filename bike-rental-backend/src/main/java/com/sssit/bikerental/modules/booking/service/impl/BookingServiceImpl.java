@@ -19,8 +19,10 @@ import com.sssit.bikerental.modules.bike.exception.BikeNotFoundException;
 import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.booking.dto.BookingRequest;
 import com.sssit.bikerental.modules.booking.dto.BookingResponse;
+import com.sssit.bikerental.modules.booking.dto.CancelBookingRequest;
 import com.sssit.bikerental.modules.booking.entity.Booking;
 import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.enums.CancelledBy;
 import com.sssit.bikerental.modules.booking.enums.PaymentStatus;
 import com.sssit.bikerental.modules.booking.exception.BookingNotAvailableException;
 import com.sssit.bikerental.modules.booking.exception.BookingNotFoundException;
@@ -442,9 +444,93 @@ public BookingResponse confirmBooking(Long bookingId) {
     }
 
     @Override
+    public BookingResponse cancelBooking(Long bookingId, CancelBookingRequest request) {
+        log.info("Request received to cancel bookingId: {} with reason: {}", bookingId, request != null ? request.getReason() : null);
+
+        if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
+            throw new IllegalArgumentException("Cancellation reason is required.");
+        }
+
+        Booking booking = findBooking(bookingId);
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        Role role = SecurityUtils.getCurrentRole();
+
+        if (currentUserId == null && role != Role.ADMIN) {
+            throw new AccessDeniedException("Authentication required to cancel booking.");
+        }
+
+        CancelledBy cancelledBy;
+        if (role == Role.ADMIN) {
+            cancelledBy = CancelledBy.ADMIN;
+        } else if (role == Role.OWNER) {
+            Bike bike = bikeRepository.findById(booking.getBikeId())
+                    .orElseThrow(() -> new BikeNotFoundException("Bike not found."));
+            if (!bike.getOwnerId().equals(currentUserId)) {
+                throw new AccessDeniedException("You are not authorized to cancel a booking for a bike you do not own.");
+            }
+            cancelledBy = CancelledBy.OWNER;
+        } else {
+            // Role CUSTOMER or default user role
+            if (!booking.getCustomerId().equals(currentUserId)) {
+                throw new AccessDeniedException("You are not authorized to cancel another customer's booking.");
+            }
+            cancelledBy = CancelledBy.CUSTOMER;
+        }
+
+        BookingStatus currentStatus = booking.getBookingStatus();
+        if (currentStatus == BookingStatus.ACTIVE) {
+            throw new IllegalStateException("Active bookings cannot be cancelled. Please complete return instead.");
+        }
+        if (currentStatus == BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Completed bookings cannot be cancelled.");
+        }
+        if (currentStatus == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Booking is already cancelled.");
+        }
+        if (currentStatus == BookingStatus.REJECTED) {
+            throw new IllegalStateException("Rejected bookings cannot be cancelled.");
+        }
+
+        if (currentStatus != BookingStatus.PENDING
+                && currentStatus != BookingStatus.VERIFICATION_REQUIRED
+                && currentStatus != BookingStatus.APPROVED
+                && currentStatus != BookingStatus.CONFIRMED) {
+            throw new IllegalStateException("Booking cannot be cancelled in status: " + currentStatus);
+        }
+
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(request.getReason().trim());
+        booking.setCancelledBy(cancelledBy);
+        booking.setCancelledAt(LocalDateTime.now());
+
+        // Free up the bike
+        bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
+            bike.setBikeStatus(BikeStatus.AVAILABLE);
+            bikeRepository.save(bike);
+            log.info("BikeId: {} returned to AVAILABLE state due to cancellation of bookingId: {}", bike.getBikeId(), booking.getId());
+        });
+
+        // Send notification
+        try {
+            Notification notification = new Notification();
+            notification.setUserId(booking.getCustomerId());
+            notification.setMessage("Booking #" + booking.getId() + " has been cancelled by " + cancelledBy.name().toLowerCase() + ". Reason: " + request.getReason().trim());
+            notificationService.sendNotification(notification);
+        } catch (Exception e) {
+            log.warn("Failed to send cancellation notification for bookingId {}: {}", booking.getId(), e.getMessage());
+        }
+
+        Booking savedBooking = bookingRepository.save(booking);
+        return convertToResponse(savedBooking);
+    }
+
+    @Override
     public BookingResponse cancelBooking(Long bookingId) {
-        log.info("Request received to cancel bookingId: {}", bookingId);
-        return updateBookingStatus(bookingId, BookingStatus.CANCELLED);
+        log.info("Request received to cancel bookingId: {} without explicit request body", bookingId);
+        CancelBookingRequest request = new CancelBookingRequest();
+        request.setReason("Cancelled by user");
+        return cancelBooking(bookingId, request);
     }
 
     @Override
@@ -485,6 +571,22 @@ public BookingResponse confirmBooking(Long bookingId) {
 
         // If status changes to CANCELLED, free up the bike
         if (bookingStatus == BookingStatus.CANCELLED) {
+            if (booking.getCancellationReason() == null) {
+                booking.setCancellationReason("Status updated to CANCELLED");
+            }
+            if (booking.getCancelledAt() == null) {
+                booking.setCancelledAt(LocalDateTime.now());
+            }
+            if (booking.getCancelledBy() == null) {
+                Role role = SecurityUtils.getCurrentRole();
+                if (role == Role.OWNER) {
+                    booking.setCancelledBy(CancelledBy.OWNER);
+                } else if (role == Role.ADMIN) {
+                    booking.setCancelledBy(CancelledBy.ADMIN);
+                } else {
+                    booking.setCancelledBy(CancelledBy.CUSTOMER);
+                }
+            }
             bikeRepository.findById(booking.getBikeId()).ifPresent(bike -> {
                 bike.setBikeStatus(BikeStatus.AVAILABLE);
                 bikeRepository.save(bike);

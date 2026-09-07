@@ -64,6 +64,16 @@ public class Booking extends BaseEntity {
     @Column(name = "actual_return_time")
     private LocalDateTime actualReturnTime;
 
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancelled_by", length = 20)
+    private com.sssit.bikerental.modules.booking.enums.CancelledBy cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate
     public void syncDates() {

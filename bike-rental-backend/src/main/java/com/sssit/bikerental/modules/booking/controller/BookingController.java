@@ -119,11 +119,16 @@ public class BookingController {
      * Cancel Booking
      */
     @PutMapping("/{bookingId}/cancel")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<BookingResponse>> cancelBooking(
-            @PathVariable Long bookingId
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) com.sssit.bikerental.modules.booking.dto.CancelBookingRequest request
     ) {
-        BookingResponse response = bookingService.cancelBooking(bookingId);
+        if (request == null) {
+            request = new com.sssit.bikerental.modules.booking.dto.CancelBookingRequest();
+            request.setReason("Cancelled by user");
+        }
+        BookingResponse response = bookingService.cancelBooking(bookingId, request);
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Booking cancelled successfully.",

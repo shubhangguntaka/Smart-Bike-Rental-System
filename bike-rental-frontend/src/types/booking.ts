@@ -21,6 +21,9 @@ export interface Booking {
   ownerName?: string;
   actualPickupTime?: string;
   actualReturnTime?: string;
+  cancellationReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
 }
 
 export interface BookingRequest {
