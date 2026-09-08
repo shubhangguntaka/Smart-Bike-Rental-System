@@ -225,6 +225,16 @@ export const adminService = {
 
     return Array.isArray(data) ? data : [];
   },
+
+  async getBankAccount(): Promise<import("@/types/owner").BankAccountDTO> {
+    const response = await api.get("/admin/bank-account");
+    return unwrapData<import("@/types/owner").BankAccountDTO>(response.data);
+  },
+
+  async updateBankAccount(data: Partial<import("@/types/owner").BankAccountDTO>): Promise<import("@/types/owner").BankAccountDTO> {
+    const response = await api.put("/admin/bank-account", data);
+    return unwrapData<import("@/types/owner").BankAccountDTO>(response.data);
+  },
 };
 
 export default adminService;

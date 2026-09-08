@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { useOwnerStore } from "../../store/ownerStore";
 import OwnerStatistics from "../../components/owner/OwnerStatistics";
@@ -11,6 +11,7 @@ import {
     PlusCircle, 
     FileText, 
     CreditCard, 
+    Building2,
     User, 
     ListTodo, 
     Clock, 
@@ -22,11 +23,45 @@ import {
 } from "lucide-react";
 
 export default function OwnerDashboard() {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const dashboard = useOwnerStore((s) => s.dashboard);
     const loading = useOwnerStore((s) => s.loading);
     const error = useOwnerStore((s) => s.error);
     const fetchDashboard = useOwnerStore((s) => s.fetchDashboard);
+
+    // Bank & Settlement config from persistent storage
+    const bankConfig = useMemo(() => {
+        try {
+            const saved = localStorage.getItem("smartbike_owner_settings_config");
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch {
+            // ignore
+        }
+        return {
+            bankName: "HDFC Bank Ltd",
+            accountHolderName: user?.fullName || "Rajesh Sharma",
+            accountNumber: "50100492817291",
+            ifscCode: "HDFC0001234",
+            upiId: "rajesh.sharma@okhdfcbank",
+            payoutFrequency: "instant",
+            minPayoutThreshold: 500,
+        };
+    }, [user]);
+
+    const maskedAccount = useMemo(() => {
+        const num = bankConfig.accountNumber || "50100492817291";
+        if (num.length <= 4) return num;
+        return `•••• •••• ${num.slice(-4)}`;
+    }, [bankConfig.accountNumber]);
+
+    const handleNavigateToBankEdit = () => {
+        navigate("/owner/settings?tab=PAYOUTS&editBank=true", { 
+            state: { tab: "PAYOUTS", openBankModal: true } 
+        });
+    };
 
     useEffect(() => {
         fetchDashboard(true);
@@ -202,6 +237,52 @@ export default function OwnerDashboard() {
 
                 {/* Subtle Decorative Gradient Glow */}
                 <div className="absolute right-0 bottom-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+
+            {/* Payout & Settlement Quick Action Card */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-xs relative overflow-hidden">
+                <div className="flex items-center gap-3.5">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                        <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm sm:text-base font-bold text-foreground">
+                                Active Payout Account: {bankConfig.bankName || "HDFC Bank Ltd"}
+                            </h3>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary border border-primary/20">
+                                <CheckCircle2 className="h-3 w-3" />
+                                KYC Verified
+                            </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Account: <span className="font-mono font-bold text-foreground">{maskedAccount}</span>
+                            <span className="mx-1.5">•</span>
+                            Beneficiary: <span className="font-semibold text-foreground">{bankConfig.accountHolderName}</span>
+                            <span className="mx-1.5">•</span>
+                            IFSC: <span className="font-mono font-bold text-primary">{bankConfig.ifscCode || "HDFC0001234"}</span>
+                            {bankConfig.upiId && (
+                                <>
+                                    <span className="mx-1.5">•</span>
+                                    UPI: <span className="font-mono text-foreground">{bankConfig.upiId}</span>
+                                </>
+                            )}
+                            <span className="mx-1.5">•</span>
+                            Frequency: <span className="capitalize font-semibold text-primary">{bankConfig.payoutFrequency || "Instant"}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+                    <button
+                        type="button"
+                        onClick={handleNavigateToBankEdit}
+                        className="w-full md:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
+                    >
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span>Edit Bank / UPI Details</span>
+                    </button>
+                </div>
             </div>
 
             {/* Main Grid: Statistics & Booking Details vs Quick Actions & Verification */}

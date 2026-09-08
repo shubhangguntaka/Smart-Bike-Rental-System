@@ -21,6 +21,8 @@ import com.sssit.bikerental.modules.owner.dto.OwnerDashboardDTO;
 import com.sssit.bikerental.modules.owner.dto.BookingRequestDTO;
 import com.sssit.bikerental.modules.owner.dto.EarningsDTO;
 import com.sssit.bikerental.modules.owner.service.OwnerService;
+import com.sssit.bikerental.modules.payment.dto.BankAccountDTO;
+import com.sssit.bikerental.modules.payment.service.BankAccountService;
 import com.sssit.bikerental.modules.user.User;
 
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class OwnerController {
 
     private final OwnerService ownerService;
     private final BookingService bookingService;
+    private final BankAccountService bankAccountService;
 
     private User getAuthenticatedOwner() {
         User user = SecurityUtils.getCurrentUser();
@@ -117,5 +120,43 @@ public class OwnerController {
         BookingResponse response = bookingService.cancelBooking(bookingId, request);
         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", response));
     }
-}
 
+    @GetMapping("/payments")
+    public ResponseEntity<ApiResponse<List<com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO>>> getOwnerPayments(
+            @RequestParam(required = false) String status) {
+        User owner = getAuthenticatedOwner();
+        List<com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO> payments = ownerService.getOwnerPayments(owner.getId(), status);
+        return ResponseEntity.ok(ApiResponse.success("Owner payment history fetched successfully", payments));
+    }
+
+    @GetMapping("/payments/{paymentId}")
+    public ResponseEntity<ApiResponse<com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO>> getOwnerPaymentById(
+            @PathVariable Long paymentId) {
+        User owner = getAuthenticatedOwner();
+        com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO payment = ownerService.getOwnerPaymentById(owner.getId(), paymentId);
+        return ResponseEntity.ok(ApiResponse.success("Owner payment details fetched successfully", payment));
+    }
+
+    @GetMapping("/payments/summary")
+    public ResponseEntity<ApiResponse<com.sssit.bikerental.modules.owner.dto.OwnerEarningsSummaryDTO>> getOwnerEarningsSummary() {
+        User owner = getAuthenticatedOwner();
+        com.sssit.bikerental.modules.owner.dto.OwnerEarningsSummaryDTO summary = ownerService.getOwnerEarningsSummary(owner.getId());
+        return ResponseEntity.ok(ApiResponse.success("Owner earnings summary fetched successfully", summary));
+    }
+
+    // === Owner Banking Details Endpoints ===
+    @GetMapping("/bank-account")
+    public ResponseEntity<ApiResponse<BankAccountDTO>> getBankAccount() {
+        User owner = getAuthenticatedOwner();
+        BankAccountDTO account = bankAccountService.getBankAccountByUserId(owner.getId());
+        return ResponseEntity.ok(ApiResponse.success("Owner bank account fetched successfully", account));
+    }
+
+    @PutMapping("/bank-account")
+    public ResponseEntity<ApiResponse<BankAccountDTO>> updateBankAccount(
+            @RequestBody BankAccountDTO dto) {
+        User owner = getAuthenticatedOwner();
+        BankAccountDTO updated = bankAccountService.saveOrUpdateBankAccount(owner.getId(), dto);
+        return ResponseEntity.ok(ApiResponse.success("Owner bank account updated successfully", updated));
+    }
+}

@@ -1,18 +1,23 @@
 import { createStore } from "zustand/vanilla";
 import { useSyncExternalStore } from "react";
 import { ownerService } from "../services/ownerService";
-import type { DashboardStatistics, Earnings, BookingRequest } from "../types/owner";
+import type { DashboardStatistics, Earnings, BookingRequest, OwnerPaymentDTO, OwnerEarningsSummaryDTO } from "../types/owner";
 
 interface OwnerStoreState {
   dashboard: DashboardStatistics | null;
   earnings: Earnings | null;
   bookingRequests: BookingRequest[];
+  ownerPayments: OwnerPaymentDTO[];
+  earningsSummary: OwnerEarningsSummaryDTO | null;
   loading: boolean;
   error: string | null;
   
   fetchDashboard: (force?: boolean) => Promise<void>;
   fetchEarnings: (force?: boolean) => Promise<void>;
   fetchBookingRequests: (force?: boolean) => Promise<void>;
+  fetchOwnerPayments: (status?: string, force?: boolean) => Promise<void>;
+  fetchOwnerEarningsSummary: (force?: boolean) => Promise<void>;
+  fetchAllOwnerFinancials: (force?: boolean) => Promise<void>;
   approveBooking: (bookingId: number) => Promise<boolean>;
   rejectBooking: (bookingId: number) => Promise<boolean>;
   cancelBooking: (bookingId: number, reason?: string) => Promise<boolean>;
@@ -22,18 +27,17 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
   dashboard: null,
   earnings: null,
   bookingRequests: [],
+  ownerPayments: [],
+  earningsSummary: null,
   loading: false,
   error: null,
 
   fetchDashboard: async (force = false) => {
-    if (!force && get().dashboard && !get().loading) return;
-    if (get().loading) return;
-    set({ loading: true, error: null });
+    if (!force && get().dashboard) return;
     try {
       const res = await ownerService.getDashboard();
       const data = res.data?.data;
 
-      // Map OwnerDashboardDTO properties directly to DashboardStatistics structure
       const stats: DashboardStatistics = {
         totalBikes: data?.totalBikes ?? 0,
         availableBikes: data?.availableBikes ?? 0,
@@ -52,7 +56,6 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
         pendingPayments: data?.pendingPayments,
       };
 
-      // Map OwnerDashboardDTO earnings properties to Earnings structure
       const earningsData: Earnings = {
         today: data?.todayEarnings ?? 0,
         weekly: data?.weeklyEarnings ?? 0,
@@ -61,49 +64,88 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
         pendingPayments: data?.pendingPayments ?? 0,
       };
 
-      set({ dashboard: stats, earnings: earningsData, loading: false });
+      set({ dashboard: stats, earnings: earningsData, error: null });
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-      set({
-        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch dashboard statistics"),
-        loading: false,
-      });
+      const msg = errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch dashboard statistics");
+      set({ error: msg });
     }
   },
 
   fetchEarnings: async (force = false) => {
-    if (!force && get().earnings && !get().loading) return;
-    if (get().loading) return;
-    set({ loading: true, error: null });
+    if (!force && get().earnings) return;
     try {
       const res = await ownerService.getOwnerEarnings();
       const data = res.data?.data;
-      set({ earnings: data || null, loading: false });
+      if (data) {
+        set({ earnings: data, error: null });
+      }
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-      set({
-        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch earnings details"),
-        loading: false,
-      });
+      const msg = errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch earnings details");
+      set({ error: msg });
     }
   },
 
   fetchBookingRequests: async (force = false) => {
-    if (!force && get().bookingRequests.length > 0 && !get().loading) return;
-    if (get().loading) return;
-    set({ loading: true, error: null });
+    if (!force && get().bookingRequests.length > 0) return;
     try {
       const res = await ownerService.getBookingRequests();
       const rawData = res.data?.data;
       const data: BookingRequest[] = Array.isArray(rawData) ? rawData : [];
-
-      set({ bookingRequests: data, loading: false });
+      set({ bookingRequests: data, error: null });
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-      set({
-        error: errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch booking requests"),
-        loading: false,
-      });
+      const msg = errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch booking requests");
+      set({ error: msg });
+    }
+  },
+
+  fetchOwnerPayments: async (status?: string, force = false) => {
+    if (!force && get().ownerPayments.length > 0 && !status) return;
+    try {
+      const res = await ownerService.getOwnerPayments(status);
+      const rawData = res.data?.data;
+      const data: OwnerPaymentDTO[] = Array.isArray(rawData) ? rawData : [];
+      set({ ownerPayments: data, error: null });
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch owner payments");
+      set({ error: msg });
+    }
+  },
+
+  fetchOwnerEarningsSummary: async (force = false) => {
+    if (!force && get().earningsSummary) return;
+    try {
+      const res = await ownerService.getOwnerEarningsSummary();
+      const data = res.data?.data;
+      if (data) {
+        set({ earningsSummary: data, error: null });
+      }
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = errorObj.response?.data?.message || (err instanceof Error ? err.message : "Failed to fetch earnings summary");
+      set({ error: msg });
+    }
+  },
+
+  fetchAllOwnerFinancials: async (force = true) => {
+    set({ loading: true });
+    try {
+      await Promise.allSettled([
+        get().fetchOwnerPayments(undefined, force),
+        get().fetchOwnerEarningsSummary(force),
+        get().fetchEarnings(force),
+        get().fetchBookingRequests(force),
+        get().fetchDashboard(force),
+      ]);
+      // If we have either payments, bookings, dashboard, or earnings loaded, clear error
+      if (get().ownerPayments.length > 0 || get().bookingRequests.length > 0 || get().dashboard || get().earnings) {
+        set({ error: null });
+      }
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -113,6 +155,7 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
       await Promise.all([
         get().fetchBookingRequests(true),
         get().fetchDashboard(true),
+        get().fetchOwnerPayments(undefined, true),
       ]);
       return true;
     } catch (err) {
@@ -127,6 +170,7 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
       await Promise.all([
         get().fetchBookingRequests(true),
         get().fetchDashboard(true),
+        get().fetchOwnerPayments(undefined, true),
       ]);
       return true;
     } catch (err) {
@@ -141,6 +185,7 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
       await Promise.all([
         get().fetchBookingRequests(true),
         get().fetchDashboard(true),
+        get().fetchOwnerPayments(undefined, true),
       ]);
       return true;
     } catch (err) {

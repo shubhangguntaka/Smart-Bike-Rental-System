@@ -54,10 +54,19 @@ class PaymentServiceImplTest {
     private BookingRepository bookingRepository;
 
     @Mock
+    private com.sssit.bikerental.modules.bike.repository.BikeRepository bikeRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
     private PaymentCalculationService paymentCalculationService;
+
+    @Mock
+    private com.sssit.bikerental.modules.payment.service.BankAccountService bankAccountService;
+
+    @Mock
+    private com.sssit.bikerental.modules.notification.entity.NotificationService notificationService;
 
     @Mock
     private PaymentMapper paymentMapper;
@@ -72,8 +81,11 @@ class PaymentServiceImplTest {
         paymentService = new PaymentServiceImpl(
                 paymentRepository,
                 bookingRepository,
+                bikeRepository,
                 userRepository,
                 paymentCalculationService,
+                bankAccountService,
+                notificationService,
                 paymentMapper,
                 razorpayGateway);
         authenticateAs(100L, Role.CUSTOMER);

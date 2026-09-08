@@ -36,4 +36,6 @@ Notification bookingRejected(Long userId);
     Notification bikeRcApproved(Long ownerId);
 
     Notification bikeRcRejected(Long ownerId);
+
+    Notification paymentReceived(Long ownerId, java.math.BigDecimal amount);
 }

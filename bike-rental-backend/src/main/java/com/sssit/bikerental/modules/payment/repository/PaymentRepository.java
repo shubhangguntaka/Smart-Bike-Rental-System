@@ -73,4 +73,41 @@ public interface PaymentRepository
             @Param("status") PaymentStatus status,
             @Param("date") LocalDateTime date
     );
+
+    @Query("""
+        SELECT p
+        FROM Payment p, Booking b, Bike bike
+        WHERE p.bookingId = b.id
+          AND b.bikeId = bike.bikeId
+          AND bike.ownerId = :ownerId
+        ORDER BY p.createdAt DESC
+        """)
+    List<Payment> findAllPaymentsByOwnerId(@Param("ownerId") Long ownerId);
+
+    @Query("""
+        SELECT p
+        FROM Payment p, Booking b, Bike bike
+        WHERE p.bookingId = b.id
+          AND b.bikeId = bike.bikeId
+          AND bike.ownerId = :ownerId
+          AND p.paymentStatus = :status
+        ORDER BY p.createdAt DESC
+        """)
+    List<Payment> findPaymentsByOwnerIdAndStatus(
+            @Param("ownerId") Long ownerId,
+            @Param("status") PaymentStatus status
+    );
+
+    @Query("""
+        SELECT p
+        FROM Payment p, Booking b, Bike bike
+        WHERE p.bookingId = b.id
+          AND b.bikeId = bike.bikeId
+          AND bike.ownerId = :ownerId
+          AND p.paymentId = :paymentId
+        """)
+    Optional<Payment> findPaymentByOwnerIdAndPaymentId(
+            @Param("ownerId") Long ownerId,
+            @Param("paymentId") Long paymentId
+    );
 }

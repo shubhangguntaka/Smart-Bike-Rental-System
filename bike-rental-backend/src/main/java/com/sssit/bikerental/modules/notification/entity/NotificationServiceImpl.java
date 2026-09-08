@@ -206,4 +206,18 @@ public Notification bookingRejected(Long userId) {
 
         return notificationRepository.save(notification);
     }
+
+    @Override
+    public Notification paymentReceived(Long ownerId, java.math.BigDecimal amount) {
+        Notification notification = new Notification();
+        notification.setUserId(ownerId);
+        notification.setTitle("Rental Payout Credited");
+        String amtStr = amount != null ? "₹" + amount.setScale(2, java.math.RoundingMode.HALF_UP) : "Rental payment";
+        notification.setMessage("Payout of " + amtStr + " has been successfully processed and credited for your rental.");
+        notification.setNotificationType("PAYMENT");
+        notification.setIsRead(false);
+        notification.setCreatedAt(LocalDateTime.now());
+
+        return notificationRepository.save(notification);
+    }
 }

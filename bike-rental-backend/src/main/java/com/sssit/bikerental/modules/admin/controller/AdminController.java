@@ -1,6 +1,7 @@
 package com.sssit.bikerental.modules.admin.controller;
 
 import com.sssit.bikerental.common.response.ApiResponse;
+import com.sssit.bikerental.common.security.SecurityUtils;
 import com.sssit.bikerental.modules.admin.dto.AdminActivityDTO;
 import com.sssit.bikerental.modules.admin.dto.AdminDashboardDTO;
 import com.sssit.bikerental.modules.admin.dto.BikeAdminDTO;
@@ -9,7 +10,11 @@ import com.sssit.bikerental.modules.admin.dto.CustomerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.OwnerAdminDTO;
 import com.sssit.bikerental.modules.admin.dto.UserAdminDTO;
 import com.sssit.bikerental.modules.admin.service.AdminService;
+import com.sssit.bikerental.modules.payment.dto.BankAccountDTO;
 import com.sssit.bikerental.modules.payment.dto.PaymentResponse;
+import com.sssit.bikerental.modules.payment.service.BankAccountService;
+import com.sssit.bikerental.modules.user.User;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +29,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final BankAccountService bankAccountService;
 
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardDTO> getDashboard() {
@@ -80,9 +86,7 @@ public class AdminController {
      */
     @GetMapping("/bookings")
     public ResponseEntity<List<BookingAdminDTO>> getBookings() {
-
-        return ResponseEntity.ok(
-                adminService.getBookings());
+        return ResponseEntity.ok(adminService.getBookings());
     }
 
     /**
@@ -90,18 +94,37 @@ public class AdminController {
      */
     @GetMapping("/payments")
     public ResponseEntity<List<PaymentResponse>> getPayments() {
-
-        return ResponseEntity.ok(
-                adminService.getPayments());
+        return ResponseEntity.ok(adminService.getPayments());
     }
 
-        /**
-         * GET /api/admin/activity
-         */
-        @GetMapping("/activity")
-        public ResponseEntity<List<AdminActivityDTO>> getActivity() {
+    /**
+     * GET /api/admin/activity
+     */
+    @GetMapping("/activity")
+    public ResponseEntity<List<AdminActivityDTO>> getActivity() {
+        return ResponseEntity.ok(adminService.getActivity());
+    }
 
-                return ResponseEntity.ok(
-                                adminService.getActivity());
-        }
+    /**
+     * GET /api/admin/bank-account
+     * Get platform settlement bank account
+     */
+    @GetMapping("/bank-account")
+    public ResponseEntity<ApiResponse<BankAccountDTO>> getAdminBankAccount() {
+        BankAccountDTO account = bankAccountService.getAdminBankAccount();
+        return ResponseEntity.ok(ApiResponse.success("Admin platform bank account fetched successfully", account));
+    }
+
+    /**
+     * PUT /api/admin/bank-account
+     * Update platform settlement bank account
+     */
+    @PutMapping("/bank-account")
+    public ResponseEntity<ApiResponse<BankAccountDTO>> updateAdminBankAccount(
+            @RequestBody BankAccountDTO dto) {
+        User admin = SecurityUtils.getCurrentUser();
+        Long adminId = admin != null ? admin.getId() : 1L;
+        BankAccountDTO updated = bankAccountService.saveOrUpdateAdminBankAccount(adminId, dto);
+        return ResponseEntity.ok(ApiResponse.success("Admin platform bank account updated successfully", updated));
+    }
 }

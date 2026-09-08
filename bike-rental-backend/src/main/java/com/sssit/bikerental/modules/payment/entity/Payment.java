@@ -26,6 +26,9 @@ public class Payment {
     @Column(nullable = false)
     private Long customerId;
 
+    @Column(name = "owner_id")
+    private Long ownerId;
+
     @Column(precision = 12, scale = 2)
     private BigDecimal amount;
 
@@ -49,6 +52,52 @@ public class Payment {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal finalAmount;
+
+    // === Revenue Distribution / Split Fields ===
+    @Column(name = "owner_share_amount", precision = 12, scale = 2)
+    private BigDecimal ownerShareAmount;
+
+    @Column(name = "admin_share_amount", precision = 12, scale = 2)
+    private BigDecimal adminShareAmount;
+
+    // === Owner Bank Settlement Snapshot ===
+    @Column(name = "owner_bank_name", length = 100)
+    private String ownerBankName;
+
+    @Column(name = "owner_account_number", length = 50)
+    private String ownerAccountNumber;
+
+    @Column(name = "owner_ifsc_code", length = 30)
+    private String ownerIfscCode;
+
+    @Column(name = "owner_upi_id", length = 100)
+    private String ownerUpiId;
+
+    @Column(name = "owner_payout_utr", length = 100)
+    private String ownerPayoutUtr;
+
+    // === Admin Platform Bank Settlement Snapshot ===
+    @Column(name = "admin_bank_name", length = 100)
+    private String adminBankName;
+
+    @Column(name = "admin_account_number", length = 50)
+    private String adminAccountNumber;
+
+    @Column(name = "admin_ifsc_code", length = 30)
+    private String adminIfscCode;
+
+    @Column(name = "admin_upi_id", length = 100)
+    private String adminUpiId;
+
+    @Column(name = "admin_payout_utr", length = 100)
+    private String adminPayoutUtr;
+
+    @Builder.Default
+    @Column(name = "payout_status", length = 50)
+    private String payoutStatus = "SETTLED";
+
+    @Column(name = "payout_settled_at")
+    private LocalDateTime payoutSettledAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false, length = 50)
@@ -95,6 +144,18 @@ public class Payment {
         if (status == null && paymentStatus != null) {
             status = paymentStatus.name();
         }
+        if (ownerShareAmount == null && eligibleTransactionAmount != null) {
+            ownerShareAmount = eligibleTransactionAmount;
+        }
+        if (adminShareAmount == null && platformFeeAmount != null) {
+            adminShareAmount = platformFeeAmount.add(taxAmount != null ? taxAmount : BigDecimal.ZERO);
+        }
+        if (payoutStatus == null) {
+            payoutStatus = "SETTLED";
+        }
+        if (payoutSettledAt == null && paymentStatus == PaymentStatus.SUCCESS) {
+            payoutSettledAt = LocalDateTime.now();
+        }
     }
 
     @PreUpdate
@@ -108,6 +169,15 @@ public class Payment {
         }
         if (paidAt != null) {
             paymentDate = paidAt;
+        }
+        if (ownerShareAmount == null && eligibleTransactionAmount != null) {
+            ownerShareAmount = eligibleTransactionAmount;
+        }
+        if (adminShareAmount == null && platformFeeAmount != null) {
+            adminShareAmount = platformFeeAmount.add(taxAmount != null ? taxAmount : BigDecimal.ZERO);
+        }
+        if (payoutSettledAt == null && paymentStatus == PaymentStatus.SUCCESS) {
+            payoutSettledAt = LocalDateTime.now();
         }
     }
 }

@@ -48,11 +48,9 @@ public class ReportServiceImpl implements ReportService {
         List<Map<String, Object>> report = new ArrayList<>();
 
         for (Booking booking : bookingRepository.findAll()) {
-            LocalDateTime bookingTime = booking.getCreatedAt() != null 
-                ? booking.getCreatedAt() 
-                : (booking.getStartTime() != null ? booking.getStartTime() : booking.getPickupDate());
+            LocalDateTime bookingTime = booking.getCreatedAt();
 
-            if (bookingTime != null && !isBetween(bookingTime, start, end)) {
+            if (bookingTime == null || !isBetween(bookingTime, start, end)) {
                 continue;
             }
 

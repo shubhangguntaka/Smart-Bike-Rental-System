@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
   ArrowRight,
   Bell,
+  Building2,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   Database,
   Download,
+  Edit3,
   ExternalLink,
   Eye,
   FileJson,
@@ -52,11 +54,13 @@ import {
   Volume2,
   VolumeX,
   Wifi,
+  X,
   Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTheme } from "@/context/ThemeContext";
 import adminService from "@/services/adminService";
+import type { BankAccountDTO } from "@/types/owner";
 
 // Interface defining all admin configurable settings
 export interface AdminSettingsConfig {
@@ -167,11 +171,80 @@ const STORAGE_KEY = "smartbike_admin_settings_v2";
 export default function AdminSettings() {
   const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Tab State
+  const initialTab = useMemo<
+    "display" | "platform" | "banking" | "fleet" | "security" | "notifications" | "telemetry"
+  >(() => {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam === "display" ||
+      tabParam === "platform" ||
+      tabParam === "banking" ||
+      tabParam === "fleet" ||
+      tabParam === "security" ||
+      tabParam === "notifications" ||
+      tabParam === "telemetry"
+    ) {
+      return tabParam;
+    }
+    return "display";
+  }, [searchParams]);
+
   const [activeTab, setActiveTab] = useState<
-    "display" | "platform" | "fleet" | "security" | "notifications" | "telemetry"
-  >("display");
+    "display" | "platform" | "banking" | "fleet" | "security" | "notifications" | "telemetry"
+  >(initialTab);
+
+  // Sync tab with URL
+  const handleTabChange = (
+    tab: "display" | "platform" | "banking" | "fleet" | "security" | "notifications" | "telemetry"
+  ) => {
+    setActiveTab(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tab);
+      return next;
+    });
+  };
+
+  // Platform Bank Account State
+  const [bankAccount, setBankAccount] = useState<BankAccountDTO | null>(null);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankForm, setBankForm] = useState<BankAccountDTO>({
+    bankName: "State Bank of India",
+    accountHolderName: "SmartBike Platform Escrow Admin",
+    accountNumber: "392019482710",
+    ifscCode: "SBIN0001234",
+    accountType: "CURRENT",
+    branchName: "Cyber City Branch, Hyderabad",
+    upiId: "smartbike.admin@oksbi",
+    payoutFrequency: "DAILY",
+    autoSettlementEnabled: true,
+    minPayoutThreshold: 1000,
+    isKycVerified: true,
+  });
+
+  const loadBankAccount = useCallback(async () => {
+    try {
+      setBankLoading(true);
+      const data = await adminService.getBankAccount();
+      if (data) {
+        setBankAccount(data);
+        setBankForm(data);
+      }
+    } catch {
+      // Keep local defaults
+    } finally {
+      setBankLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBankAccount();
+  }, [loadBankAccount]);
 
   // Main Config State
   const [config, setConfig] = useState<AdminSettingsConfig>(() => {
@@ -427,9 +500,47 @@ SET FOREIGN_KEY_CHECKS=1;
     toast.success("Database schema snapshot downloaded!");
   };
 
+  // Save Bank Account Details
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bankForm.bankName?.trim() || !bankForm.accountNumber?.trim() || !bankForm.ifscCode?.trim()) {
+      toast.error("Please fill in all mandatory banking fields (Bank Name, Account Number, IFSC).");
+      return;
+    }
+    setBankSaving(true);
+    try {
+      const updated = await adminService.updateBankAccount(bankForm);
+      setBankAccount(updated);
+      setBankForm(updated);
+      setIsBankModalOpen(false);
+      toast.success("Platform banking & settlement details updated successfully!", {
+        icon: "💳",
+      });
+    } catch {
+      toast.error("Failed to update platform banking details.");
+    } finally {
+      setBankSaving(false);
+    }
+  };
+
+  // Simulate Instant Settlement
+  const handleSimulateSettlement = () => {
+    const utr = `ADMIN${Date.now().toString().slice(-8)}`;
+    toast.success(`Test platform settlement initiated! Reference UTR: ${utr}`, {
+      icon: "💳",
+      duration: 4000,
+    });
+  };
+
+  const handleCopyBankField = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
+  };
+
   const tabs = [
     { id: "display", label: "Display & Theme", icon: Sliders, badge: "UI", color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
     { id: "platform", label: "Operations & Fees", icon: Globe, badge: "Pricing", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+    { id: "banking", label: "Bank & Payouts", icon: CreditCard, badge: "Settlement", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
     { id: "fleet", label: "Fleet & Safety", icon: Zap, badge: "Rules", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
     { id: "security", label: "Security & Keys", icon: ShieldCheck, badge: "RBAC", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
     { id: "notifications", label: "Notifications", icon: Bell, badge: "Channels", color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
@@ -562,7 +673,7 @@ SET FOREIGN_KEY_CHECKS=1;
 
       {/* Segmented Navigation Tab Strip */}
       <div className="rounded-2xl border border-border/80 bg-card/70 p-2 shadow-xs backdrop-blur-md">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -570,7 +681,7 @@ SET FOREIGN_KEY_CHECKS=1;
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => handleTabChange(tab.id as any)}
                 className={`group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer text-left ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 scale-[1.01]"
@@ -1082,6 +1193,189 @@ SET FOREIGN_KEY_CHECKS=1;
                     />
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: Platform Banking & Settlement */}
+      {/* ========================================================================= */}
+      {activeTab === "banking" && (
+        <div className="space-y-6">
+          {/* Main Escrow Bank Card */}
+          <div className="rounded-3xl border border-border/80 bg-card/60 p-6 sm:p-8 space-y-6 shadow-xs backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+              <div>
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  Platform Escrow & Admin Settlement Account
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Platform commission ({config.commission}%), surge charges, and tax splits are automatically routed to this verified institutional account.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSimulateSettlement}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-border/80 bg-background hover:bg-muted text-foreground transition cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Test Settlement</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (bankAccount) {
+                      setBankForm(bankAccount);
+                    }
+                    setIsBankModalOpen(true);
+                  }}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  <span>Edit Bank Details</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bank Card Preview & Details */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Virtual Escrow Card */}
+              <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-xl bg-gradient-to-br from-zinc-900 via-emerald-950 to-zinc-900 border border-emerald-500/30 flex flex-col justify-between min-h-[220px]">
+                <div className="absolute top-0 right-0 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-emerald-400" />
+                    <span className="text-xs font-bold tracking-wider uppercase text-emerald-300">
+                      {bankAccount?.bankName || bankForm.bankName || "State Bank of India"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> KYC Verified
+                  </span>
+                </div>
+
+                <div className="my-4 relative z-10 space-y-1">
+                  <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Account Number</p>
+                  <p className="text-lg sm:text-xl font-mono font-bold tracking-widest text-emerald-100">
+                    {bankAccount?.maskedAccountNumber || bankAccount?.accountNumber || "•••• •••• 2710"}
+                  </p>
+                </div>
+
+                <div className="flex items-end justify-between relative z-10 pt-2 border-t border-white/10">
+                  <div>
+                    <p className="text-[9px] text-zinc-400 uppercase">Beneficiary Name</p>
+                    <p className="text-xs font-bold text-zinc-200">
+                      {bankAccount?.accountHolderName || bankForm.accountHolderName || "SmartBike Platform Escrow Admin"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] text-zinc-400 uppercase">Account Type</p>
+                    <p className="text-xs font-bold text-emerald-300 uppercase">
+                      {bankAccount?.accountType || bankForm.accountType || "CURRENT"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Grid */}
+              <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/60 space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">IFSC Code</span>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-mono font-bold text-foreground">
+                      {bankAccount?.ifscCode || bankForm.ifscCode || "SBIN0001234"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyBankField(bankAccount?.ifscCode || bankForm.ifscCode || "SBIN0001234", "IFSC Code")}
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                      title="Copy IFSC"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate">{bankAccount?.branchName || bankForm.branchName || "Cyber City Branch, Hyderabad"}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/60 space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Instant UPI ID</span>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-mono font-bold text-foreground">
+                      {bankAccount?.upiId || bankForm.upiId || "smartbike.admin@oksbi"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyBankField(bankAccount?.upiId || bankForm.upiId || "smartbike.admin@oksbi", "UPI ID")}
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                      title="Copy UPI ID"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Verified for Real-Time Payouts</p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/60 space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Settlement Frequency</span>
+                  <p className="text-sm font-bold text-foreground capitalize">
+                    {bankAccount?.payoutFrequency || bankForm.payoutFrequency || "DAILY"} Automatic Payouts
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Processed automatically at 23:59 IST</p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/60 space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Minimum Threshold</span>
+                  <p className="text-sm font-bold text-foreground">
+                    ₹{bankAccount?.minPayoutThreshold || bankForm.minPayoutThreshold || 1000}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Earnings auto-sweep once balance exceeds threshold</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Real-time Payment Split Architecture Information */}
+          <div className="rounded-3xl border border-border/80 bg-card/60 p-6 sm:p-8 space-y-4 shadow-xs backdrop-blur-md">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Automated Revenue Split & Escrow Architecture
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              When a customer completes a payment via Razorpay, UPI, or Card, the Spring Boot backend immediately divides the transaction into two distinct ledger streams:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Admin / Platform Share</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-300">
+                    {config.commission}% + Taxes
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Contains the platform commission fee and applicable GST taxes. Settled directly into the Admin Bank Account shown above with unique UTR tracking.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Bike Host / Owner Share</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-300">
+                    {100 - config.commission}% Base + Late Fees
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Contains the base rental hours amount and late return penalty charges. Routed directly to the respective bike host&apos;s verified bank account.
+                </p>
               </div>
             </div>
           </div>
@@ -1890,6 +2184,162 @@ SET FOREIGN_KEY_CHECKS=1;
                 Regenerate Secret
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Edit Platform Bank Account */}
+      {isBankModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-card border border-border/80 rounded-3xl p-6 sm:p-7 max-w-xl w-full shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Edit Platform Escrow Bank</h3>
+                  <p className="text-xs text-muted-foreground">Configure settlement routing for platform commission</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBankModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBank} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Bank Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankForm.bankName}
+                    onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
+                    placeholder="e.g. State Bank of India"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Account Holder Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankForm.accountHolderName}
+                    onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
+                    placeholder="Beneficiary / Corporate Entity"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Account Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankForm.accountNumber}
+                    onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                    placeholder="Full Account Number"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">IFSC Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankForm.ifscCode}
+                    onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
+                    placeholder="e.g. SBIN0001234"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground font-mono uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Account Type</label>
+                  <select
+                    value={bankForm.accountType || "CURRENT"}
+                    onChange={(e) => setBankForm({ ...bankForm, accountType: e.target.value })}
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="CURRENT">Current Account (Corporate)</option>
+                    <option value="SAVINGS">Savings Account</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Branch Name / City</label>
+                  <input
+                    type="text"
+                    value={bankForm.branchName || ""}
+                    onChange={(e) => setBankForm({ ...bankForm, branchName: e.target.value })}
+                    placeholder="e.g. Cyber City Branch, Hyderabad"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-bold text-foreground">Institutional UPI ID</label>
+                  <input
+                    type="text"
+                    value={bankForm.upiId || ""}
+                    onChange={(e) => setBankForm({ ...bankForm, upiId: e.target.value })}
+                    placeholder="e.g. smartbike.admin@oksbi"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground font-mono focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Payout Sweep Frequency</label>
+                  <select
+                    value={bankForm.payoutFrequency || "DAILY"}
+                    onChange={(e) => setBankForm({ ...bankForm, payoutFrequency: e.target.value })}
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="INSTANT">Real-time / Instant</option>
+                    <option value="DAILY">Daily (Recommended)</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Auto-Sweep Minimum (₹)</label>
+                  <input
+                    type="number"
+                    min={100}
+                    step={100}
+                    value={bankForm.minPayoutThreshold || 1000}
+                    onChange={(e) => setBankForm({ ...bankForm, minPayoutThreshold: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 text-xs rounded-xl bg-background border border-border/80 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end items-center gap-2.5 pt-4 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setIsBankModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl border border-border bg-background hover:bg-muted text-foreground transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={bankSaving}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                >
+                  {bankSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  <span>{bankSaving ? "Saving..." : "Save Banking Details"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

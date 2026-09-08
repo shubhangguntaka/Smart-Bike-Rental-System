@@ -95,6 +95,9 @@ class PaymentBookingLifecycleIntegrationTest {
     @Mock
     private RazorpayGateway razorpayGateway;
 
+    @Mock
+    private com.sssit.bikerental.modules.payment.service.BankAccountService bankAccountService;
+
     private PaymentProperties paymentProperties;
     private PaymentCalculationService calculationService;
     private PaymentServiceImpl paymentService;
@@ -120,8 +123,11 @@ class PaymentBookingLifecycleIntegrationTest {
         paymentService = new PaymentServiceImpl(
                 paymentRepository,
                 bookingRepository,
+                bikeRepository,
                 userRepository,
                 calculationService,
+                bankAccountService,
+                notificationService,
                 paymentMapper,
                 razorpayGateway);
 

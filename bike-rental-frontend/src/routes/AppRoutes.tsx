@@ -169,7 +169,7 @@ const AppRoutes = () => {
           <Route path="add-bike" element={<AddBike />} />
           <Route path="edit-bike/:bikeId" element={<EditBike />} />
           <Route path="bookings" element={<OwnerBookings />} />
-          <Route path="payments" element={<ComingSoon />} />
+          <Route path="payments" element={<OwnerPayments />} />
           <Route path="earnings" element={<OwnerPayments />} />
           <Route path="documents" element={<OwnerVerification />} />
           <Route path="profile" element={<OwnerProfile />} />

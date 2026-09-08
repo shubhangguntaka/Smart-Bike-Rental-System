@@ -26,6 +26,7 @@ import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.booking.entity.Booking;
 import com.sssit.bikerental.modules.booking.enums.BookingStatus;
 import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.payment.entity.Payment;
 import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
@@ -33,7 +34,6 @@ import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDoc
 import com.sssit.bikerental.modules.booking.dto.BookingResponse;
 import com.sssit.bikerental.modules.booking.service.BookingService;
 import com.sssit.bikerental.modules.notification.entity.NotificationService;
-import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -292,7 +292,7 @@ public void rejectBooking(Long bookingId) {
     // Notify customer that the owner rejected the booking
     try {
         if (booking.getCustomerId() != null) {
-           notificationService.bookingRejected(booking.getCustomerId());
+            notificationService.bookingRejected(booking.getCustomerId());
         }
     } catch (Exception e) {
         log.error(
@@ -302,6 +302,184 @@ public void rejectBooking(Long bookingId) {
         );
     }
 }
+
+    @Override
+    public List<com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO> getOwnerPayments(Long ownerId, String status) {
+        List<Payment> payments;
+        if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status.trim())) {
+            try {
+                PaymentStatus paymentStatus = PaymentStatus.valueOf(status.trim().toUpperCase());
+                payments = paymentRepository.findPaymentsByOwnerIdAndStatus(ownerId, paymentStatus);
+            } catch (IllegalArgumentException e) {
+                payments = paymentRepository.findAllPaymentsByOwnerId(ownerId);
+            }
+        } else {
+            payments = paymentRepository.findAllPaymentsByOwnerId(ownerId);
+        }
+
+        if (payments == null) {
+            return List.of();
+        }
+
+        return payments.stream()
+                .map(this::toOwnerPaymentDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO getOwnerPaymentById(Long ownerId, Long paymentId) {
+        Payment payment = paymentRepository.findPaymentByOwnerIdAndPaymentId(ownerId, paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found or you do not have permission to view payment ID: " + paymentId));
+
+        return toOwnerPaymentDTO(payment);
+    }
+
+    @Override
+    public com.sssit.bikerental.modules.owner.dto.OwnerEarningsSummaryDTO getOwnerEarningsSummary(Long ownerId) {
+        List<Payment> allPayments = paymentRepository.findAllPaymentsByOwnerId(ownerId);
+        if (allPayments == null) {
+            allPayments = List.of();
+        }
+
+        BigDecimal totalEarnings = BigDecimal.ZERO;
+        BigDecimal totalCustomerPaid = BigDecimal.ZERO;
+        BigDecimal totalPlatformFees = BigDecimal.ZERO;
+        BigDecimal totalRentalAmount = BigDecimal.ZERO;
+        BigDecimal totalLateCharges = BigDecimal.ZERO;
+        long totalSuccessful = 0;
+        long totalPending = 0;
+
+        for (Payment p : allPayments) {
+            if (p.getPaymentStatus() == PaymentStatus.SUCCESS) {
+                totalSuccessful++;
+                BigDecimal base = p.getBaseRentalAmount() != null ? p.getBaseRentalAmount() : BigDecimal.ZERO;
+                BigDecimal late = p.getLateCharge() != null ? p.getLateCharge() : BigDecimal.ZERO;
+                BigDecimal platform = p.getPlatformFeeAmount() != null ? p.getPlatformFeeAmount() : BigDecimal.ZERO;
+                BigDecimal finalAmt = p.getFinalAmount() != null ? p.getFinalAmount() : base.add(late).add(platform);
+
+                totalRentalAmount = totalRentalAmount.add(base);
+                totalLateCharges = totalLateCharges.add(late);
+                totalPlatformFees = totalPlatformFees.add(platform);
+                totalCustomerPaid = totalCustomerPaid.add(finalAmt);
+                // Authoritative owner net earnings is base rental amount + late charge
+                totalEarnings = totalEarnings.add(base.add(late));
+            } else if (p.getPaymentStatus() == PaymentStatus.PENDING || p.getPaymentStatus() == PaymentStatus.READY_FOR_PAYMENT || p.getPaymentStatus() == PaymentStatus.PROCESSING) {
+                totalPending++;
+            }
+        }
+
+        return com.sssit.bikerental.modules.owner.dto.OwnerEarningsSummaryDTO.builder()
+                .totalEarnings(totalEarnings)
+                .totalCustomerPaid(totalCustomerPaid)
+                .totalPlatformFees(totalPlatformFees)
+                .totalRentalAmount(totalRentalAmount)
+                .totalLateCharges(totalLateCharges)
+                .totalSuccessfulPayments(totalSuccessful)
+                .totalPendingPayments(totalPending)
+                .build();
+    }
+
+    private com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO toOwnerPaymentDTO(Payment p) {
+        String customerName = "Unknown Customer";
+        String customerEmail = "";
+        String customerPhone = "";
+        if (p.getCustomerId() != null) {
+            User customer = userRepository.findById(p.getCustomerId()).orElse(null);
+            if (customer != null) {
+                customerName = customer.getFullName();
+                customerEmail = customer.getEmail();
+                customerPhone = customer.getPhoneNumber();
+            }
+        }
+
+        Long bikeId = null;
+        String bikeName = "Unknown Bike";
+        String bikeModel = "";
+        String bikeReg = "";
+        LocalDateTime rentalStart = null;
+        LocalDateTime scheduledReturn = null;
+        LocalDateTime actualPickup = null;
+        LocalDateTime actualReturn = null;
+        long durationDays = 1;
+
+        if (p.getBookingId() != null) {
+            Booking bk = bookingRepository.findById(p.getBookingId()).orElse(null);
+            if (bk != null) {
+                bikeId = bk.getBikeId();
+                rentalStart = bk.getStartTime();
+                scheduledReturn = bk.getReturnTime();
+                actualPickup = bk.getActualPickupTime();
+                actualReturn = bk.getActualReturnTime();
+
+                if (rentalStart != null && scheduledReturn != null) {
+                    long hours = java.time.Duration.between(rentalStart, scheduledReturn).toHours();
+                    durationDays = Math.max(1, (long) Math.ceil(hours / 24.0));
+                }
+
+                if (bikeId != null) {
+                    Bike bike = bikeRepository.findById(bikeId).orElse(null);
+                    if (bike != null) {
+                        bikeName = bike.getBikeName();
+                        bikeModel = bike.getModel();
+                        bikeReg = bike.getRegistrationNumber();
+                    }
+                }
+            }
+        }
+
+        BigDecimal base = p.getBaseRentalAmount() != null ? p.getBaseRentalAmount() : BigDecimal.ZERO;
+        BigDecimal late = p.getLateCharge() != null ? p.getLateCharge() : BigDecimal.ZERO;
+        BigDecimal eligible = p.getEligibleTransactionAmount() != null ? p.getEligibleTransactionAmount() : base.add(late);
+        BigDecimal platformPercent = p.getPlatformFeePercent() != null ? p.getPlatformFeePercent() : BigDecimal.ZERO;
+        BigDecimal platformAmount = p.getPlatformFeeAmount() != null ? p.getPlatformFeeAmount() : BigDecimal.ZERO;
+        BigDecimal tax = p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO;
+        BigDecimal finalAmt = p.getFinalAmount() != null ? p.getFinalAmount() : eligible.add(platformAmount).add(tax);
+        BigDecimal ownerEarnings = p.getOwnerShareAmount() != null ? p.getOwnerShareAmount() : base.add(late);
+        BigDecimal adminShare = p.getAdminShareAmount() != null ? p.getAdminShareAmount() : platformAmount.add(tax);
+
+        return com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO.builder()
+                .paymentId(p.getPaymentId())
+                .bookingId(p.getBookingId())
+                .customerId(p.getCustomerId())
+                .invoiceNumber(p.getInvoiceNumber() != null ? p.getInvoiceNumber() : String.format("INV-%d-%d", p.getBookingId(), p.getPaymentId()))
+                .customerName(customerName)
+                .customerEmail(customerEmail)
+                .customerPhone(customerPhone)
+                .bikeId(bikeId)
+                .bikeName(bikeName)
+                .bikeModel(bikeModel)
+                .bikeRegistrationNumber(bikeReg)
+                .rentalStart(rentalStart)
+                .scheduledReturn(scheduledReturn)
+                .actualPickup(actualPickup)
+                .actualReturn(actualReturn)
+                .rentalDurationDays(durationDays)
+                .baseRentalAmount(base)
+                .lateCharge(late)
+                .eligibleTransactionAmount(eligible)
+                .platformFeePercent(platformPercent)
+                .platformFeeAmount(platformAmount)
+                .taxAmount(tax)
+                .finalAmount(finalAmt)
+                .ownerEarnings(ownerEarnings)
+                .adminShareAmount(adminShare)
+                .ownerBankName(p.getOwnerBankName())
+                .ownerAccountNumber(p.getOwnerAccountNumber())
+                .ownerIfscCode(p.getOwnerIfscCode())
+                .ownerUpiId(p.getOwnerUpiId())
+                .payoutUtr(p.getOwnerPayoutUtr())
+                .payoutStatus(p.getPayoutStatus() != null ? p.getPayoutStatus() : "SETTLED")
+                .payoutSettledAt(p.getPayoutSettledAt() != null ? p.getPayoutSettledAt() : p.getPaidAt())
+                .paymentStatus(p.getPaymentStatus())
+                .paymentMethod(p.getPaymentMethod() != null ? p.getPaymentMethod() : "Razorpay Online")
+                .transactionId(p.getTransactionId())
+                .razorpayOrderId(p.getRazorpayOrderId())
+                .razorpayPaymentId(p.getRazorpayPaymentId())
+                .paidAt(p.getPaidAt() != null ? p.getPaidAt() : p.getPaymentDate())
+                .createdAt(p.getCreatedAt())
+                .build();
+    }
+
     private boolean checkAadhaarVerified(Long ownerId) {
         try {
             return aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent();

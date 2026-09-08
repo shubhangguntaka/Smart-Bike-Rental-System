@@ -26,4 +26,10 @@ public interface OwnerService {
     void approveBooking(Long bookingId);
 
     void rejectBooking(Long bookingId);
+
+    List<com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO> getOwnerPayments(Long ownerId, String status);
+
+    com.sssit.bikerental.modules.owner.dto.OwnerPaymentDTO getOwnerPaymentById(Long ownerId, Long paymentId);
+
+    com.sssit.bikerental.modules.owner.dto.OwnerEarningsSummaryDTO getOwnerEarningsSummary(Long ownerId);
 }

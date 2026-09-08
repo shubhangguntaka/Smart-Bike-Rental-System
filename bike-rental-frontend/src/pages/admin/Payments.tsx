@@ -4,9 +4,10 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpDown,
+  Building2,
   CheckCircle2,
   Clock,
   CreditCard,
@@ -276,15 +277,25 @@ export default function AdminPayments() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadPayments(true)}
-          disabled={refreshing || loading}
-          className="px-4 py-2 text-xs font-bold rounded-xl border border-border/80 bg-background hover:bg-muted text-foreground transition-all duration-150 cursor-pointer flex items-center gap-2 disabled:opacity-60 shadow-2xs active:scale-95"
-        >
-          <RotateCcw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          <span>{refreshing ? "Refreshing..." : "Refresh Ledger"}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/settings?tab=banking"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all duration-150 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            <span>Escrow & Bank Details</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => void loadPayments(true)}
+            disabled={refreshing || loading}
+            className="px-4 py-2 text-xs font-bold rounded-xl border border-border/80 bg-background hover:bg-muted text-foreground transition-all duration-150 cursor-pointer flex items-center gap-2 disabled:opacity-60 shadow-2xs active:scale-95"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            <span>{refreshing ? "Refreshing..." : "Refresh Ledger"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards Grid */}

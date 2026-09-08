@@ -156,11 +156,6 @@ export const OWNER_SIDEBAR: SidebarSection[] = [
         icon: CreditCard,
       },
       {
-        label: "Payments",
-        path: "/owner/payments",
-        icon: CreditCard,
-      },
-      {
         label: "Notifications",
         path: "/owner/notifications",
         icon: Bell,
