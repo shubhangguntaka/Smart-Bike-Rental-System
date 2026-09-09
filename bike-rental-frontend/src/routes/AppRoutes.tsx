@@ -73,6 +73,7 @@ import AdminBookings from "@/pages/admin/Bookings";
 import AdminCustomers from "@/pages/admin/Customers";
 import AdminActivity from "@/pages/admin/Activity";
 import ComingSoon from "@/pages/ComingSoon";
+import ExploreBikes from "@/pages/customer/ExploreBikes";
 
 const AppRoutes = () => {
   return (
@@ -109,7 +110,7 @@ const AppRoutes = () => {
         >
           <Route index element={<Navigate to="/customer/bikes" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
-          <Route path="explore-bikes" element={<Bikes />} />
+          <Route path="explore-bikes" element={<ExploreBikes />} />
           <Route path="nearby-bikes" element={<MapPage />} />
           <Route path="bookings" element={<CustomerBookings />} />
           <Route path="book/:bikeId" element={<Navigate to="/customer/explore-bikes" replace />} />
