@@ -26,7 +26,7 @@ export interface ModalProps {
    * Size variation determining the maximum width.
    * @default "md"
    */
-  size?: "sm" | "md" | "lg" | "xl" | "full";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
   /**
    * Custom CSS classes for the modal card container.
    */
@@ -153,6 +153,8 @@ export const Modal: React.FC<ModalProps> = ({
     md: "max-w-md w-full mx-4",
     lg: "max-w-lg w-full mx-4",
     xl: "max-w-2xl w-full mx-4",
+    "2xl": "max-w-3xl w-full mx-4",
+    "3xl": "max-w-5xl w-full mx-4",
     full: "w-full h-full max-h-none rounded-none",
   };
 

@@ -621,7 +621,7 @@ export default function OwnerBookings() {
             </Modal>
 
             {/* Booking QR Scanner Modal */}
-            <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} size="lg">
+            <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} size="2xl">
                 <ModalHeader onClose={() => setIsScannerOpen(false)}>Booking QR Code Scanner</ModalHeader>
                 <ModalBody>
                     <BookingQRScanner onClose={() => setIsScannerOpen(false)} />

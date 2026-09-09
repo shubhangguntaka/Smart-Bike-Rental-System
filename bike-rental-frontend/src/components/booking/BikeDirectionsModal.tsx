@@ -11,7 +11,6 @@ import L from "leaflet";
 import {
   Navigation,
   MapPin,
-  ExternalLink,
   RotateCw,
   Compass,
   Bike as BikeIcon,
@@ -342,19 +341,19 @@ export default function BikeDirectionsModal({
 
         {/* Live Route Summary Pill */}
         <div className="px-6 py-3 bg-muted/40 border-b border-border flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 font-bold text-foreground">
-              <Compass className="w-4 h-4 text-primary" />
-              <span>Distance: </span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border/80 shadow-2xs font-bold text-foreground">
+              <Compass className="w-3.5 h-3.5 text-primary" />
+              <span className="text-muted-foreground font-normal">Distance:</span>
               <span className="text-primary font-extrabold">
                 {distanceKm !== null ? `${distanceKm} km` : "Calculating..."}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 font-bold text-foreground">
-              <Clock className="w-4 h-4 text-emerald-600" />
-              <span>Estimated ETA: </span>
-              <span className="text-emerald-600 font-extrabold">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border/80 shadow-2xs font-bold text-foreground">
+              <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-muted-foreground font-normal">Est. ETA:</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
                 {durationMin !== null ? `~${durationMin} mins` : "Calculating..."}
               </span>
             </div>
@@ -365,19 +364,10 @@ export default function BikeDirectionsModal({
               type="button"
               onClick={requestLiveLocation}
               disabled={locating}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-border/80 bg-card hover:bg-muted text-foreground text-xs font-semibold transition cursor-pointer shadow-2xs"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${locating ? "animate-spin" : ""}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${locating ? "animate-spin text-primary" : ""}`} />
               <span>Recenter</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={openGoogleMaps}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <span>Google Maps</span>
-              <ExternalLink className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -398,9 +388,8 @@ export default function BikeDirectionsModal({
             style={{ height: "100%", width: "100%", minHeight: "380px", zIndex: 0 }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              subdomains={["a", "b", "c", "d"]}
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
             <MapBoundsFitter
@@ -439,28 +428,41 @@ export default function BikeDirectionsModal({
               </Popup>
             </Marker>
 
-            {/* Path Polyline */}
+            {/* Path Polyline: Under-glow + Main Navigation Line */}
             {routeCoords.length > 0 && (
-              <Polyline
-                positions={routeCoords}
-                pathOptions={{
-                  color: "#10b981",
-                  weight: 5,
-                  opacity: 0.85,
-                  dashArray: "8, 6",
-                }}
-              />
+              <>
+                <Polyline
+                  positions={routeCoords}
+                  pathOptions={{
+                    color: "#059669",
+                    weight: 8,
+                    opacity: 0.25,
+                    lineCap: "round",
+                    lineJoin: "round",
+                  }}
+                />
+                <Polyline
+                  positions={routeCoords}
+                  pathOptions={{
+                    color: "#10b981",
+                    weight: 5,
+                    opacity: 0.95,
+                    lineCap: "round",
+                    lineJoin: "round",
+                  }}
+                />
+              </>
             )}
           </MapContainer>
 
           {/* Quick Floating Legend on top of map */}
-          <div className="absolute bottom-4 left-4 z-[400] bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl p-3 shadow-lg space-y-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-600 ring-2 ring-blue-300" />
+          <div className="absolute bottom-4 left-4 z-[400] bg-card/90 backdrop-blur-md border border-border/80 rounded-2xl p-3 shadow-lg space-y-2 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 rounded-full bg-blue-600 ring-2 ring-blue-300 shadow-xs" />
               <span className="font-semibold text-foreground">You (Live Location)</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-600 ring-2 ring-emerald-300" />
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-600 ring-2 ring-emerald-300 shadow-xs" />
               <span className="font-semibold text-foreground">Bike Location ({booking.bikeName || "Bike"})</span>
             </div>
           </div>
