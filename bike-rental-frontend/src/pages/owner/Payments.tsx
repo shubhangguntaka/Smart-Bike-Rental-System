@@ -54,6 +54,10 @@ import {
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { SearchBar } from "@/components/common/SearchBar";
+import { FilterBar, type FilterField } from "@/components/common/FilterBar";
+import { Pagination } from "@/components/common/Pagination";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
 
 export interface UnifiedTransactionItem {
     id: number;
@@ -142,6 +146,50 @@ export default function OwnerPayments() {
     const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<PaymentResponse | null>(null);
     const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+
+    const filterConfig: FilterField[] = useMemo(() => [
+        {
+            id: "statusFilter",
+            label: "Status",
+            type: "select",
+            placeholder: "All Statuses",
+            options: [
+                { label: "All Statuses", value: "ALL" },
+                { label: "Paid / Settled", value: "COMPLETED" },
+                { label: "Confirmed / Active", value: "CONFIRMED" },
+                { label: "Pending Settlement", value: "PENDING" },
+                { label: "Cancelled / Failed", value: "CANCELLED" },
+            ]
+        },
+        {
+            id: "sortBy",
+            label: "Sort By",
+            type: "select",
+            placeholder: "Newest First",
+            options: [
+                { label: "Newest First", value: "date-desc" },
+                { label: "Oldest First", value: "date-asc" },
+                { label: "Amount (High to Low)", value: "amount-desc" },
+                { label: "Amount (Low to High)", value: "amount-asc" },
+            ]
+        }
+    ], []);
+
+    const filterValues = useMemo(() => ({
+        statusFilter,
+        sortBy
+    }), [statusFilter, sortBy]);
+
+    const handleFilterChange = (newValues: Record<string, any>) => {
+        setStatusFilter(newValues.statusFilter || "ALL");
+        setSortBy(newValues.sortBy || "date-desc");
+    };
+
+    const handleClearFilters = () => {
+        setSearchQuery("");
+        setStatusFilter("ALL");
+        setSortBy("date-desc");
+    };
 
     useEffect(() => {
         fetchAllOwnerFinancials(true);
@@ -1060,48 +1108,22 @@ export default function OwnerPayments() {
             </div>
 
             {/* Search & Filter Toolbar */}
-            <div className="flex flex-col gap-3 rounded-3xl border border-border/80 bg-card p-5 shadow-xs md:flex-row md:items-center md:justify-between">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                        type="text"
-                        placeholder="Search by Payment ID, Booking ID, Customer Name, Phone, Vehicle, Invoice #..."
+            <div className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card p-5 shadow-xs md:flex-row md:items-center md:justify-between">
+                <div className="flex-1">
+                    <SearchBar
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-xl border border-border/80 py-2.5 pl-10 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-hidden bg-background"
+                        onChange={setSearchQuery}
+                        placeholder="Search by Payment ID, Booking ID, Customer Name, Phone, Vehicle, Invoice #..."
+                        width="w-[600px]"
                     />
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2.5">
-                    <div className="flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-2 text-xs font-bold text-foreground bg-background">
-                        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="bg-transparent text-foreground focus:outline-hidden cursor-pointer"
-                        >
-                            <option value="ALL">All Statuses</option>
-                            <option value="COMPLETED">Paid / Settled</option>
-                            <option value="CONFIRMED">Confirmed / Active</option>
-                            <option value="PENDING">Pending Settlement</option>
-                            <option value="CANCELLED">Cancelled / Failed</option>
-                        </select>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-2 text-xs font-bold text-foreground bg-background">
-                        <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="bg-transparent text-foreground focus:outline-hidden cursor-pointer"
-                        >
-                            <option value="date-desc">Newest First</option>
-                            <option value="date-asc">Oldest First</option>
-                            <option value="amount-desc">Amount (High to Low)</option>
-                            <option value="amount-asc">Amount (Low to High)</option>
-                        </select>
-                    </div>
-                </div>
+                <FilterBar
+                    filters={filterConfig}
+                    value={filterValues}
+                    onChange={handleFilterChange}
+                    onClearAll={handleClearFilters}
+                    label="Filter & Sort"
+                />
             </div>
 
             {/* Payments Content */}
@@ -1310,45 +1332,34 @@ export default function OwnerPayments() {
                     </div>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between border-t border-border/80 p-4 bg-card">
-                            <span className="text-xs text-muted-foreground">
-                                Showing {(page - 1) * itemsPerPage + 1} to{" "}
-                                {Math.min(page * itemsPerPage, sortedTransactions.length)} of{" "}
-                                {sortedTransactions.length} records
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="rounded-xl border border-border/80 px-3 py-1.5 text-xs font-bold transition hover:bg-muted disabled:opacity-40 cursor-pointer"
-                                >
-                                    Previous
-                                </button>
-                                <span className="text-xs font-bold text-foreground">
-                                    Page {page} of {totalPages}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="rounded-xl border border-border/80 px-3 py-1.5 text-xs font-bold transition hover:bg-muted disabled:opacity-40 cursor-pointer"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 p-4 bg-card gap-3">
+                        <span className="text-xs text-muted-foreground">
+                            Showing {(page - 1) * itemsPerPage + 1} to{" "}
+                            {Math.min(page * itemsPerPage, sortedTransactions.length)} of{" "}
+                            {sortedTransactions.length} records
+                        </span>
+                        {totalPages > 1 && (
+                            <Pagination
+                                currentPage={page}
+                                totalPages={totalPages}
+                                onPageChange={setPage}
+                                showFirstLast
+                                showJumpToPage
+                            />
+                        )}
+                    </div>
                 </div>
             )}
 
             {/* Receipt & Detailed Breakdown Modal */}
-            {selectedItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-lg rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
-                        {/* Modal Header */}
-                        <div className="flex items-start justify-between border-b border-border/80 pb-4">
+            <Modal
+                isOpen={!!selectedItem}
+                onClose={() => setSelectedItem(null)}
+                size="lg"
+            >
+                {selectedItem && (
+                    <>
+                        <ModalHeader onClose={() => setSelectedItem(null)}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 rounded-2xl bg-primary/10 text-primary border border-primary/20">
                                     <Receipt className="h-6 w-6" />
@@ -1360,22 +1371,14 @@ export default function OwnerPayments() {
                                     <h3 className="text-lg font-bold text-foreground mt-0.5">
                                         Receipt #PAY-{selectedPaymentDetails?.paymentId || selectedItem.paymentId}
                                     </h3>
-                                    <p className="text-xs text-muted-foreground font-mono">
+                                    <p className="text-xs text-muted-foreground font-mono font-normal">
                                         Booking: #BR-{selectedItem.bookingId} | Inv: {selectedPaymentDetails?.invoiceNumber || selectedItem.invoiceNumber}
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setSelectedItem(null)}
-                                className="p-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted transition cursor-pointer"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
+                        </ModalHeader>
 
-                        {/* Modal Body */}
-                        <div className="space-y-4 text-xs">
+                        <ModalBody className="space-y-4 text-xs">
                             {/* Status Banner */}
                             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/40 border border-border/80">
                                 <span className="font-semibold text-muted-foreground">Transaction Status</span>
@@ -1383,7 +1386,7 @@ export default function OwnerPayments() {
                             </div>
 
                             {/* Customer & Ride info */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="p-3.5 bg-muted/20 border border-border/60 rounded-2xl space-y-1">
                                     <span className="text-[10px] uppercase font-bold text-muted-foreground">Customer Info</span>
                                     <p className="font-bold text-foreground text-sm">{selectedItem.customerName}</p>
@@ -1467,10 +1470,9 @@ export default function OwnerPayments() {
                                     </span>
                                 </div>
                             </div>
-                        </div>
+                        </ModalBody>
 
-                        {/* Modal Footer */}
-                        <div className="flex gap-2 pt-2 border-t border-border/80 justify-end">
+                        <ModalFooter>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -1488,10 +1490,10 @@ export default function OwnerPayments() {
                             >
                                 Close
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                        </ModalFooter>
+                    </>
+                )}
+            </Modal>
         </div>
     );
 }
