@@ -187,22 +187,10 @@ const BookingQRCodePage = () => {
             <span>Back to Bookings</span>
           </button>
 
-          <div className="flex items-center gap-3">
-            {booking && (
-              <button
-                type="button"
-                onClick={() => setShowDirections(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary/80 text-white text-xs font-bold transition-all duration-200 cursor-pointer shadow-md active:scale-95 ring-2 ring-primary/20"
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Directions to Bike</span>
-              </button>
-            )}
-
-            <span className="text-[11px] font-mono font-semibold text-muted-foreground uppercase tracking-widest">
-              Verification Pass
-            </span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-card border border-border/70 text-[11px] font-mono font-semibold text-muted-foreground uppercase tracking-widest shadow-2xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            Verification Pass
+          </span>
         </div>
 
         {loading ? (

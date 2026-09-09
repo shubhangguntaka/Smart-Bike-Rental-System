@@ -366,7 +366,7 @@ export default function OwnerDashboard() {
                         
                         <div className="grid grid-cols-2 gap-3">
                             <Link 
-                                to="/owner/bikes" 
+                                to="/owner/add-bike" 
                                 className="flex flex-col items-center justify-center p-4 bg-muted/20 hover:bg-primary/10 border border-border rounded-xl text-center transition-all duration-200 group focus:outline-none"
                             >
                                 <PlusCircle className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />

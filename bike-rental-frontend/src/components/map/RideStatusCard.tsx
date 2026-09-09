@@ -4,12 +4,12 @@ interface RideStatusCardProps {
   ride: Ride | null;
   isTracking: boolean;
   isStarting: boolean;
-  isEnding: boolean;
+  isEnding?: boolean;
   error: string | null;
   gpsError: string | null;
   permissionDenied: boolean;
   onStartTracking: () => void;
-  onEndRide: () => void;
+  onEndRide?: () => void;
 }
 
 export default function RideStatusCard({
@@ -21,7 +21,6 @@ export default function RideStatusCard({
   gpsError,
   permissionDenied,
   onStartTracking,
-  onEndRide,
 }: RideStatusCardProps) {
   const status = ride?.status ?? "NOT_STARTED";
 
@@ -126,8 +125,8 @@ export default function RideStatusCard({
         </div>
       )}
 
-      <div className="flex gap-3">
-        {isActive && !isTracking && (
+      {isActive && !isTracking && (
+        <div className="flex gap-3">
           <button
             type="button"
             onClick={onStartTracking}
@@ -138,19 +137,8 @@ export default function RideStatusCard({
               ? "Starting..."
               : "Start Tracking"}
           </button>
-        )}
-
-        {isActive && (
-          <button
-            type="button"
-            onClick={onEndRide}
-            disabled={isEnding}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isEnding ? "Ending..." : "End Ride"}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {isCompleted && (
         <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
