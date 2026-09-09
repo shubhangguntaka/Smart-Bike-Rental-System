@@ -14,6 +14,7 @@ import com.sssit.bikerental.common.exception.ResourceOwnershipException;
 import com.sssit.bikerental.common.exception.ResourceNotFoundException;
 import com.sssit.bikerental.common.security.SecurityUtils;
 import com.sssit.bikerental.modules.bike.entity.Bike;
+import com.sssit.bikerental.modules.bike.enums.BikeStatus;
 import com.sssit.bikerental.modules.owner.dto.OwnerDTO;
 import com.sssit.bikerental.modules.owner.dto.OwnerDashboardDTO;
 import com.sssit.bikerental.modules.owner.dto.BookingRequestDTO;
@@ -123,22 +124,80 @@ public class OwnerServiceImpl implements OwnerService {
         boolean aadhaarVerified = checkAadhaarVerified(ownerId);
         boolean rcVerified = checkRcVerified(ownerId);
 
-        int totalBikes = (int) bikeRepository.countByOwnerId(ownerId);
-        int availableBikes = (int) bikeRepository.countByOwnerIdAndStatus(ownerId, "AVAILABLE");
-        int bookedBikes = (int) bikeRepository.countByOwnerIdAndStatus(ownerId, "BOOKED");
+        List<Bike> ownerBikes = bikeRepository.findByOwnerId(ownerId);
+        int totalBikes = ownerBikes.size();
+        int bookedBikes = 0;
+        int availableBikes = 0;
 
-        int pendingBookings = (int) bookingRepository.countBookingsByOwnerIdAndStatus(ownerId, "PENDING");
-        int completedBookings = (int) bookingRepository.countBookingsByOwnerIdAndStatus(ownerId, "COMPLETED");
-        int totalBookings = (int) bookingRepository.countBookingsByOwnerId(ownerId);
+        for (Bike bike : ownerBikes) {
+            BikeStatus status = bike.getBikeStatus();
+            if (status == BikeStatus.BOOKED) {
+                bookedBikes++;
+            } else if (status == BikeStatus.UNDER_MAINTENANCE || status == BikeStatus.NOT_AVAILABLE) {
+                // Maintenance / Unavailable
+            } else {
+                availableBikes++;
+            }
+        }
 
-        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId,PaymentStatus.SUCCESS)).orElse(BigDecimal.ZERO);
-        
+        List<Booking> allOwnerBookings = bookingRepository.findAllBookingsByOwnerId(ownerId);
+        int totalBookings = allOwnerBookings.size();
+
+        int pendingBookings = (int) allOwnerBookings.stream()
+                .filter(b -> b.getBookingStatus() == BookingStatus.PENDING || b.getBookingStatus() == BookingStatus.VERIFICATION_REQUIRED)
+                .count();
+
+        int completedBookings = (int) allOwnerBookings.stream()
+                .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED || b.getBookingStatus() == BookingStatus.APPROVED || b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.ACTIVE)
+                .count();
+
+        BigDecimal totalEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerId(ownerId, PaymentStatus.SUCCESS))
+                .orElse(BigDecimal.ZERO);
+
         LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
-        BigDecimal todayEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, todayStart)).orElse(BigDecimal.ZERO);
-        BigDecimal weeklyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusWeeks(1))).orElse(BigDecimal.ZERO);
-        BigDecimal monthlyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId,PaymentStatus.SUCCESS, LocalDateTime.now().minusMonths(1))).orElse(BigDecimal.ZERO);
+        BigDecimal todayEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, PaymentStatus.SUCCESS, todayStart))
+                .orElse(BigDecimal.ZERO);
+        BigDecimal weeklyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, PaymentStatus.SUCCESS, LocalDateTime.now().minusWeeks(1)))
+                .orElse(BigDecimal.ZERO);
+        BigDecimal monthlyEarnings = Optional.ofNullable(paymentRepository.sumCompletedEarningsByOwnerIdAndPaymentDateAfter(ownerId, PaymentStatus.SUCCESS, LocalDateTime.now().minusMonths(1)))
+                .orElse(BigDecimal.ZERO);
 
-        BigDecimal pendingPayments = Optional.ofNullable(bookingRepository.sumPendingRentalAmountByOwnerId(ownerId)).orElse(BigDecimal.ZERO);
+        if (totalEarnings.compareTo(BigDecimal.ZERO) == 0 && !allOwnerBookings.isEmpty()) {
+            List<Booking> activeCompletedBookings = allOwnerBookings.stream()
+                    .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED || b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.APPROVED || b.getBookingStatus() == BookingStatus.ACTIVE)
+                    .collect(Collectors.toList());
+
+            totalEarnings = activeCompletedBookings.stream()
+                    .map(b -> b.getRentalAmount() != null ? b.getRentalAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            todayEarnings = activeCompletedBookings.stream()
+                    .filter(b -> {
+                        LocalDateTime d = b.getCreatedAt() != null ? b.getCreatedAt() : b.getPickupDate();
+                        return d != null && !d.isBefore(todayStart);
+                    })
+                    .map(b -> b.getRentalAmount() != null ? b.getRentalAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            weeklyEarnings = activeCompletedBookings.stream()
+                    .filter(b -> {
+                        LocalDateTime d = b.getCreatedAt() != null ? b.getCreatedAt() : b.getPickupDate();
+                        return d != null && !d.isBefore(LocalDateTime.now().minusWeeks(1));
+                    })
+                    .map(b -> b.getRentalAmount() != null ? b.getRentalAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            monthlyEarnings = activeCompletedBookings.stream()
+                    .filter(b -> {
+                        LocalDateTime d = b.getCreatedAt() != null ? b.getCreatedAt() : b.getPickupDate();
+                        return d != null && !d.isBefore(LocalDateTime.now().minusMonths(1));
+                    })
+                    .map(b -> b.getRentalAmount() != null ? b.getRentalAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        BigDecimal pendingPayments = Optional.ofNullable(bookingRepository.sumPendingRentalAmountByOwnerId(ownerId))
+                .orElse(BigDecimal.ZERO);
 
         return OwnerDashboardDTO.builder()
                 .ownerId(ownerId)

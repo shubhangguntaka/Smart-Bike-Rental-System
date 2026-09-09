@@ -8,36 +8,39 @@ const OwnerStatistics = () => {
     const fetchDashboard = useOwnerStore((s) => s.fetchDashboard);
 
     useEffect(() => {
-        if (!dashboard) {
-            fetchDashboard();
-        }
-    }, [dashboard, fetchDashboard]);
+        fetchDashboard(true);
+    }, [fetchDashboard]);
+
+    const totalBikes = dashboard?.totalBikes ?? 0;
+    const availableBikes = dashboard?.availableBikes ?? 0;
+    const bookedBikes = dashboard?.bookedBikes ?? 0;
+    const totalBookings = dashboard?.totalBookings ?? 0;
 
     const statsConfig = [
         {
             title: "Total Bikes",
-            value: dashboard?.totalBikes ?? 0,
+            value: totalBikes,
             icon: Bike,
             color: "text-emerald-500 bg-emerald-500/10",
             description: "Total fleet size listed"
         },
         {
             title: "Available Bikes",
-            value: dashboard?.availableBikes ?? 0,
+            value: availableBikes,
             icon: CheckCircle,
             color: "text-blue-500 bg-blue-500/10",
             description: "Ready to be booked"
         },
         {
             title: "Booked Bikes",
-            value: dashboard?.bookedBikes ?? 0,
+            value: bookedBikes,
             icon: Clock,
             color: "text-amber-500 bg-amber-500/10",
             description: "Currently on active trips"
         },
         {
             title: "Total Bookings",
-            value: dashboard?.totalBookings ?? 0,
+            value: totalBookings,
             icon: Calendar,
             color: "text-indigo-500 bg-indigo-500/10",
             description: "All-time bookings received"
