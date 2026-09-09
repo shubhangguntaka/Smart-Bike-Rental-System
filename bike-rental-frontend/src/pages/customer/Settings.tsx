@@ -157,20 +157,28 @@ export default function CustomerSettings() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_CUSTOMER_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_CUSTOMER_SETTINGS,
+          ...parsed,
+          themePreference: parsed.themePreference || theme,
+        };
       }
     } catch {
       // ignore error
     }
-    return DEFAULT_CUSTOMER_SETTINGS;
+    return {
+      ...DEFAULT_CUSTOMER_SETTINGS,
+      themePreference: theme,
+    };
   });
 
-  // Keep theme synced with configuration change
+  // Keep local config themePreference synced whenever active global theme changes
   useEffect(() => {
-    if (config.themePreference && config.themePreference !== theme) {
-      setTheme(config.themePreference);
+    if (theme && config.themePreference !== theme) {
+      setConfig((prev) => ({ ...prev, themePreference: theme }));
     }
-  }, [config.themePreference]);
+  }, [theme]);
 
   const updateConfig = <K extends keyof CustomerSettingsConfig>(key: K, value: CustomerSettingsConfig[K]) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
