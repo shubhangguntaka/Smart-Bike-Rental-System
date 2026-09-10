@@ -60,7 +60,16 @@ api.interceptors.response.use(
         storage.removeUser();
         storage.removeRole();
         storage.removeRefreshToken();
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+        const isPublicPage =
+          window.location.pathname === "/" ||
+          window.location.pathname === "/login" ||
+          window.location.pathname === "/register" ||
+          window.location.pathname === "/forgot-password" ||
+          window.location.pathname.startsWith("/reset-password") ||
+          window.location.pathname.startsWith("/explore") ||
+          window.location.pathname.startsWith("/about");
+
+        if (!isPublicPage) {
           window.location.href = "/login";
         }
         return Promise.reject(error);
@@ -106,8 +115,16 @@ api.interceptors.response.use(
         storage.removeToken();
         storage.removeUser();
         storage.removeRole();
-        storage.removeRefreshToken();
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+        const isPublicPage =
+          window.location.pathname === "/" ||
+          window.location.pathname === "/login" ||
+          window.location.pathname === "/register" ||
+          window.location.pathname === "/forgot-password" ||
+          window.location.pathname.startsWith("/reset-password") ||
+          window.location.pathname.startsWith("/explore") ||
+          window.location.pathname.startsWith("/about");
+
+        if (!isPublicPage) {
           window.location.href = "/login";
         }
         return Promise.reject(refreshError);

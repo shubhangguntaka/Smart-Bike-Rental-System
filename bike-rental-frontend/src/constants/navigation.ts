@@ -34,8 +34,8 @@ export const PUBLIC_NAVIGATION = [
     icon: Home,
   },
   {
-    label: "Nearby Bikes",
-    path: "/nearby-bikes",
+    label: "Bikes",
+    path: "/bikes",
     icon: Bike,
   },
   {

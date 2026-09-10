@@ -83,7 +83,6 @@ const AppRoutes = () => {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="bikes" element={<Bikes />} />
-          <Route path="nearby-bikes" element={<Bikes />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
           <Route path="maps" element={<MapPage />} />
