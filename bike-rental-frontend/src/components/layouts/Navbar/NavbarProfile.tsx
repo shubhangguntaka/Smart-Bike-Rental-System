@@ -32,9 +32,9 @@ export default function NavbarProfile() {
       <div className="flex items-center gap-2">
         <Link
           to="/login"
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md hover:opacity-95 transition-all duration-300 outline-none cursor-pointer"
+          className="rounded-xl bg-primary px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-primary-foreground shadow-md hover:opacity-95 transition-all duration-300 outline-none cursor-pointer whitespace-nowrap"
         >
-          Login / Register
+          Login
         </Link>
       </div>
     );

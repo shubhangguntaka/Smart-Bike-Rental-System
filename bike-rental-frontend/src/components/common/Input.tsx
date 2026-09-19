@@ -24,11 +24,12 @@ const Input = ({
 }: Props) => {
   return (
     <div className="w-full">
-      <label className="block mb-2 text-sm font-semibold text-foreground/80">
+      <label htmlFor={name} className="block mb-1.5 text-sm font-semibold text-foreground/80">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
       </label>
       <input
+        id={name}
         className={`w-full rounded-2xl border border-border bg-card/50 px-4 py-2.5 text-sm text-foreground transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
         name={name}
         type={type}
@@ -39,7 +40,7 @@ const Input = ({
         required={required}
         {...rest}
       />
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive break-words">{error}</p>}
     </div>
   );
 };

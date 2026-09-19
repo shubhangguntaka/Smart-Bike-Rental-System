@@ -232,7 +232,7 @@ const StepIndicator = ({
 
             {i < steps.length - 1 && (
               <span
-                className={`mx-3 mb-5 h-0.5 w-14 self-start sm:w-20 ${
+                className={`mx-1 sm:mx-3 mb-5 h-0.5 w-6 xs:w-10 sm:w-16 md:w-20 self-start ${
                   complete ? "bg-verified" : "bg-ink/10"
                 }`}
               />

@@ -24,7 +24,7 @@ export default function DashboardLayout() {
       : CUSTOMER_SIDEBAR;
 
   return (
-    <div className="flex h-screen w-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] w-full max-w-full bg-background overflow-hidden">
       {/* Collapsible Sidebar for Desktop screens (>= lg) */}
       <Sidebar />
 
@@ -36,12 +36,12 @@ export default function DashboardLayout() {
       />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Header containing Hamburger trigger, Breadcrumbs, and Profile menu */}
         <Header title="Dashboard" onMenuClick={() => setMobileOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 overflow-y-auto bg-muted/30 p-3.5 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl w-full">
             <Outlet />
           </div>
         </main>

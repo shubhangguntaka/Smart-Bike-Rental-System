@@ -49,7 +49,7 @@ export default function MobileMenu() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-border bg-background p-6 shadow-2xl lg:hidden focus:outline-none"
+              className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[300px] sm:w-80 flex-col border-l border-border bg-background p-4 sm:p-6 shadow-2xl lg:hidden focus:outline-none"
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"

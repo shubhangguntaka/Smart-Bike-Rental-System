@@ -44,7 +44,7 @@ export default function MobileSidebar({ sections, open, onClose }: MobileSidebar
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 220 }}
-            className="fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-border bg-background shadow-2xl lg:hidden focus:outline-none"
+            className="fixed left-0 top-0 z-50 flex h-full w-full max-w-[280px] sm:w-72 flex-col border-r border-border bg-background shadow-2xl lg:hidden focus:outline-none"
             role="dialog"
             aria-modal="true"
             aria-label="Dashboard Navigation Sidebar"

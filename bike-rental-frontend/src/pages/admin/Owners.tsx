@@ -49,22 +49,22 @@ const SummaryCard = ({
   <button
     type="button"
     onClick={onClick}
-    className={`p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 ${
+    className={`p-3 sm:p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 min-w-0 ${
       active
         ? "border-primary bg-primary/5 shadow-sm"
         : "border-border bg-card hover:bg-muted/40"
     }`}
   >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+    <div className="flex items-center justify-between gap-1">
+      <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
         {title}
       </span>
-      {icon}
+      <span className="shrink-0">{icon}</span>
     </div>
-    <div className="flex items-baseline justify-between">
-      <span className="text-2xl font-extrabold text-foreground">{count}</span>
+    <div className="flex items-baseline justify-between gap-1">
+      <span className="text-xl sm:text-2xl font-extrabold text-foreground truncate">{count}</span>
       {badgeClass && (
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${badgeClass}`}>
+        <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-md truncate ${badgeClass}`}>
           {title}
         </span>
       )}
@@ -345,7 +345,7 @@ export default function AdminOwners() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-start sm:justify-end">
             <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
               <Filter className="h-3.5 w-3.5" />
               <span>Filters:</span>
@@ -356,7 +356,7 @@ export default function AdminOwners() {
                 setKycFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
             >
               <option value="ALL">KYC: All</option>
               <option value="VERIFIED">Verified</option>
@@ -368,32 +368,32 @@ export default function AdminOwners() {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
             >
               <option value="ALL">Status: All</option>
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
 
-            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold ml-1">
-              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold w-full sm:w-auto sm:pl-2 sm:border-l sm:border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary shrink-0" />
               <span>Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium ml-1"
+              >
+                <option value="NEWEST">Newest Host First</option>
+                <option value="OLDEST">Oldest Host First</option>
+                <option value="EARNINGS_HIGH">Highest Earnings</option>
+                <option value="EARNINGS_LOW">Lowest Earnings</option>
+                <option value="BIKES_HIGH">Largest Fleet</option>
+                <option value="NAME_AZ">Name (A - Z)</option>
+              </select>
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
-            >
-              <option value="NEWEST">Newest Host First</option>
-              <option value="OLDEST">Oldest Host First</option>
-              <option value="EARNINGS_HIGH">Highest Earnings</option>
-              <option value="EARNINGS_LOW">Lowest Earnings</option>
-              <option value="BIKES_HIGH">Largest Fleet</option>
-              <option value="NAME_AZ">Name (A - Z)</option>
-            </select>
           </div>
         </div>
       </div>

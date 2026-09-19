@@ -10,7 +10,9 @@ export const notifyBikeUpdated = (bike?: any) => {
     // Write a small payload to localStorage to trigger StorageEvent in other tabs
     try {
       localStorage.setItem("bike_rental_sync", JSON.stringify({ bike, ts: Date.now() }));
-    } catch (e) {}
+    } catch {
+      // Ignore quota error
+    }
     if (syncChannel) {
       syncChannel.postMessage({ type: "BIKE_TIMING_UPDATED", bike, timestamp: Date.now() });
     }
@@ -26,7 +28,9 @@ export const subscribeBikeUpdates = (callback: () => void): (() => void) => {
   const handleUpdate = () => {
     try {
       callback();
-    } catch (e) {}
+    } catch {
+      // Ignore subscriber error
+    }
   };
 
   window.addEventListener("custom_bikes_updated", handleUpdate);

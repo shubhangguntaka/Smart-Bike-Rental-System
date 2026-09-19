@@ -60,11 +60,11 @@ export default function HeaderProfile() {
           e.stopPropagation();
           setOpen((prev) => !prev);
         }}
-        className="flex items-center gap-2.5 rounded-xl p-1.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="flex items-center gap-2 rounded-xl p-1 sm:p-1.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Dashboard user profile menu"
         aria-expanded={open}
       >
-        <div className="flex h-8.5 w-8.5 items-center justify-center rounded-full bg-primary/15 text-primary font-bold text-xs border border-primary/20">
+        <div className="flex h-8 w-8 sm:h-8.5 sm:w-8.5 items-center justify-center rounded-full bg-primary/15 text-primary font-bold text-xs border border-primary/20">
           {initials}
         </div>
       </button>
@@ -76,9 +76,9 @@ export default function HeaderProfile() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute right-0 mt-3 w-60 rounded-2xl border border-border bg-card shadow-xl overflow-hidden focus:outline-none"
+            className="absolute right-0 mt-3 w-56 sm:w-60 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden focus:outline-none z-50"
           >
-            <div className="border-b border-border px-4.5 py-3.5 bg-muted/20">
+            <div className="border-b border-border px-4 py-3 sm:px-4.5 sm:py-3.5 bg-muted/20">
               <p className="text-sm font-bold text-foreground truncate">
                 {user.firstName ? `${user.firstName} ${user.lastName || ""}` : "Dashboard User"}
               </p>
@@ -94,7 +94,7 @@ export default function HeaderProfile() {
               <Link
                 to={dashboardPath}
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
               >
                 <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
                 Dashboard
@@ -103,7 +103,7 @@ export default function HeaderProfile() {
               <Link
                 to={`/${role}/profile`}
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
               >
                 <User className="h-4 w-4 text-muted-foreground" />
                 Profile
@@ -112,7 +112,7 @@ export default function HeaderProfile() {
               <Link
                 to={`/${role}/settings`}
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition-colors duration-200 outline-none"
               >
                 <Settings className="h-4 w-4 text-muted-foreground" />
                 Settings
@@ -123,7 +123,7 @@ export default function HeaderProfile() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors duration-200 outline-none"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors duration-200 outline-none cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
                 Log out

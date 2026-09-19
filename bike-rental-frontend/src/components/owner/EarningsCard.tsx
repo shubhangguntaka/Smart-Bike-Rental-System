@@ -53,59 +53,59 @@ const EarningsCard = () => {
     return (
         <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden transition-all duration-300 hover:shadow-md">
             {/* Header Block with primary color accent */}
-            <div className="bg-gradient-to-r from-primary to-primary/80 p-6 sm:p-8 text-white relative overflow-hidden">
-                <div className="relative z-10 flex justify-between items-center">
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-white/80">
+            <div className="bg-gradient-to-r from-primary to-primary/80 p-5 sm:p-7 lg:p-8 text-white relative overflow-hidden">
+                <div className="relative z-10 flex justify-between items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/80">
                             Total Earnings (All-time)
                         </p>
-                        <h1 className="text-4xl sm:text-5xl font-black mt-2 tracking-tight flex items-center gap-1">
+                        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black mt-1 sm:mt-2 tracking-tight flex items-center gap-1 break-words">
                             {formatCurrency(total)}
                         </h1>
-                        <p className="text-xs text-white/70 mt-1 font-medium flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3 text-emerald-300" />
-                            Net earnings after platform commissions
+                        <p className="text-[10px] sm:text-xs text-white/70 mt-1 font-medium flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3 text-emerald-300 shrink-0" />
+                            <span className="truncate">Net earnings after platform commissions</span>
                         </p>
                     </div>
-                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-xs shadow-inner">
-                        <IndianRupee className="h-8 w-8 text-white" />
+                    <div className="p-3 sm:p-4 bg-white/10 rounded-2xl backdrop-blur-xs shadow-inner shrink-0">
+                        <IndianRupee className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                     </div>
                 </div>
                 {/* Decorative glow */}
-                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-white/5 rounded-full blur-2xl"></div>
+                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
             </div>
 
             {/* Detailed breakdowns */}
-            <div className="p-6 sm:p-8 bg-card grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
-                <div className="pt-0">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="p-4 sm:p-6 lg:p-8 bg-card grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-6">
+                <div className="rounded-xl bg-muted/20 sm:bg-transparent p-3 sm:p-0">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
                         Today
                     </p>
-                    <h3 className="text-lg sm:text-xl font-bold text-foreground mt-1">
+                    <h3 className="text-base sm:text-xl font-bold text-foreground mt-0.5 sm:mt-1 truncate">
                         {formatCurrency(today)}
                     </h3>
                 </div>
-                <div className="pt-4 sm:pt-0 sm:pl-6">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="rounded-xl bg-muted/20 sm:bg-transparent p-3 sm:p-0 sm:border-l sm:border-border sm:pl-6">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
                         This Week
                     </p>
-                    <h3 className="text-lg sm:text-xl font-bold text-foreground mt-1">
+                    <h3 className="text-base sm:text-xl font-bold text-foreground mt-0.5 sm:mt-1 truncate">
                         {formatCurrency(weekly)}
                     </h3>
                 </div>
-                <div className="pt-4 sm:pt-0 sm:pl-6">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="rounded-xl bg-muted/20 sm:bg-transparent p-3 sm:p-0 sm:border-l sm:border-border sm:pl-6">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
                         This Month
                     </p>
-                    <h3 className="text-lg sm:text-xl font-bold text-foreground mt-1">
+                    <h3 className="text-base sm:text-xl font-bold text-foreground mt-0.5 sm:mt-1 truncate">
                         {formatCurrency(monthly)}
                     </h3>
                 </div>
-                <div className="pt-4 sm:pt-0 sm:pl-6">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="rounded-xl bg-muted/20 sm:bg-transparent p-3 sm:p-0 sm:border-l sm:border-border sm:pl-6">
+                    <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
                         Pending Clearance
                     </p>
-                    <h3 className="text-lg sm:text-xl font-bold text-amber-500 mt-1">
+                    <h3 className="text-base sm:text-xl font-bold text-amber-500 mt-0.5 sm:mt-1 truncate">
                         {formatCurrency(pending)}
                     </h3>
                 </div>

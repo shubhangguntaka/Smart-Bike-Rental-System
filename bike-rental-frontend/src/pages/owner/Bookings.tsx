@@ -372,13 +372,13 @@ export default function OwnerBookings() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
+                            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-border">
                                 {booking.bookingStatus === "ACTIVE" && (
                                     <button
                                         type="button"
                                         disabled={trackingLoadingId !== null}
                                         onClick={() => handleTrackBike(booking.bookingId)}
-                                        className="px-3.5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                        className="px-3.5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0"
                                         title="Track My Bike"
                                     >
                                         {trackingLoadingId === booking.bookingId ? (
@@ -386,31 +386,31 @@ export default function OwnerBookings() {
                                         ) : (
                                             <MapPin className="h-3.5 w-3.5" />
                                         )}
-                                        Track My Bike
+                                        <span>Track Bike</span>
                                     </button>
                                 )}
-                                <div>
-                                    <span className="text-lg font-black text-foreground">{formatCurrency(booking.rentalAmount)}</span>
+                                <div className="text-left sm:text-right">
+                                    <span className="text-base sm:text-lg font-black text-foreground">{formatCurrency(booking.rentalAmount)}</span>
                                     <p className="text-[10px] text-muted-foreground font-semibold">Rental Amount</p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => handleOpenDetails(booking)}
-                                        className="p-2.5 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer focus:outline-none"
+                                        className="p-2.5 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer focus:outline-none shrink-0"
                                         title="View Details"
                                     >
                                         <Eye className="h-4.5 w-4.5" />
                                     </button>
 
                                     {booking.bookingStatus === "PENDING" && (
-                                        <>
+                                        <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
                                                 disabled={actioningId !== null}
                                                 onClick={() => handleApprove(booking.bookingId)}
-                                                className="px-4 py-2 text-xs font-bold text-white bg-primary rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5"
+                                                className="px-3.5 sm:px-4 py-2 text-xs font-bold text-white bg-primary rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
                                             >
                                                 {actioningId === booking.bookingId ? (
                                                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -421,11 +421,11 @@ export default function OwnerBookings() {
                                                 type="button"
                                                 disabled={actioningId !== null}
                                                 onClick={() => handleReject(booking.bookingId)}
-                                                className="px-4 py-2 text-xs font-bold text-white bg-destructive rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer"
+                                                className="px-3.5 sm:px-4 py-2 text-xs font-bold text-white bg-destructive rounded-xl hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer shrink-0"
                                             >
                                                 Reject
                                             </button>
-                                        </>
+                                        </div>
                                     )}
 
                                     {(booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "APPROVED") && (
@@ -433,10 +433,10 @@ export default function OwnerBookings() {
                                             type="button"
                                             disabled={actioningId !== null}
                                             onClick={() => setCancelTargetBooking(booking)}
-                                            className="px-3.5 py-2 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                                            className="px-3 sm:px-3.5 py-2 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
                                         >
                                             <XCircle className="h-4 w-4" />
-                                            Cancel Booking
+                                            <span>Cancel</span>
                                         </button>
                                     )}
                                 </div>
@@ -533,7 +533,7 @@ export default function OwnerBookings() {
                 </ModalBody>
                 <ModalFooter>
                     {selectedBooking && selectedBooking.bookingStatus === "PENDING" && (
-                        <div className="flex gap-2 w-full justify-end">
+                        <div className="flex flex-col-reverse sm:flex-row gap-2 w-full justify-end">
                             <button
                                 type="button"
                                 disabled={actioningId !== null}
@@ -559,7 +559,7 @@ export default function OwnerBookings() {
                         </div>
                     )}
                     {selectedBooking && (selectedBooking.bookingStatus === "CONFIRMED" || selectedBooking.bookingStatus === "APPROVED") && (
-                        <div className="flex gap-2 w-full justify-between items-center">
+                        <div className="flex flex-col-reverse sm:flex-row gap-2 w-full justify-between items-stretch sm:items-center">
                             <button
                                 type="button"
                                 disabled={actioningId !== null}
@@ -567,7 +567,7 @@ export default function OwnerBookings() {
                                     setCancelTargetBooking(selectedBooking);
                                     setIsDetailsOpen(false);
                                 }}
-                                className="px-4 py-2.5 text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                                className="px-4 py-2.5 text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                                 <XCircle className="h-4 w-4" />
                                 Cancel Booking
@@ -582,7 +582,7 @@ export default function OwnerBookings() {
                         </div>
                     )}
                     {selectedBooking && selectedBooking.bookingStatus === "ACTIVE" && (
-                        <div className="flex gap-2 w-full justify-between items-center">
+                        <div className="flex flex-col-reverse sm:flex-row gap-2 w-full justify-between items-stretch sm:items-center">
                             <button
                                 type="button"
                                 disabled={trackingLoadingId !== null}
@@ -590,7 +590,7 @@ export default function OwnerBookings() {
                                     setIsDetailsOpen(false);
                                     handleTrackBike(selectedBooking.bookingId);
                                 }}
-                                className="px-4 py-2.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                className="px-4 py-2.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                             >
                                 {trackingLoadingId === selectedBooking.bookingId ? (
                                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />

@@ -204,7 +204,7 @@ export default function MapPage() {
       </div>
 
       {/* Horizontal Filter Bar & Search Container */}
-      <div className="relative z-30 flex flex-col gap-4 bg-card/70 backdrop-blur-md p-5 rounded-3xl border border-border shadow-md">
+      <div className="relative z-30 flex flex-col gap-4 bg-card/70 backdrop-blur-md p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-border shadow-md">
         {/* Unified Search */}
         <div className="w-full relative">
           <SearchBar
@@ -240,7 +240,7 @@ export default function MapPage() {
       </div>
 
       {/* Interactive Map Wrapper with borders & shadow */}
-      <div className="relative h-[420px] md:h-[500px] lg:h-[600px] w-full rounded-3xl overflow-hidden shadow-xl border border-border bg-background">
+      <div className="relative h-[320px] sm:h-[420px] md:h-[500px] lg:h-[600px] w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl border border-border bg-background">
         <MapComponent bikes={filteredBikes} searchedLocation={searchedLocation} />
         <MapControls />
         <RouteInfoCard />

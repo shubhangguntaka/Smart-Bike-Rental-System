@@ -3,7 +3,7 @@ import { PUBLIC_NAVIGATION } from "@/constants/navigation";
 
 export default function NavbarLinks() {
   return (
-    <nav className="flex items-center gap-1.5" aria-label="Public Navigation">
+    <nav className="hidden lg:flex items-center gap-1.5" aria-label="Public Navigation">
       {PUBLIC_NAVIGATION.map((item) => (
         <NavLink
           key={item.path}

@@ -182,7 +182,9 @@ export default function Bikes() {
         ];
         try {
           localStorage.setItem("custom_owner_bikes", JSON.stringify(localOwnerBikes));
-        } catch (e) {}
+        } catch {
+          // ignore storage error
+        }
       }
 
       const combinedMap = new Map<string, Bike>();
@@ -265,7 +267,9 @@ export default function Bikes() {
             }
           });
         });
-      } catch (e) {}
+      } catch {
+        // ignore parse error
+      }
 
       const mappedRealBikes = combinedRaw.map((b: Bike, index: number) => {
         let bStatus = b.bikeStatus || "AVAILABLE";

@@ -47,22 +47,22 @@ const SummaryCard = ({
   <button
     type="button"
     onClick={onClick}
-    className={`p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 ${
+    className={`p-3 sm:p-4 rounded-2xl border transition text-left cursor-pointer flex flex-col justify-between space-y-2 min-w-0 ${
       active
         ? "border-primary bg-primary/5 shadow-sm"
         : "border-border bg-card hover:bg-muted/40"
     }`}
   >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+    <div className="flex items-center justify-between gap-1">
+      <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
         {title}
       </span>
-      {icon}
+      <span className="shrink-0">{icon}</span>
     </div>
-    <div className="flex items-baseline justify-between">
-      <span className="text-2xl font-extrabold text-foreground">{count}</span>
+    <div className="flex items-baseline justify-between gap-1">
+      <span className="text-xl sm:text-2xl font-extrabold text-foreground truncate">{count}</span>
       {badgeClass && (
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${badgeClass}`}>
+        <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-md truncate ${badgeClass}`}>
           {title}
         </span>
       )}
@@ -412,7 +412,7 @@ export default function AdminBikes() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-start sm:justify-end">
             <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
               <Filter className="h-3.5 w-3.5" />
               <span>Filters:</span>
@@ -425,7 +425,7 @@ export default function AdminBikes() {
                 setCategoryFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
             >
               <option value="ALL">Category: All</option>
               {categories.map((cat) => (
@@ -442,7 +442,7 @@ export default function AdminBikes() {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
+              className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer"
             >
               <option value="ALL">Status: All</option>
               <option value="AVAILABLE">Available</option>
@@ -452,15 +452,15 @@ export default function AdminBikes() {
             </select>
 
             {/* Sort Order */}
-            <div className="flex items-center gap-1.5 pl-1 border-l border-border">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <div className="flex items-center gap-1.5 w-full sm:w-auto sm:pl-2 sm:border-l sm:border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <select
                 value={sortBy}
                 onChange={(e) => {
                   setSortBy(e.target.value);
                   setPage(1);
                 }}
-                className="px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
+                className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border focus:outline-hidden text-foreground cursor-pointer font-medium"
               >
                 <option value="NEWEST">Sort: Newest First</option>
                 <option value="OLDEST">Sort: Oldest First</option>

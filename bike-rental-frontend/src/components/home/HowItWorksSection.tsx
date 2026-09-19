@@ -100,11 +100,11 @@ export default function HowItWorksSection() {
 
           {/* Interactive Role Toggle */}
           <div className="pt-2 flex justify-center">
-            <div className="inline-flex p-1 rounded-2xl bg-card/80 backdrop-blur-md border border-border/80 shadow-sm">
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto p-1 rounded-2xl bg-card/80 backdrop-blur-md border border-border/80 shadow-sm">
               <button
                 type="button"
                 onClick={() => setActiveTab("riders")}
-                className={`px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 ${
+                className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 ${
                   activeTab === "riders"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"

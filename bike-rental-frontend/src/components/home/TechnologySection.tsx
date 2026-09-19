@@ -66,7 +66,7 @@ export default function TechnologySection() {
         </div>
 
         {/* Tech Cards Grid */}
-        <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {techCategories.map((group, idx) => {
             const Icon = group.icon;
             return (

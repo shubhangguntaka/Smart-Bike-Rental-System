@@ -311,13 +311,13 @@ export default function ExploreBikes() {
             </div>
 
             {/* Right Controls: Location, Price, Availability Toggle, Sorting */}
-            <div className="flex flex-wrap items-center gap-2.5 ml-auto">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto sm:ml-auto">
               {/* Location Select */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  className="w-full sm:w-auto rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
                 >
                   <option value="ALL">All Locations</option>
                   {uniqueLocations.map((loc) => (
@@ -329,11 +329,11 @@ export default function ExploreBikes() {
               </div>
 
               {/* Sort Select */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  className="w-full sm:w-auto rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
                 >
                   <option value="PRICE_ASC">Price: Low → High</option>
                   <option value="PRICE_DESC">Price: High → Low</option>

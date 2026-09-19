@@ -172,7 +172,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 {/* Dropdown Menu Overlay */}
                 {isDropdownOpen && (
                   <div
-                    className="absolute left-0 mt-2 z-[1001] min-w-[240px] max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-xl text-gray-950 dark:text-gray-50 focus:outline-none"
+                    className="absolute left-0 mt-2 z-50 min-w-[240px] max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl text-foreground focus:outline-none"
                   >
                       {/* Dropdown Header */}
                       <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
@@ -185,11 +185,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                             Clear
                           </button>
                         )}
-                      </div>
-
-                      {/* Visible Debug Information for Troubleshooting */}
-                      <div className="text-[10px] text-red-600 dark:text-red-400 font-mono bg-red-50 dark:bg-red-950/30 p-1.5 rounded-lg mb-3">
-                        ID: {filter.id} | Type: {filter.type} | Options: {filter.options?.length ?? 0}
                       </div>
 
                       {/* Dropdown Inputs based on Type */}

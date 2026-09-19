@@ -105,13 +105,13 @@ const BookingQRCode = ({
         <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-primary/70 rounded-bl-sm" />
         <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-primary/70 rounded-br-sm" />
 
-        <div className="p-3.5 bg-white rounded-2xl shadow-sm flex items-center justify-center">
+        <div className="p-2.5 sm:p-3.5 bg-white rounded-2xl shadow-sm flex items-center justify-center max-w-full">
           {isDataUri ? (
-            <img src={value} alt={`Booking QR Code #${bookingId}`} className="w-44 h-44 sm:w-52 sm:h-52 object-contain" />
+            <img src={value} alt={`Booking QR Code #${bookingId}`} className="w-36 h-36 sm:w-52 sm:h-52 object-contain" />
           ) : (
             (() => {
               const QRCodeComponent = (QRCode as any).default || QRCode;
-              return <QRCodeComponent value={value || ""} size={190} />;
+              return <QRCodeComponent value={value || ""} size={165} className="max-w-full h-auto" />;
             })()
           )}
         </div>

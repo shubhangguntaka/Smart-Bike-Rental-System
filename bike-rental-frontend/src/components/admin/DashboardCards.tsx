@@ -145,33 +145,33 @@ export default function DashboardCards({
           <Link
             key={card.title}
             to={card.to}
-            className="group relative rounded-2xl border border-border bg-card p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer block"
+            className="group relative rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer block"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                  <p className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors truncate">
                     {card.title}
                   </p>
-                  <ArrowUpRight className="h-3 w-3 text-muted-foreground/50 opacity-0 transition-all group-hover:opacity-100 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <ArrowUpRight className="h-3 w-3 text-muted-foreground/50 opacity-0 transition-all group-hover:opacity-100 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0" />
                 </div>
 
-                <p className="mt-2 text-2xl font-black tracking-tight text-foreground">
+                <p className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black tracking-tight text-foreground truncate">
                   {(card.value ?? 0).toLocaleString()}
                 </p>
 
-                <p className="mt-1 text-[11px] text-muted-foreground/80">
+                <p className="mt-1 text-[11px] text-muted-foreground/80 truncate">
                   {card.description}
                 </p>
               </div>
 
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
+                className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
                   card.iconBgClass ?? "bg-primary/10"
                 }`}
               >
                 <Icon
-                  className={`h-5 w-5 ${
+                  className={`h-4 w-4 sm:h-5 sm:w-5 ${
                     card.iconColorClass ?? "text-primary"
                   }`}
                 />

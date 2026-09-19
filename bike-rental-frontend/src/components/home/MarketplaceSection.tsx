@@ -33,7 +33,7 @@ export default function MarketplaceSection() {
         <div className="mt-14 grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
           
           {/* Card 1: Rent a Bike (For Renters) */}
-          <div className="group relative flex flex-col justify-between p-8 sm:p-10 rounded-3xl bg-card/80 backdrop-blur-md border border-border/80 hover:border-primary/50 shadow-md hover:shadow-2xl transition-all duration-300 text-left overflow-hidden">
+          <div className="group relative flex flex-col justify-between p-5 sm:p-8 md:p-10 rounded-3xl bg-card/80 backdrop-blur-md border border-border/80 hover:border-primary/50 shadow-md hover:shadow-2xl transition-all duration-300 text-left overflow-hidden">
             {/* Ambient Corner Glow */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-primary/15 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
@@ -63,7 +63,7 @@ export default function MarketplaceSection() {
                 <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
                   Your 4-Step Journey
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                   <div className="p-2 rounded-xl bg-card border border-border/50">
                     <span className="font-bold text-foreground block">1. Explore</span>
                     <span className="text-[10px] text-muted-foreground">Nearby bikes</span>
@@ -109,7 +109,7 @@ export default function MarketplaceSection() {
           </div>
 
           {/* Card 2: Rent Out Your Bike (For Owners) */}
-          <div className="group relative flex flex-col justify-between p-8 sm:p-10 rounded-3xl bg-card/80 backdrop-blur-md border border-border/80 hover:border-emerald-500/50 shadow-md hover:shadow-2xl transition-all duration-300 text-left overflow-hidden">
+          <div className="group relative flex flex-col justify-between p-5 sm:p-8 md:p-10 rounded-3xl bg-card/80 backdrop-blur-md border border-border/80 hover:border-emerald-500/50 shadow-md hover:shadow-2xl transition-all duration-300 text-left overflow-hidden">
             {/* Ambient Corner Glow */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
@@ -139,7 +139,7 @@ export default function MarketplaceSection() {
                 <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
                   Your 4-Step Earning Flow
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                   <div className="p-2 rounded-xl bg-card border border-border/50">
                     <span className="font-bold text-foreground block">1. List</span>
                     <span className="text-[10px] text-muted-foreground">Upload specs</span>

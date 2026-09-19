@@ -443,7 +443,7 @@ export default function OwnerSettings() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex flex-wrap gap-2 border-b border-border/60 pb-3">
+      <div className="flex overflow-x-auto sm:flex-wrap gap-2 border-b border-border/60 pb-3 scrollbar-none">
         {[
           { id: "APPEARANCE" as SettingsTab, label: "Display & Theme", icon: Sliders },
           { id: "BOOKINGS" as SettingsTab, label: "Booking & Operations", icon: Calendar },
@@ -459,7 +459,7 @@ export default function OwnerSettings() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-xs scale-[1.02]"
                   : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -1434,7 +1434,7 @@ export default function OwnerSettings() {
       {/* Edit Bank Details Modal */}
       {isBankModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-lg rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-border/80 pb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
@@ -1553,7 +1553,7 @@ export default function OwnerSettings() {
       {/* Reset Confirmation Modal */}
       {isResetConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4 text-center">
+          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4 text-center max-h-[90dvh] overflow-y-auto">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive border border-destructive/20">
               <AlertTriangle className="h-7 w-7" />
             </div>

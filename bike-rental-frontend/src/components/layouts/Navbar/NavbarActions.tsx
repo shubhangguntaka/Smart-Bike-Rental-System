@@ -5,7 +5,7 @@ import NavbarProfile from "./NavbarProfile";
 
 export default function NavbarActions() {
   return (
-    <div className="flex items-center gap-2 sm:gap-3.5">
+    <div className="flex items-center gap-1.5 sm:gap-3.5 shrink-0">
       {/* Search is positioned inside Navbar on Desktop, but let's keep Actions clean */}
       <div className="hidden md:block">
         <ThemeToggle />

@@ -661,15 +661,15 @@ const BikeForm = ({
       {/* Image Zoom Modal */}
       {zoomedUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm"
           onClick={() => setZoomedUrl(null)}
         >
-          <div className="relative max-w-4xl overflow-hidden rounded-3xl bg-card p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <img src={zoomedUrl} alt="Zoomed preview" className="max-h-[80vh] w-auto rounded-2xl object-contain" />
+          <div className="relative max-w-4xl max-w-[calc(100vw-1.5rem)] max-h-[90dvh] overflow-hidden rounded-2xl sm:rounded-3xl bg-card p-1.5 sm:p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <img src={zoomedUrl} alt="Zoomed preview" className="max-h-[80dvh] w-auto max-w-full rounded-xl sm:rounded-2xl object-contain mx-auto" />
             <button
               type="button"
               onClick={() => setZoomedUrl(null)}
-              className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/90 cursor-pointer"
             >
               ✕
             </button>

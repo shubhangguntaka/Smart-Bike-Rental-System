@@ -309,7 +309,7 @@ const BookingHistory = () => {
                           variant="outlined"
                           size="small"
                           startIcon={<VisibilityIcon />}
-                          onClick={() => navigate(`/customer/bookings/${booking.bookingId}`)}
+                          onClick={() => navigate(`/customer/booking/${booking.bookingId}`)}
                         >
                           View Details
                         </Button>

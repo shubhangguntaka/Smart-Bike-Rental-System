@@ -27,10 +27,12 @@ export default function useBikeSse() {
               const ts = Date.now();
               try {
                 localStorage.setItem("bike_rental_sync", JSON.stringify({ bike: data, ts }));
-              } catch (err) {}
+              } catch {
+                // Ignore storage quota error
+              }
               toast.success("New bikes listed — refreshing");
-            } catch (err) {
-              // ignore
+            } catch {
+              // ignore parse errors
             }
           };
 
@@ -40,20 +42,22 @@ export default function useBikeSse() {
           es.onerror = () => {
             try {
               es.close();
-            } catch (e) {}
+            } catch {
+              // Ignore close error
+            }
             if (esRef.current === es) esRef.current = null;
             setTimeout(() => connect(), 5000);
           };
 
           esRef.current = es;
-        } catch (err) {
+        } catch {
           // retry after delay
           setTimeout(() => connect(), 5000);
         }
       };
 
       connect();
-    } catch (e) {
+    } catch {
       // ignore if EventSource not supported or endpoint unavailable
     }
 
@@ -61,7 +65,9 @@ export default function useBikeSse() {
       if (esRef.current) {
         try {
           esRef.current.close();
-        } catch (e) {}
+        } catch {
+          // Ignore close error
+        }
         esRef.current = null;
       }
     };

@@ -25,7 +25,7 @@ export const ModalBody: React.FC<ModalBodyProps> = ({
     <div
       className={cn(
         "flex-1 min-h-0 overflow-y-auto bg-card text-foreground text-sm leading-relaxed",
-        !noPadding && "px-6 py-5",
+        !noPadding && "px-4 sm:px-6 py-4 sm:py-5",
         className
       )}
     >

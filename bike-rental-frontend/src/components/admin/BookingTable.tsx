@@ -27,8 +27,8 @@ export default function BookingTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[750px] border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
               <th className="p-4">Booking</th>
@@ -125,13 +125,14 @@ export default function BookingTable({
                       })}
                     </td>
 
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right whitespace-nowrap">
                       {onViewDetails && (
                         <button
                           type="button"
                           onClick={() => onViewDetails(booking)}
-                          className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer"
+                          className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer min-h-[34px] min-w-[34px] inline-flex items-center justify-center"
                           title="View booking summary"
+                          aria-label="View booking summary"
                         >
                           <Eye className="h-4 w-4" />
                         </button>

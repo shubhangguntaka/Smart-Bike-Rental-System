@@ -175,7 +175,7 @@ export default function NavbarNotification() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute right-0 mt-3.5 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-xl overflow-hidden focus:outline-none"
+            className="fixed inset-x-3.5 top-16 sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-3.5 w-auto sm:w-96 sm:max-w-sm rounded-2xl border border-border bg-card shadow-2xl overflow-hidden focus:outline-none z-50"
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
               <span className="font-bold text-foreground text-sm">Notifications</span>
@@ -260,7 +260,7 @@ export default function NavbarNotification() {
               <button
                 onClick={() => {
                   setOpen(false);
-                  navigate(`/${(user?.role || "CUSTOMER").toLowerCase()}/notification`);
+                  navigate(`/${(user?.role || "CUSTOMER").toLowerCase()}/notifications`);
                 }}
                 className="text-xs font-semibold text-primary hover:underline w-full cursor-pointer"
               >

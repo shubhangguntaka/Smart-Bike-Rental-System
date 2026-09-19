@@ -237,7 +237,7 @@ export default function CustomerSettings() {
           </div>
 
           {/* Quick Header Actions */}
-          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-end sm:justify-start pt-2 sm:pt-0">
             <button
               type="button"
               onClick={() => setIsResetConfirmOpen(true)}

@@ -55,14 +55,14 @@ export default function HeroSection() {
           <div className="lg:col-span-6 text-left space-y-6 z-20">
             
             {/* Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-semibold tracking-wider uppercase backdrop-blur-md shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <span>SMART • SIMPLE • SHARED // PEER-TO-PEER MOBILITY</span>
+            <div className="inline-flex max-w-full flex-wrap items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 border border-primary/25 text-primary text-[10px] sm:text-xs font-semibold tracking-wider uppercase backdrop-blur-md shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />
+              <span className="break-words">SMART • SIMPLE • SHARED // PEER-TO-PEER MOBILITY</span>
             </div>
 
             {/* Main Marketplace Headline */}
             <div className="space-y-1">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.12]">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.12]">
                 Your Bike. <br />
                 <span className="bg-gradient-to-r from-primary via-emerald-500 to-cyan-400 bg-clip-text text-transparent">
                   Their Journey.
@@ -73,7 +73,7 @@ export default function HeroSection() {
             </div>
 
             {/* Core Marketplace Message */}
-            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
               Discover bikes available for rent near you, or list your own bike and earn whenever you're not using it. A peer-to-peer bike sharing marketplace built for flexible rides and reliable owner income.
             </p>
 
@@ -83,9 +83,9 @@ export default function HeroSection() {
             </div>
 
             {/* Micro Highlights Row representing both sides */}
-            <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground border-t border-border/60">
-              <div className="flex items-center gap-2">
-                <IndianRupee className="h-4 w-4 text-emerald-500" />
+            <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground border-t border-border/60">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <IndianRupee className="h-4 w-4 text-emerald-500 shrink-0" />
                 <span>Earn on Idle Bikes</span>
               </div>
               <div className="flex items-center gap-2">

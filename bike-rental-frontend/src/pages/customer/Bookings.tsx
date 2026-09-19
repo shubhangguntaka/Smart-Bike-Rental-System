@@ -315,7 +315,7 @@ export default function CustomerBookings() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
+                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
                   <div className="mr-3">
                     <span className="text-lg font-black text-foreground">₹{booking.totalAmount}</span>
                     <p className="text-[10px] text-muted-foreground font-semibold">Total Paid</p>

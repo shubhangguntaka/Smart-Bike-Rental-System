@@ -80,7 +80,7 @@ export default function AdminVerification() {
 
   // Filtered list
   const filteredSummaries = useMemo(() => {
-    let result = userSummaries.filter((item) => {
+    const result = userSummaries.filter((item) => {
       // Tab status filter
       if (activeTab !== "ALL") {
         if (activeTab === "VERIFIED" && item.overallStatus !== "VERIFIED") return false;
@@ -185,37 +185,37 @@ export default function AdminVerification() {
       </div>
 
       {/* Summary Count Cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Users</span>
-            <Layers className="h-4 w-4 text-primary" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+        <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-xs min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider truncate">Total Users</span>
+            <Layers className="h-4 w-4 text-primary shrink-0" />
           </div>
-          <p className="mt-2 text-2xl font-black text-foreground">{counts.total}</p>
+          <p className="mt-2 text-xl sm:text-2xl font-black text-foreground truncate">{counts.total}</p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Fully Verified</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+        <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-xs min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-xs font-bold text-emerald-600 uppercase tracking-wider truncate">Fully Verified</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-600">{counts.verified}</p>
+          <p className="mt-2 text-xl sm:text-2xl font-black text-emerald-600 truncate">{counts.verified}</p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Partial Upload</span>
-            <Clock className="h-4 w-4 text-amber-600" />
+        <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-xs min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-xs font-bold text-amber-600 uppercase tracking-wider truncate">Partial Upload</span>
+            <Clock className="h-4 w-4 text-amber-600 shrink-0" />
           </div>
-          <p className="mt-2 text-2xl font-black text-amber-600">{counts.partial}</p>
+          <p className="mt-2 text-xl sm:text-2xl font-black text-amber-600 truncate">{counts.partial}</p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-destructive uppercase tracking-wider">Rejected</span>
-            <XCircle className="h-4 w-4 text-destructive" />
+        <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-xs min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-xs font-bold text-destructive uppercase tracking-wider truncate">Rejected</span>
+            <XCircle className="h-4 w-4 text-destructive shrink-0" />
           </div>
-          <p className="mt-2 text-2xl font-black text-destructive">{counts.rejected}</p>
+          <p className="mt-2 text-xl sm:text-2xl font-black text-destructive truncate">{counts.rejected}</p>
         </div>
       </div>
 
@@ -235,7 +235,7 @@ export default function AdminVerification() {
                 setActiveTab(tab.id);
                 setPage(1);
               }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === tab.id
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -252,8 +252,8 @@ export default function AdminVerification() {
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:w-80">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="w-full md:w-80">
             <SearchBar
               value={search}
               onChange={(v) => {
@@ -264,7 +264,7 @@ export default function AdminVerification() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start sm:justify-end">
             <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground mr-1">
               <Filter className="h-3.5 w-3.5" />
               <span>Filter:</span>
@@ -277,7 +277,7 @@ export default function AdminVerification() {
                 setRoleFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full sm:w-auto rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
               <option value="ALL">Role: All</option>
               <option value="OWNER">Owner</option>
@@ -291,7 +291,7 @@ export default function AdminVerification() {
                 setDateFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full sm:w-auto rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
               <option value="ALL">Date: All Time</option>
               <option value="TODAY">Uploaded Today</option>
@@ -299,29 +299,29 @@ export default function AdminVerification() {
               <option value="MONTH">Past 30 Days</option>
             </select>
 
-            <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground ml-1">
-              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground w-full sm:w-auto sm:pl-2 sm:border-l sm:border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary shrink-0" />
               <span>Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full sm:w-auto rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer ml-1"
+              >
+                <option value="NEWEST">Newest Uploads First</option>
+                <option value="OLDEST">Oldest Uploads First</option>
+                <option value="NAME_AZ">User Name (A - Z)</option>
+                <option value="DOCS_COUNT">Most Documents Uploaded</option>
+              </select>
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(1);
-              }}
-              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            >
-              <option value="NEWEST">Newest Uploads First</option>
-              <option value="OLDEST">Oldest Uploads First</option>
-              <option value="NAME_AZ">User Name (A - Z)</option>
-              <option value="DOCS_COUNT">Most Documents Uploaded</option>
-            </select>
           </div>
         </div>
 
         {/* User-Grouped Verification Table */}
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto scrollbar-thin rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-left text-xs">
             <thead className="bg-muted/40 font-bold text-muted-foreground uppercase tracking-wider border-b border-border">
               <tr>
                 <th className="p-3">User</th>

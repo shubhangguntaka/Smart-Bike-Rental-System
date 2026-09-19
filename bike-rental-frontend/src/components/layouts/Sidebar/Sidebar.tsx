@@ -39,7 +39,7 @@ export default function Sidebar({ sections }: SidebarProps) {
 
   return (
     <aside
-      className={`hidden lg:flex h-screen flex-col border-r border-border bg-background transition-all duration-300 relative z-30 ${
+      className={`hidden lg:flex h-full flex-col border-r border-border bg-background transition-all duration-300 relative z-30 ${
         collapsed ? "w-20" : "w-70"
       }`}
     >

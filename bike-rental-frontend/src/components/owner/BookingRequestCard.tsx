@@ -83,17 +83,17 @@ const BookingRequestCard = () => {
     }
 
     return (
-        <div className="rounded-2xl border border-border bg-card shadow-xs p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="rounded-2xl border border-border bg-card shadow-xs p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 sm:mb-6">
                 <div>
-                    <h2 className="text-lg font-bold text-foreground">
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">
                         Pending Booking Requests
                     </h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
                         Approve or reject customer reservation requests for your fleet.
                     </p>
                 </div>
-                <span className="text-xs font-bold px-2.5 py-1 bg-primary/10 text-primary rounded-full">
+                <span className="text-xs font-bold px-2.5 py-1 bg-primary/10 text-primary rounded-full shrink-0">
                     {pendingRequests.length} Pending
                 </span>
             </div>
@@ -103,50 +103,50 @@ const BookingRequestCard = () => {
                     {pendingRequests.map((item) => (
                         <div
                             key={item.bookingId}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 py-4 first:pt-0 last:pb-0"
                         >
                             {/* Customer & Bike Info */}
-                            <div className="flex items-start gap-3">
-                                <div className="p-3 bg-muted rounded-xl text-primary mt-0.5">
-                                    <User className="h-5 w-5" />
+                            <div className="flex items-start gap-3 min-w-0">
+                                <div className="p-2.5 sm:p-3 bg-muted rounded-xl text-primary mt-0.5 shrink-0">
+                                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-foreground leading-snug">
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="font-bold text-foreground leading-snug text-sm truncate">
                                         {item.customerName}
                                     </h3>
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                        <Bike className="h-3.5 w-3.5 text-muted-foreground" />
-                                        {item.bikeName}
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                                        <Bike className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                        <span className="truncate">{item.bikeName}</span>
                                     </p>
                                 </div>
                             </div>
 
                             {/* Date Details */}
-                            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground sm:my-0 my-1">
+                            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground sm:my-0 my-0.5">
                                 <div className="flex items-center gap-1.5">
-                                    <Calendar className="h-4 w-4 text-primary shrink-0" />
-                                    <span>
+                                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                                    <span className="text-[11px] sm:text-xs">
                                         {item.pickupDate} to {item.returnDate}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Price / Status */}
-                            <div className="flex items-center justify-between sm:justify-end gap-4 sm:w-auto w-full border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
+                            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:w-auto w-full border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
                                 <div className="sm:text-right">
-                                    <span className="text-base font-black text-foreground">
+                                    <span className="text-sm sm:text-base font-black text-foreground">
                                         {formatCurrency(item.rentalAmount)}
                                     </span>
-                                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                                    <p className="text-[9px] sm:text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
                                         Amount
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <button
                                         type="button"
                                         onClick={() => handleViewDetails(item)}
-                                        className="p-2.5 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer focus:outline-none"
+                                        className="p-2 sm:p-2.5 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer focus:outline-none"
                                         title="View Details"
                                     >
                                         <Eye className="h-4 w-4" />
@@ -156,7 +156,7 @@ const BookingRequestCard = () => {
                                         type="button"
                                         disabled={actioningId !== null}
                                         onClick={() => handleApprove(item.bookingId)}
-                                        className="px-4 py-2 text-xs font-bold text-white bg-primary rounded-xl hover:opacity-90 disabled:opacity-50 transition-all duration-200 cursor-pointer flex items-center gap-1"
+                                        className="px-3 sm:px-4 py-2 text-xs font-bold text-white bg-primary rounded-xl hover:opacity-90 disabled:opacity-50 transition-all duration-200 cursor-pointer flex items-center gap-1"
                                     >
                                         {actioningId === item.bookingId ? (
                                             <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -168,7 +168,7 @@ const BookingRequestCard = () => {
                                         type="button"
                                         disabled={actioningId !== null}
                                         onClick={() => handleReject(item.bookingId)}
-                                        className="px-4 py-2 text-xs font-bold text-white bg-destructive rounded-xl hover:opacity-90 disabled:opacity-50 transition-all duration-200 cursor-pointer flex items-center gap-1"
+                                        className="px-3 sm:px-4 py-2 text-xs font-bold text-white bg-destructive rounded-xl hover:opacity-90 disabled:opacity-50 transition-all duration-200 cursor-pointer flex items-center gap-1"
                                     >
                                         Reject
                                     </button>

@@ -53,7 +53,7 @@ export default function RentBikeModal({
     const currentH = now.getHours();
     const currentM = now.getMinutes();
 
-    let pickup = new Date(now);
+    const pickup = new Date(now);
     // If current time is before shiftStart today, start at shiftStart
     if (currentH < shiftStartH || (currentH === shiftStartH && currentM < shiftStartM)) {
       pickup.setHours(shiftStartH, shiftStartM, 0, 0);
@@ -68,7 +68,7 @@ export default function RentBikeModal({
       pickup.setHours(nextH, nextM, 0, 0);
     }
 
-    let ret = new Date(pickup);
+    const ret = new Date(pickup);
     ret.setHours(ret.getHours() + 2); // 2-hour default rental
     if (ret.getDate() === pickup.getDate() && (ret.getHours() > shiftEndH || (ret.getHours() === shiftEndH && ret.getMinutes() > shiftEndM))) {
       ret.setHours(shiftEndH, shiftEndM, 0, 0);

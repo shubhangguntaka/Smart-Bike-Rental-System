@@ -32,7 +32,7 @@ interface TimePicker12hProps {
 
 const TimePicker12h = ({ label, value, onChange }: TimePicker12hProps) => {
   const parts = (value || "09:00").split(":");
-  let h24 = parseInt(parts[0] || "9", 10);
+  const h24 = parseInt(parts[0] || "9", 10);
   const minute = parts[1] ? parts[1].slice(0, 2) : "00";
 
   const period = h24 >= 12 ? "PM" : "AM";
@@ -597,18 +597,18 @@ const MyBikes = () => {
 
       {/* QUICK SHIFT TIMING MODAL */}
       {timingModalBike && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-lg rounded-3xl border border-border/80 bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-3xl border border-border/80 bg-card p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 animate-in fade-in zoom-in duration-200">
             <button
               type="button"
               onClick={() => setTimingModalBike(null)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition cursor-pointer"
+              className="absolute right-3.5 top-3.5 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
 
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-primary border border-primary/20">
                   <Clock className="h-3 w-3" /> Quick Shift Update
                 </span>
@@ -616,7 +616,7 @@ const MyBikes = () => {
                   {timingModalBike.registrationNumber}
                 </span>
               </div>
-              <h3 className="mt-2 font-sans text-xl font-extrabold text-foreground">
+              <h3 className="mt-2 font-sans text-lg sm:text-xl font-extrabold text-foreground truncate">
                 Set Shift Timing for {timingModalBike.bikeName}
               </h3>
               <p className="mt-0.5 text-xs text-muted-foreground font-medium">
@@ -624,8 +624,8 @@ const MyBikes = () => {
               </p>
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/20 p-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/20 p-3.5 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <TimePicker12h
                   label="Shift Start Time"
                   value={modalStartTime}
@@ -638,7 +638,7 @@ const MyBikes = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Rental Rate (₹/hr)
@@ -670,7 +670,7 @@ const MyBikes = () => {
                 type="button"
                 disabled={savingTiming}
                 onClick={handleSaveTimingAndPost}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3.5 text-xs font-extrabold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-primary px-5 py-3 text-xs font-extrabold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
               >
                 <Sparkles className="h-4 w-4" />
                 {savingTiming ? "Posting Live..." : "Post Bike Live Now →"}
@@ -683,7 +683,7 @@ const MyBikes = () => {
                   setTimingModalBike(null);
                   navigate(ROUTES.OWNER.EDIT_BIKE(targetId!));
                 }}
-                className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-card px-4 py-3.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl border border-border bg-card px-4 py-3 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Edit Details

@@ -37,24 +37,24 @@ interface MetricCardProps {
 
 const MetricCard = ({ title, value, subtitle, icon, iconClassName = "text-primary", }: MetricCardProps) => {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 shadow-xs">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+    <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 shadow-xs min-w-0">
+      <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
             {title}
           </p>
 
-          <p className="text-3xl font-extrabold text-foreground mt-2">
+          <p className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-foreground mt-1.5 sm:mt-2 truncate">
             {value}
           </p>
         </div>
 
-        <div className="p-3 rounded-xl bg-background border border-border">
+        <div className="p-2 sm:p-3 rounded-xl bg-background border border-border shrink-0">
           <span className={iconClassName}>{icon}</span>
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground mt-3 border-t border-border/50 pt-3">
+      <p className="text-[10px] sm:text-xs text-muted-foreground mt-2.5 sm:mt-3 border-t border-border/50 pt-2.5 sm:pt-3 truncate">
         {subtitle}
       </p>
     </div>
@@ -1095,13 +1095,13 @@ export default function AdminReports() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <select
               value={selectedReport}
               onChange={(e) => {
                 setSelectedReport(e.target.value as ReportType);
               }}
-              className="bg-background border border-border text-foreground rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
+              className="w-full sm:w-auto bg-background border border-border text-foreground rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
             >
               <option value="bookings">Bookings Ledger</option>
               <option value="revenue">Revenue Ledger</option>
@@ -1114,7 +1114,7 @@ export default function AdminReports() {
               onChange={(e) =>
                 setAnalyticsRange(e.target.value as AnalyticsRange)
               }
-              className="bg-background border border-border text-foreground rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
+              className="w-full sm:w-auto bg-background border border-border text-foreground rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
             >
               <option value="ALL">Timeframe: All Time</option>
               <option value="TODAY">Timeframe: Today</option>
@@ -1123,23 +1123,25 @@ export default function AdminReports() {
               <option value="THIS_MONTH">Timeframe: This Month</option>
             </select>
 
-            <button
-              type="button"
-              onClick={exportReportToCSV}
-              disabled={filteredReportData.length === 0 || reportLoading}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs cursor-pointer active:scale-95"
-            >
-              Export CSV
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={exportReportToCSV}
+                disabled={filteredReportData.length === 0 || reportLoading}
+                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs cursor-pointer active:scale-95"
+              >
+                Export CSV
+              </button>
 
-            <button
-              type="button"
-              onClick={exportReportToPDF}
-              disabled={filteredReportData.length === 0 || reportLoading}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs cursor-pointer active:scale-95"
-            >
-              Export PDF
-            </button>
+              <button
+                type="button"
+                onClick={exportReportToPDF}
+                disabled={filteredReportData.length === 0 || reportLoading}
+                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-background border border-border text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs cursor-pointer active:scale-95"
+              >
+                Export PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1194,8 +1196,8 @@ export default function AdminReports() {
         )}
 
         {!reportLoading && filteredReportData.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-2xs">
-            <table className="min-w-full text-xs">
+          <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-border bg-card shadow-2xs">
+            <table className="min-w-[700px] w-full text-xs">
               <thead className="bg-muted/40 border-b border-border">
                 <tr>
                   {Object.keys(filteredReportData[0]).map((key) => (

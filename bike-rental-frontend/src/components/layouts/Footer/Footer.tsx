@@ -9,7 +9,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border bg-background/50 transition-colors duration-300">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-4 lg:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Column 1: Brand details */}
           <div className="space-y-5 text-left md:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 outline-none rounded-xl group">

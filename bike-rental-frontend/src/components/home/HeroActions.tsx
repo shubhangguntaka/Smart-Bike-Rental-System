@@ -47,7 +47,7 @@ export default function HeroActions({ className = "" }: HeroActionsProps) {
       </div>
 
       {/* Contextual Authentication / Dashboard Links */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground pt-1">
         {!isAuthenticated ? (
           <>
             <span className="flex items-center gap-2">

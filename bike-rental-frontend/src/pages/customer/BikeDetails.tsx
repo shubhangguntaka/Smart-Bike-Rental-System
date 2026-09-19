@@ -78,7 +78,9 @@ export default function CustomerBikeDetails() {
           }
         });
       }
-    } catch (e) {}
+    } catch {
+      // Ignore JSON parse errors
+    }
   }, [bike, user]);
 
   const handleBookNow = async () => {
@@ -165,7 +167,7 @@ export default function CustomerBikeDetails() {
           Back to Listings
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() =>

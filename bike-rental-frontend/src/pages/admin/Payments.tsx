@@ -52,30 +52,30 @@ const SummaryCard = ({
   <button
     type="button"
     onClick={onClick}
-    className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 text-left cursor-pointer flex flex-col justify-between space-y-2 ${
+    className={`p-3.5 sm:p-5 rounded-2xl border transition-all duration-200 text-left cursor-pointer flex flex-col justify-between space-y-2 min-w-0 ${
       active
         ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
         : "border-border/80 bg-card hover:bg-muted/40 hover:border-border"
     }`}
   >
-    <div className="flex items-center justify-between">
-      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+    <div className="flex items-center justify-between gap-1">
+      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
         {title}
       </span>
-      <div className="p-2 rounded-xl bg-background border border-border/70 shadow-2xs">
+      <div className="p-1.5 sm:p-2 rounded-xl bg-background border border-border/70 shadow-2xs shrink-0">
         {icon}
       </div>
     </div>
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-xl sm:text-2xl font-black text-foreground">{count}</span>
+    <div className="flex items-baseline justify-between gap-1">
+      <span className="text-xl sm:text-2xl font-black text-foreground truncate">{count}</span>
       {badgeClass && (
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${badgeClass}`}>
+        <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-md truncate ${badgeClass}`}>
           {title}
         </span>
       )}
     </div>
     {subtitle && (
-      <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+      <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40 truncate">
         {subtitle}
       </p>
     )}
@@ -389,7 +389,7 @@ export default function AdminPayments() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-start sm:justify-end">
             <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
               <Filter className="h-3.5 w-3.5" />
               <span>Status:</span>
@@ -402,7 +402,7 @@ export default function AdminPayments() {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border/80 focus:outline-hidden text-foreground cursor-pointer font-medium"
+              className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border/80 focus:outline-hidden text-foreground cursor-pointer font-medium"
             >
               <option value="ALL">All Statuses</option>
               <option value="SUCCESS">Settled / Success</option>
@@ -410,23 +410,23 @@ export default function AdminPayments() {
               <option value="FAILED">Failed</option>
             </select>
 
-            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold ml-1">
-              <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold w-full sm:w-auto sm:pl-2 sm:border-l sm:border-border">
+              <ArrowUpDown className="h-3.5 w-3.5 text-primary shrink-0" />
               <span>Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-background border border-border/80 focus:outline-hidden text-foreground cursor-pointer font-medium ml-1"
+              >
+                <option value="NEWEST">Newest Transactions</option>
+                <option value="OLDEST">Oldest Transactions</option>
+                <option value="AMOUNT_HIGH">Highest Amount</option>
+                <option value="AMOUNT_LOW">Lowest Amount</option>
+              </select>
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-2 text-xs rounded-xl bg-background border border-border/80 focus:outline-hidden text-foreground cursor-pointer font-medium"
-            >
-              <option value="NEWEST">Newest Transactions</option>
-              <option value="OLDEST">Oldest Transactions</option>
-              <option value="AMOUNT_HIGH">Highest Amount</option>
-              <option value="AMOUNT_LOW">Lowest Amount</option>
-            </select>
           </div>
         </div>
       </div>

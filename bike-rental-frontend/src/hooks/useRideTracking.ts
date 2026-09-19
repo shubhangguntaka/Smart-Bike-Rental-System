@@ -211,7 +211,7 @@ export function useRideTracking(): UseRideTrackingResult {
     } finally {
       setIsEnding(false);
     }
-  }, [ride?.rideId, stopTracking, startTracking]);
+  }, [ride, stopTracking, startTracking]);
 
   /*
    * Pause the active ride (notifies owner and halts GPS tracking).
@@ -237,7 +237,7 @@ export function useRideTracking(): UseRideTrackingResult {
       setError(message);
       return null;
     }
-  }, [ride?.rideId, stopTracking]);
+  }, [ride, stopTracking]);
 
   /*
    * Resume the paused ride (notifies owner and restarts GPS tracking).
@@ -263,7 +263,7 @@ export function useRideTracking(): UseRideTrackingResult {
       setError(message);
       return null;
     }
-  }, [ride?.rideId, startTracking]);
+  }, [ride, startTracking]);
 
   /*
    * Load one ride.

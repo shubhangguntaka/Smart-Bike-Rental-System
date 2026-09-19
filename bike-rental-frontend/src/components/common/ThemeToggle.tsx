@@ -68,7 +68,7 @@ export default function ThemeToggle() {
     };
 
     return (
-        <div className="inline-flex rounded-2xl border border-border bg-card/80 p-1 shadow-lg backdrop-blur-md">
+        <div className="inline-flex rounded-xl sm:rounded-2xl border border-border bg-card/80 p-0.5 sm:p-1 shadow-md sm:shadow-lg backdrop-blur-md">
             {options.map((option) => {
                 const active = theme === option.value;
 
@@ -88,12 +88,13 @@ export default function ThemeToggle() {
                             damping: 30,
                         }}
                         onClick={(e) => handleThemeChange(e, option.value)}
-                        className="relative flex items-center gap-2 overflow-hidden rounded-xl px-4 py-2 text-sm font-medium"
+                        className="relative flex items-center justify-center overflow-hidden rounded-lg sm:rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium"
+                        aria-label={`Switch to ${option.label} theme`}
                     >
                         {active && (
                             <motion.div
                                 layoutId="theme-active"
-                                className="absolute inset-0 rounded-xl bg-primary"
+                                className="absolute inset-0 rounded-lg sm:rounded-xl bg-primary"
                                 transition={{
                                     type: "spring",
                                     stiffness: 500,
@@ -103,7 +104,7 @@ export default function ThemeToggle() {
                         )}
 
                         <span
-                            className={`relative z-10 flex items-center gap-2 transition-colors duration-300 ${active
+                            className={`relative z-10 flex items-center transition-colors duration-300 ${active
                                 ? "text-primary-foreground"
                                 : "text-muted-foreground"
                                 }`}

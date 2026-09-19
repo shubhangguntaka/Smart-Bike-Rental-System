@@ -42,7 +42,7 @@ export default function FooterBottom() {
           <p className="text-xs text-muted-foreground leading-normal">
             Get the latest updates on station locations, new e-bike arrivals, and discount promo codes directly in your inbox.
           </p>
-          <form onSubmit={handleSubscribe} className="flex gap-2 w-full">
+          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 w-full">
             <input
               type="email"
               required
@@ -52,7 +52,7 @@ export default function FooterBottom() {
             />
             <button
               type="submit"
-              className="h-10 rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow transition hover:opacity-90 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="h-10 rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow transition hover:opacity-90 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shrink-0 cursor-pointer"
             >
               Subscribe
             </button>

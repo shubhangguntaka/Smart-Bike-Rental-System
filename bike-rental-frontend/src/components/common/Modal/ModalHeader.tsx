@@ -35,11 +35,11 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
   return (
     <div
       className={cn(
-        "flex items-center justify-between px-6 py-4.5 border-b border-border bg-card text-foreground rounded-t-2xl",
+        "flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-border bg-card text-foreground rounded-t-2xl sm:rounded-t-3xl shrink-0 gap-3",
         className
       )}
     >
-      <h2 id={id} className="text-base font-bold leading-6">
+      <h2 id={id} className="text-sm sm:text-base font-bold leading-6 truncate">
         {children}
       </h2>
 

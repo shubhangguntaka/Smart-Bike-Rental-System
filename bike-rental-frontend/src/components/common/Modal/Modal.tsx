@@ -149,12 +149,12 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen]);
 
   const sizeClasses = {
-    sm: "max-w-sm w-full mx-4",
-    md: "max-w-md w-full mx-4",
-    lg: "max-w-lg w-full mx-4",
-    xl: "max-w-2xl w-full mx-4",
-    "2xl": "max-w-3xl w-full mx-4",
-    "3xl": "max-w-5xl w-full mx-4",
+    sm: "max-w-sm w-full mx-2.5 sm:mx-4",
+    md: "max-w-md w-full mx-2.5 sm:mx-4",
+    lg: "max-w-lg w-full mx-2.5 sm:mx-4",
+    xl: "max-w-2xl w-full mx-2.5 sm:mx-4",
+    "2xl": "max-w-3xl w-full mx-2.5 sm:mx-4",
+    "3xl": "max-w-5xl w-full mx-2.5 sm:mx-4",
     full: "w-full h-full max-h-none rounded-none",
   };
 
@@ -178,7 +178,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={ariaLabelledBy}
         aria-describedby={ariaDescribedBy}
         className={cn(
-          "relative z-10 flex flex-col max-h-[85vh] bg-card text-foreground rounded-2xl shadow-2xl border border-border focus:outline-none overflow-hidden animate-in zoom-in-95 duration-200",
+          "relative z-10 flex flex-col max-h-[90dvh] bg-card text-foreground rounded-2xl sm:rounded-3xl shadow-2xl border border-border focus:outline-none overflow-hidden animate-in zoom-in-95 duration-200",
           sizeClasses[size],
           className
         )}

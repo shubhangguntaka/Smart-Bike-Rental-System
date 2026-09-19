@@ -294,12 +294,12 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
     };
 
     return (
-        <div className="w-full space-y-6 text-foreground">
+        <div className="w-full space-y-4 sm:space-y-6 text-foreground max-h-[85dvh] overflow-y-auto">
             {/* 2-Column Responsive Grid with Equalized Height */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-stretch">
                 
                 {/* Left Side: Camera Scanner Viewport Card */}
-                <div className="flex flex-col justify-between p-5 bg-muted/20 border border-border/70 rounded-2xl relative">
+                <div className="flex flex-col justify-between p-3.5 sm:p-5 bg-muted/20 border border-border/70 rounded-2xl relative">
                     <div className="flex items-center justify-between pb-3 border-b border-border/50">
                         <div className="flex items-center gap-2">
                             <Camera className="w-4 h-4 text-primary" />
@@ -318,9 +318,9 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                     </div>
 
                     {/* Viewport Box */}
-                    <div className="my-4 flex items-center justify-center">
+                    <div className="my-3 sm:my-4 flex items-center justify-center">
                         {permission === "granted" ? (
-                            <div className="relative w-full h-56 rounded-xl bg-black overflow-hidden flex items-center justify-center border border-border shadow-inner">
+                            <div className="relative w-full h-48 sm:h-56 rounded-xl bg-black overflow-hidden flex items-center justify-center border border-border shadow-inner">
                                 <video
                                     ref={videoRef}
                                     playsInline
@@ -328,7 +328,7 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                                     className="w-full h-full object-cover"
                                 />
                                 {/* Reticles & Scan Line */}
-                                <div className="absolute inset-5 border-2 border-primary/70 rounded-lg pointer-events-none flex flex-col justify-between p-2">
+                                <div className="absolute inset-4 sm:inset-5 border-2 border-primary/70 rounded-lg pointer-events-none flex flex-col justify-between p-2">
                                     <div className="flex justify-between">
                                         <div className="w-4 h-4 border-t-2 border-l-2 border-primary" />
                                         <div className="w-4 h-4 border-t-2 border-r-2 border-primary" />
@@ -340,12 +340,12 @@ export default function BookingQRScanner({ onClose }: BookingQRScannerProps) {
                                         <div className="w-4 h-4 border-b-2 border-r-2 border-primary" />
                                     </div>
                                 </div>
-                                <span className="absolute bottom-2 bg-black/75 backdrop-blur-xs text-white text-[10px] px-2.5 py-0.5 rounded-md font-mono tracking-wide">
+                                <span className="absolute bottom-2 bg-black/75 backdrop-blur-xs text-white text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-md font-mono tracking-wide">
                                     Align Booking QR Pass
                                 </span>
                             </div>
                         ) : (
-                            <div className="w-full h-56 rounded-xl bg-card border border-dashed border-border/80 flex flex-col items-center justify-center p-5 text-center space-y-3">
+                            <div className="w-full h-48 sm:h-56 rounded-xl bg-card border border-dashed border-border/80 flex flex-col items-center justify-center p-4 sm:p-5 text-center space-y-2.5 sm:space-y-3">
                                 {permission === "denied" ? (
                                     <>
                                         <div className="w-10 h-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">

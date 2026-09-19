@@ -153,13 +153,13 @@ export default function HeaderNotification() {
     <div className="relative z-45" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative rounded-xl p-2.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+        className="relative rounded-xl p-2 sm:p-2.5 transition-all duration-300 hover:bg-accent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
         aria-label="Dashboard Notifications"
         aria-expanded={open}
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground animate-pulse">
+          <span className="absolute right-1 top-1 sm:right-1.5 sm:top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground animate-pulse">
             {unreadCount}
           </span>
         )}
@@ -172,9 +172,9 @@ export default function HeaderNotification() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute right-0 mt-3.5 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-xl overflow-hidden focus:outline-none"
+            className="fixed inset-x-3.5 top-16 sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-3 w-auto sm:w-96 sm:max-w-sm rounded-2xl border border-border bg-card shadow-2xl overflow-hidden focus:outline-none z-50"
           >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5 sm:py-4 bg-muted/20">
               <span className="font-bold text-foreground text-sm">Dashboard Alerts</span>
               {unreadCount > 0 && (
                 <button
@@ -210,11 +210,11 @@ export default function HeaderNotification() {
                     <div
                       key={n.notificationId}
                       onClick={() => handleNotificationClick(n)}
-                      className={`flex items-start gap-3.5 p-4 transition-colors duration-200 cursor-pointer hover:bg-accent/40 ${
+                      className={`flex items-start gap-3 p-3.5 sm:p-4 transition-colors duration-200 cursor-pointer hover:bg-accent/40 ${
                         !n.isRead ? "bg-primary/5" : ""
                       }`}
                     >
-                      <div className="mt-0.5">
+                      <div className="mt-0.5 shrink-0">
                         <div
                           className={`flex h-8 w-8 items-center justify-center rounded-lg ${style}`}
                         >
@@ -222,20 +222,20 @@ export default function HeaderNotification() {
                         </div>
                       </div>
 
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
                           <p
-                            className={`text-sm font-semibold leading-none ${
+                            className={`text-sm font-semibold leading-tight truncate ${
                               !n.isRead ? "text-foreground font-bold" : "text-muted-foreground"
                             }`}
                           >
                             {n.title}
                           </p>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground shrink-0">
                             {formatRelativeTime(n.createdAt)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-normal">
+                        <p className="text-xs text-muted-foreground leading-normal line-clamp-2 break-words">
                           {n.message}
                         </p>
                       </div>
@@ -253,11 +253,11 @@ export default function HeaderNotification() {
               )}
             </div>
 
-            <div className="border-t border-border px-5 py-3 text-center bg-muted/10">
+            <div className="border-t border-border px-4 py-3 sm:px-5 text-center bg-muted/10">
               <button
                 onClick={() => {
                   setOpen(false);
-                  navigate(`/${(user?.role || "CUSTOMER").toLowerCase()}/notification`);
+                  navigate(`/${(user?.role || "CUSTOMER").toLowerCase()}/notifications`);
                 }}
                 className="text-xs font-semibold text-primary hover:underline w-full cursor-pointer"
               >

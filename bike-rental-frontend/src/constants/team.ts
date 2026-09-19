@@ -12,6 +12,10 @@ export interface TeamMember {
   behindGlowColor?: string;
   highlights?: string[];
   technologies?: string[];
+  avatarPlaceholder?: string;
+  tags?: string[];
+  github?: string;
+  linkedin?: string;
 }
 
 export interface InstituteInfo {

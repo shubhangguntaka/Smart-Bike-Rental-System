@@ -69,7 +69,9 @@ function MapBoundsFitter({
     const t1 = setTimeout(() => {
       try {
         map.invalidateSize();
-      } catch {}
+      } catch {
+        // Map DOM not ready
+      }
     }, 100);
 
     const t2 = setTimeout(() => {
@@ -84,7 +86,9 @@ function MapBoundsFitter({
         } else {
           map.setView(bikePos, 15);
         }
-      } catch {}
+      } catch {
+        // Map DOM not ready
+      }
     }, 300);
 
     return () => {
@@ -309,14 +313,14 @@ export default function BikeDirectionsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-card border border-border/80 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header Band */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border bg-muted/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
               <Navigation className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-foreground">
+                <h3 className="text-sm sm:text-base font-bold text-foreground">
                   Directions to Accepted Bike
                 </h3>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">
@@ -333,14 +337,14 @@ export default function BikeDirectionsModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer"
+            className="w-9 h-9 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Live Route Summary Pill */}
-        <div className="px-6 py-3 bg-muted/40 border-b border-border flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-muted/40 border-b border-border flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border/80 shadow-2xs font-bold text-foreground">
               <Compass className="w-3.5 h-3.5 text-primary" />
@@ -373,19 +377,19 @@ export default function BikeDirectionsModal({
         </div>
 
         {locationError && (
-          <div className="px-6 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
+          <div className="px-4 sm:px-6 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{locationError}</span>
           </div>
         )}
 
         {/* Leaflet Interactive Map View */}
-        <div className="relative w-full h-[420px] sm:h-[460px] min-h-[380px] bg-muted/20 overflow-hidden">
+        <div className="relative w-full h-[300px] sm:h-[420px] md:h-[460px] min-h-[260px] sm:min-h-[380px] bg-muted/20 overflow-hidden">
           <MapContainer
             center={customerPos || bikePos}
             zoom={14}
             scrollWheelZoom={true}
-            style={{ height: "100%", width: "100%", minHeight: "380px", zIndex: 0 }}
+            style={{ height: "100%", width: "100%", minHeight: "260px", zIndex: 0 }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

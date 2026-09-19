@@ -41,8 +41,8 @@ export default function PaymentTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[750px] border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border/80 bg-muted/25 font-semibold text-muted-foreground">
               <th className="p-4">Payment ID & Ref</th>
@@ -167,13 +167,14 @@ export default function PaymentTable({
                     </td>
 
                     {/* Actions */}
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right whitespace-nowrap">
                       {onViewDetails && (
                         <button
                           type="button"
                           onClick={() => onViewDetails(payment)}
-                          className="rounded-xl border border-border/80 bg-background/80 p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-150 cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+                          className="rounded-xl border border-border/80 bg-background/80 p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-150 cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95 min-h-[34px] min-w-[34px] inline-flex items-center justify-center"
                           title="View complete transaction breakdown"
+                          aria-label="View complete transaction breakdown"
                         >
                           <Eye className="h-4 w-4" />
                         </button>

@@ -988,11 +988,11 @@ export default function OwnerPayments() {
                         </div>
                     </div>
 
-                    <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/80">
+                    <div className="flex items-center overflow-x-auto max-w-full rounded-xl bg-muted/60 p-1 border border-border/80 scrollbar-none shrink-0">
                         <button
                             type="button"
                             onClick={() => setActiveChartTab("monthly")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
                                 activeChartTab === "monthly"
                                     ? "bg-background text-foreground shadow-2xs"
                                     : "text-muted-foreground hover:text-foreground"
@@ -1003,7 +1003,7 @@ export default function OwnerPayments() {
                         <button
                             type="button"
                             onClick={() => setActiveChartTab("trend")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
                                 activeChartTab === "trend"
                                     ? "bg-background text-foreground shadow-2xs"
                                     : "text-muted-foreground hover:text-foreground"
@@ -1014,7 +1014,7 @@ export default function OwnerPayments() {
                         <button
                             type="button"
                             onClick={() => setActiveChartTab("vehicle")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
                                 activeChartTab === "vehicle"
                                     ? "bg-background text-foreground shadow-2xs"
                                     : "text-muted-foreground hover:text-foreground"
@@ -1114,7 +1114,7 @@ export default function OwnerPayments() {
                         value={searchQuery}
                         onChange={setSearchQuery}
                         placeholder="Search by Payment ID, Booking ID, Customer Name, Phone, Vehicle, Invoice #..."
-                        width="w-[600px]"
+                        width="w-full max-w-xl"
                     />
                 </div>
                 <FilterBar
@@ -1473,23 +1473,25 @@ export default function OwnerPayments() {
                         </ModalBody>
 
                         <ModalFooter>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    window.print();
-                                }}
-                                className="px-4 py-2 bg-background border border-border/80 hover:bg-muted text-foreground text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                            >
-                                <Printer className="h-3.5 w-3.5" />
-                                <span>Print Receipt</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setSelectedItem(null)}
-                                className="px-5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition cursor-pointer"
-                            >
-                                Close
-                            </button>
+                            <div className="flex flex-col-reverse sm:flex-row gap-2 w-full justify-between items-stretch sm:items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        window.print();
+                                    }}
+                                    className="px-4 py-2.5 bg-background border border-border/80 hover:bg-muted text-foreground text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                    <Printer className="h-3.5 w-3.5" />
+                                    <span>Print Receipt</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedItem(null)}
+                                    className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </ModalFooter>
                     </>
                 )}

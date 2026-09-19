@@ -29,8 +29,8 @@ export default function BikeTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[700px] border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
               <th className="p-4">Bike</th>
@@ -128,14 +128,15 @@ export default function BikeTable({
                       </span>
                     </td>
 
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5">
                         {onViewDetails && (
                           <button
                             type="button"
                             onClick={() => onViewDetails(bike)}
-                            className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer"
+                            className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition cursor-pointer min-h-[34px] min-w-[34px] flex items-center justify-center"
                             title="View bike details"
+                            aria-label="View bike details"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
@@ -145,7 +146,7 @@ export default function BikeTable({
                           <button
                             type="button"
                             onClick={() => onStatusAction(bike)}
-                            className={`rounded-xl border border-border px-3 py-1.5 text-[10px] font-semibold transition cursor-pointer ${
+                            className={`rounded-xl border border-border px-3 py-1.5 text-[10px] font-semibold transition cursor-pointer min-h-[34px] inline-flex items-center justify-center ${
                               canDeactivate
                                 ? "text-destructive hover:border-destructive hover:bg-destructive/5"
                                 : "text-green-500 hover:border-green-500 hover:bg-green-500/5"

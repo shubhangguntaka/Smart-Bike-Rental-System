@@ -332,7 +332,7 @@ const BookingDetails = () => {
                                     </Box>
                                 )}
 
-                                <Box mt={3} display="flex" gap={2}>
+                                <Box mt={3} display="flex" flexWrap="wrap" gap={1.5}>
                                     {booking.bookingStatus === "COMPLETED" && booking.paymentStatus !== "SUCCESS" && (
                                         <Button
                                             variant="contained"

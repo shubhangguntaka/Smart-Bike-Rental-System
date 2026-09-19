@@ -19,7 +19,7 @@ export default function TeamCard({ member }: TeamCardProps) {
             {/* Cyber Avatar Shield */}
             <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-primary/20 via-cyan-500/20 to-emerald-500/20 p-1 shadow-sm group-hover:shadow-primary/20 transition-all">
               <div className="h-full w-full rounded-2xl bg-muted/80 flex items-center justify-center font-mono font-extrabold text-lg text-primary">
-                {member.avatarPlaceholder}
+                {member.avatarPlaceholder || member.name.charAt(0)}
               </div>
             </div>
             {/* Live Indicator Dot */}
@@ -54,7 +54,7 @@ export default function TeamCard({ member }: TeamCardProps) {
 
         {/* Feature Tags */}
         <div className="flex flex-wrap gap-2 pt-1">
-          {member.tags.map((tag, tIdx) => (
+          {(member.tags || member.technologies || []).map((tag: string, tIdx: number) => (
             <span
               key={tIdx}
               className="text-[10px] font-medium px-2 py-1 rounded-md bg-muted/70 text-foreground/80 border border-border/50"

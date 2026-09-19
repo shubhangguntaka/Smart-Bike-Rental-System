@@ -7,10 +7,10 @@ export default function MainLayout() {
   const isHomePage = location.pathname === "/";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-background text-foreground">
       <Navbar />
 
-      <main className={`flex-1 ${isHomePage ? "-mt-16" : ""}`}>
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${isHomePage ? "" : "pt-16"}`}>
         <Outlet />
       </main>
 

@@ -192,45 +192,45 @@ export default function OwnerDashboard() {
     ];
 
     return (
-        <div className="space-y-8 pb-10 text-foreground">
+        <div className="space-y-6 sm:space-y-8 pb-10 text-foreground">
             {/* 1. Welcome Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-card border border-border p-6 sm:p-8 rounded-3xl shadow-xs relative overflow-hidden transition-all duration-300">
-                <div className="flex items-center gap-4 sm:gap-6 relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 bg-card border border-border p-5 sm:p-7 lg:p-8 rounded-2xl sm:rounded-3xl shadow-xs relative overflow-hidden transition-all duration-300">
+                <div className="flex items-center gap-3.5 sm:gap-6 relative z-10 min-w-0">
                     {/* Owner Avatar */}
                     {user?.profileImage ? (
                         <img 
                             src={user.profileImage} 
                             alt={user.fullName || "Owner Avatar"} 
-                            className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover border border-border shadow-sm shrink-0"
+                            className="h-14 w-14 sm:h-20 sm:w-20 rounded-2xl object-cover border border-border shadow-sm shrink-0"
                         />
                     ) : (
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl sm:text-2xl font-black border border-primary/20 shadow-inner shrink-0 uppercase">
+                        <div className="h-14 w-14 sm:h-20 sm:w-20 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-lg sm:text-2xl font-black border border-primary/20 shadow-inner shrink-0 uppercase">
                             {getInitials()}
                         </div>
                     )}
                     
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground truncate">
                                 Welcome back, {firstName}! 👋
                             </h1>
                             {isAadhaarVerified && isRcVerified && (
-                                <span className="p-0.5 rounded-full bg-green-500/10 text-green-500" title="Fully Verified Account">
-                                    <ShieldCheck className="h-5 w-5" />
+                                <span className="p-0.5 rounded-full bg-green-500/10 text-green-500 shrink-0" title="Fully Verified Account">
+                                    <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 font-medium leading-relaxed">
                             Here's what is happening with your bike rental fleet today.
                         </p>
                     </div>
                 </div>
 
                 {/* Quick Summary Badge */}
-                <div className="flex items-center gap-3 bg-muted/40 border border-border/80 px-4 py-3 rounded-2xl md:self-center self-start relative z-10 shrink-0">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-3 bg-muted/40 border border-border/80 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl md:self-center self-start relative z-10 shrink-0">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     <div>
-                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Fleet Status</p>
+                        <p className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Fleet Status</p>
                         <p className="text-xs font-bold text-foreground">Active & Earning</p>
                     </div>
                 </div>
@@ -240,34 +240,34 @@ export default function OwnerDashboard() {
             </div>
 
             {/* Payout & Settlement Quick Action Card */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-xs relative overflow-hidden">
-                <div className="flex items-center gap-3.5">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-card border border-border shadow-xs relative overflow-hidden">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0 mt-0.5 sm:mt-0">
                         <Building2 className="h-5 w-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm sm:text-base font-bold text-foreground">
+                            <h3 className="text-xs sm:text-base font-bold text-foreground truncate">
                                 Active Payout Account: {bankConfig.bankName || "HDFC Bank Ltd"}
                             </h3>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary border border-primary/20">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-primary border border-primary/20">
                                 <CheckCircle2 className="h-3 w-3" />
                                 KYC Verified
                             </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed break-words">
                             Account: <span className="font-mono font-bold text-foreground">{maskedAccount}</span>
-                            <span className="mx-1.5">•</span>
+                            <span className="mx-1">•</span>
                             Beneficiary: <span className="font-semibold text-foreground">{bankConfig.accountHolderName}</span>
-                            <span className="mx-1.5">•</span>
+                            <span className="mx-1">•</span>
                             IFSC: <span className="font-mono font-bold text-primary">{bankConfig.ifscCode || "HDFC0001234"}</span>
                             {bankConfig.upiId && (
                                 <>
-                                    <span className="mx-1.5">•</span>
+                                    <span className="mx-1">•</span>
                                     UPI: <span className="font-mono text-foreground">{bankConfig.upiId}</span>
                                 </>
                             )}
-                            <span className="mx-1.5">•</span>
+                            <span className="mx-1">•</span>
                             Frequency: <span className="capitalize font-semibold text-primary">{bankConfig.payoutFrequency || "Instant"}</span>
                         </p>
                     </div>
@@ -277,7 +277,7 @@ export default function OwnerDashboard() {
                     <button
                         type="button"
                         onClick={handleNavigateToBankEdit}
-                        className="w-full md:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
+                        className="w-full md:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary hover:opacity-90 text-primary-foreground px-4 py-2.5 text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
                     >
                         <Building2 className="h-3.5 w-3.5" />
                         <span>Edit Bank / UPI Details</span>
@@ -286,7 +286,7 @@ export default function OwnerDashboard() {
             </div>
 
             {/* Main Grid: Statistics & Booking Details vs Quick Actions & Verification */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                 
                 {/* Left Side: Stats, Earnings & Booking requests (Takes 2 columns on large screen) */}
                 <div className="lg:col-span-2 space-y-8">

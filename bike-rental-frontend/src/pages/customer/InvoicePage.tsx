@@ -197,7 +197,7 @@ const InvoicePage: React.FC = () => {
       </div>
 
       {/* Printable Invoice Container */}
-      <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-8 shadow-sm transition hover:shadow-md md:p-12 invoice-card">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-4 sm:p-8 md:p-12 shadow-sm transition hover:shadow-md invoice-card">
         {/* Invoice Header */}
         <div className="flex flex-col gap-6 border-b border-border pb-8 md:flex-row md:items-start md:justify-between">
           <div className="space-y-3">
@@ -287,8 +287,8 @@ const InvoicePage: React.FC = () => {
         </div>
 
         {/* Itemized Billing Breakdown Table */}
-        <div className="py-8">
-          <table className="w-full text-left text-sm">
+        <div className="py-8 overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-[500px] text-left text-sm">
             <thead className="border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="pb-3">Description</th>

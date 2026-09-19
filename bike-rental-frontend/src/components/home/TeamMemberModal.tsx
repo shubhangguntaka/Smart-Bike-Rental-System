@@ -48,12 +48,12 @@ export default function TeamMemberModal({ member, isOpen, onClose }: TeamMemberM
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-card/95 border border-border/80 rounded-2xl shadow-2xl overflow-hidden z-10 backdrop-blur-xl"
+            className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col bg-card/95 border border-border/80 rounded-2xl shadow-2xl overflow-hidden z-10 backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top decorative gradient bar */}
             <div
-              className="h-2 w-full"
+              className="h-2 w-full shrink-0"
               style={{
                 background:
                   member.innerGradient ||
@@ -65,13 +65,13 @@ export default function TeamMemberModal({ member, isOpen, onClose }: TeamMemberM
             <button
               onClick={onClose}
               type="button"
-              className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none"
+              className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none z-20 cursor-pointer"
               aria-label="Close dialog"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="p-6 sm:p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6 overflow-y-auto">
               {/* Header: Avatar + Main Title */}
               <div className="flex items-start gap-4 sm:gap-5">
                 <div className="relative flex-shrink-0">

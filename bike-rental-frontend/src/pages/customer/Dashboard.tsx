@@ -83,7 +83,9 @@ export default function CustomerDashboard() {
         ];
         try {
           localStorage.setItem("custom_owner_bikes", JSON.stringify(localOwnerBikes));
-        } catch (e) { }
+        } catch {
+          // ignore storage error
+        }
       }
 
       const combinedMap = new Map<string, Bike>();
@@ -169,7 +171,9 @@ export default function CustomerDashboard() {
         if (updatedLocalCache) {
           try {
             localStorage.setItem("custom_owner_bikes", JSON.stringify(syncedLocal));
-          } catch (e) { }
+          } catch {
+            // ignore storage error
+          }
         }
       }
 

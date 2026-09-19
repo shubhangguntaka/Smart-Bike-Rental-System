@@ -13,7 +13,23 @@ export default function Navbar({ transparentOnTop }: NavbarProps) {
   const [scrollProgress, setScrollProgress] = useState(0); // 0 = fully transparent, 1 = fully blurred
 
   const isHomePage = location.pathname === "/";
-  const shouldBeTransparentOnTop = transparentOnTop ?? isHomePage;
+
+  // Reactive breakpoint check for mobile (<1024px)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 1023px)").matches;
+  });
+
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  // Transparent-on-top applies ONLY on desktop (>=1024px) in the Hero Section of the Home page.
+  // On all mobile screens (<1024px), the navbar is ALWAYS non-transparent.
+  const shouldBeTransparentOnTop = !isMobile && (transparentOnTop ?? isHomePage);
 
   useEffect(() => {
     if (!shouldBeTransparentOnTop) {
@@ -26,10 +42,10 @@ export default function Navbar({ transparentOnTop }: NavbarProps) {
       const heroHeight = heroEl ? heroEl.offsetHeight : window.innerHeight * 0.85;
       const scrollY = window.scrollY;
 
-      // Navbar stays 100% transparent through most of the hero section.
-      // As the user scrolls toward the bottom of the hero section, it slowly and smoothly blurs.
-      const startThreshold = heroHeight * 0.55;
-      const endThreshold = heroHeight * 0.92;
+      // Navbar stays transparent in the top portion of the hero section on desktop.
+      // As user scrolls down, it smoothly transitions to blurred solid.
+      const startThreshold = heroHeight * 0.35;
+      const endThreshold = heroHeight * 0.85;
 
       if (scrollY <= startThreshold) {
         setScrollProgress(0);
@@ -51,34 +67,34 @@ export default function Navbar({ transparentOnTop }: NavbarProps) {
     };
   }, [shouldBeTransparentOnTop]);
 
-  // Interpolated styles for seamless gradual transition as user scrolls past hero section
-  const headerStyle = shouldBeTransparentOnTop
+  // Interpolated styles for seamless gradual transition on desktop only
+  const headerStyle = shouldBeTransparentOnTop && !isMobile
     ? {
-        backgroundColor:
-          scrollProgress === 0
-            ? "transparent"
-            : `color-mix(in srgb, var(--color-background) ${Math.round(scrollProgress * 85)}%, transparent)`,
-        backdropFilter: scrollProgress === 0 ? "none" : `blur(${Math.round(scrollProgress * 14)}px)`,
-        WebkitBackdropFilter: scrollProgress === 0 ? "none" : `blur(${Math.round(scrollProgress * 14)}px)`,
-        borderColor:
-          scrollProgress === 0
-            ? "transparent"
-            : `color-mix(in srgb, var(--color-border) ${Math.round(scrollProgress * 75)}%, transparent)`,
-        boxShadow:
-          scrollProgress > 0.4
-            ? `0 1px 3px 0 rgba(0, 0, 0, ${scrollProgress * 0.1})`
-            : "none",
-      }
+      backgroundColor:
+        scrollProgress === 0
+          ? "transparent"
+          : `color-mix(in srgb, var(--color-background) ${Math.round(scrollProgress * 90)}%, transparent)`,
+      backdropFilter: scrollProgress === 0 ? "none" : `blur(${Math.round(scrollProgress * 14)}px)`,
+      WebkitBackdropFilter: scrollProgress === 0 ? "none" : `blur(${Math.round(scrollProgress * 14)}px)`,
+      borderColor:
+        scrollProgress === 0
+          ? "transparent"
+          : `color-mix(in srgb, var(--color-border) ${Math.round(scrollProgress * 80)}%, transparent)`,
+      boxShadow:
+        scrollProgress > 0.3
+          ? `0 1px 3px 0 rgba(0, 0, 0, ${scrollProgress * 0.08})`
+          : "none",
+    }
     : undefined;
 
-  const defaultClasses = shouldBeTransparentOnTop
+  const defaultClasses = shouldBeTransparentOnTop && !isMobile
     ? "border-b transition-colors duration-200"
-    : "border-b border-border/80 bg-background/85 backdrop-blur-md shadow-sm";
+    : "border-b border-border bg-background shadow-xs";
 
   return (
     <header
       style={headerStyle}
-      className={`sticky top-0 z-45 w-full ${defaultClasses}`}
+      className={`fixed top-0 left-0 right-0 z-50 w-full max-lg:!bg-background max-lg:!border-border max-lg:!shadow-xs ${defaultClasses}`}
     >
       <div className="mx-auto flex h-16 max-w-8xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         {/* Branding Logo */}

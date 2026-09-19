@@ -691,7 +691,7 @@ export default function Bike3DViewer({ className = "" }: Bike3DViewerProps) {
       {/* 3D Canvas Container */}
       <div
         ref={containerRef}
-        className="w-full h-[480px] sm:h-[530px] lg:h-[580px] cursor-grab active:cursor-grabbing flex items-center justify-center touch-none"
+        className="w-full h-[340px] sm:h-[500px] lg:h-[580px] cursor-grab active:cursor-grabbing flex items-center justify-center touch-none"
       />
 
       {/* Loading Progress State */}
@@ -717,7 +717,7 @@ export default function Bike3DViewer({ className = "" }: Bike3DViewerProps) {
       )}
 
       {/* Floating Interactive 360° Status Bar & Control Pills */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-auto max-w-[calc(100%-2rem)] inline-flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/80 shadow-lg text-[12px] text-muted-foreground z-10 whitespace-nowrap">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-auto max-w-[calc(100%-1rem)] inline-flex items-center gap-1.5 sm:gap-3 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/80 shadow-lg text-[11px] sm:text-[12px] text-muted-foreground z-10 whitespace-nowrap">
         <div className="flex items-center gap-2 font-mono text-xs text-foreground font-semibold px-2 py-1 rounded-full bg-muted/80">
           <Compass className={`h-4 w-4 text-primary ${isInteracting || isAutoSpinning ? "animate-spin" : ""}`} />
           <span>{headingDegrees}°</span>

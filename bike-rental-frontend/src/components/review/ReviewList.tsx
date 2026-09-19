@@ -42,7 +42,9 @@ const ReviewList: React.FC<ReviewListProps> = ({ bikeId }) => {
       const avgPromise = reviewService.getAverageRating(bikeId)
         .catch(() => null);
 
-      let [listData, avgData] = await Promise.all([listPromise, avgPromise]);
+      let listData: Review[] | null;
+      const avgData: number | null = await avgPromise;
+      listData = await listPromise;
 
       // Fallback: If getReviewsByBike failed or returned null, try filtering getAllReviews
       if (!listData) {

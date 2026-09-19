@@ -107,7 +107,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/customer/bikes" replace />} />
+          <Route index element={<Navigate to="/customer/dashboard" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="explore-bikes" element={<ExploreBikes />} />
           <Route path="nearby-bikes" element={<MapPage />} />

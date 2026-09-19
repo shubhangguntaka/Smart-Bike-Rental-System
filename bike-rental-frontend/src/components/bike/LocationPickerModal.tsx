@@ -65,13 +65,17 @@ function MapResizer({ center }: { center: [number, number] }) {
       try {
         map.invalidateSize();
         map.setView(center, map.getZoom() || 15);
-      } catch {}
+      } catch {
+        // Map DOM not yet mounted
+      }
     }, 150);
 
     const t2 = setTimeout(() => {
       try {
         map.invalidateSize();
-      } catch {}
+      } catch {
+        // Map DOM not yet mounted
+      }
     }, 350);
 
     return () => {

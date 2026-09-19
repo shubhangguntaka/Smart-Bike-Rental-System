@@ -429,7 +429,7 @@ export default function OwnerProfile() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex flex-wrap gap-2 border-b border-border/60 pb-3">
+      <div className="flex overflow-x-auto sm:flex-wrap gap-2 border-b border-border/60 pb-3 scrollbar-none">
         {[
           { id: "PROFILE" as ProfileTab, label: "Profile Information", icon: User },
           { id: "PHOTO" as ProfileTab, label: "Profile Photo & Avatar", icon: Camera },
@@ -443,7 +443,7 @@ export default function OwnerProfile() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-xs scale-[1.02]"
                   : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/60"
