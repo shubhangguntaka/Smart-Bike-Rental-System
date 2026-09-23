@@ -87,6 +87,7 @@ public class SecurityConfig {
                         "/api/users/profile",
                         "/api/users/change-password",
                         "/api/users/profile-image",
+                        "/api/users/me",
                         "/api/bookings/**"
                 ).hasAnyRole("CUSTOMER", "OWNER", "ADMIN")
                 // ADMIN

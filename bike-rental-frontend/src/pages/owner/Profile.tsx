@@ -26,11 +26,13 @@ import {
   MapPin,
   ExternalLink,
   Trash2,
+  AlertTriangle,
   Layers
 } from "lucide-react";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
-import { updateProfile, changePassword, uploadProfileImage } from "@/services/userService";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/common/Modal";
+import { updateProfile, changePassword, uploadProfileImage, deleteMyAccount } from "@/services/userService";
 import { useOwnerStore } from "@/store/ownerStore";
 import env from "@/config/env";
 import toast from "react-hot-toast";
@@ -39,7 +41,7 @@ type ProfileTab = "PROFILE" | "PHOTO" | "SECURITY" | "VERIFICATION";
 
 export default function OwnerProfile() {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const { dashboard, fetchDashboard } = useOwnerStore();
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("PROFILE");
@@ -58,6 +60,11 @@ export default function OwnerProfile() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Delete account modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [profileForm, setProfileForm] = useState({
     fullName: "",
@@ -268,6 +275,29 @@ export default function OwnerProfile() {
       toast.error(response?.message || "Failed to change password. Verify your current password.");
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
+      toast.error('Please type "DELETE" to confirm account deletion.');
+      return;
+    }
+    try {
+      setDeleteLoading(true);
+      await deleteMyAccount();
+      toast.success("Your owner account has been deleted successfully.");
+      setDeleteModalOpen(false);
+      await logout();
+    } catch (error: any) {
+      const response = error.response?.data;
+      const errorMsg =
+        response?.message ||
+        response?.error ||
+        "Failed to delete owner account. Ensure no active bookings or ongoing rides exist on your listed bikes.";
+      toast.error(errorMsg);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -821,6 +851,33 @@ export default function OwnerProfile() {
               </div>
             </div>
           </div>
+
+          {/* Danger Zone: Delete Account */}
+          <div className="p-6 rounded-2xl border border-rose-500/30 bg-rose-500/5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Danger Zone — Delete Account</span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+                  Permanently remove your owner account, authentication sessions, listed bike records, and verification credentials. This action cannot be undone.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmText("");
+                  setDeleteModalOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0 shadow-xs"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -917,6 +974,75 @@ export default function OwnerProfile() {
           </div>
         </div>
       )}
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!deleteLoading) setDeleteModalOpen(false);
+        }}
+        size="md"
+        ariaLabelledBy="delete-owner-account-title"
+      >
+        <ModalHeader
+          onClose={() => {
+            if (!deleteLoading) setDeleteModalOpen(false);
+          }}
+        >
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <span id="delete-owner-account-title" className="font-bold text-base text-foreground">
+              Delete Owner Account?
+            </span>
+          </div>
+        </ModalHeader>
+
+        <ModalBody className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium leading-relaxed">
+            <strong>Warning:</strong> This action is permanent and irreversible. Your owner profile, listed vehicles, active sessions, and verification records will be permanently removed.
+          </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Owner account deletion cannot be performed while you have active bookings, ongoing rentals, or pending return confirmations on any of your listed bikes.
+          </p>
+
+          <div className="space-y-2 pt-1">
+            <label className="block text-xs font-bold text-foreground">
+              To confirm, type <span className="font-mono text-rose-600 dark:text-rose-400 font-black">DELETE</span> below:
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              disabled={deleteLoading}
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 font-mono"
+            />
+          </div>
+        </ModalBody>
+
+        <ModalFooter>
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deleteLoading}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText.trim().toUpperCase() !== "DELETE" || deleteLoading}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{deleteLoading ? "Deleting Account..." : "Permanently Delete"}</span>
+            </button>
+          </div>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

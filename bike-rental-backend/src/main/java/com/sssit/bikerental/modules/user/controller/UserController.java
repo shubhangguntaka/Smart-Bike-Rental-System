@@ -58,4 +58,11 @@ public class UserController {
     ) {
         return ResponseEntity.ok(userService.uploadProfileImage(file));
     }
+
+    @DeleteMapping("/me")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'OWNER')")
+    public ResponseEntity<Void> deleteMyAccount() {
+        userService.deleteCurrentAccount();
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -31,4 +31,6 @@ public interface UserService {
         UserResponse lockUser(Long id,
                         Boolean locked);
 
+        void deleteCurrentAccount();
+
 }

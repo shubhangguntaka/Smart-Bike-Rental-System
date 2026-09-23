@@ -63,6 +63,13 @@ public class EmailServiceImpl implements EmailService {
         sendHtmlEmail(to, "Document Verification Failed - Smart Bike Rental", html);
     }
 
+    @Override
+    public void sendAccountDeletedEmail(String to, String name) {
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String html = EmailTemplate.accountDeletedTemplate(recipientName);
+        sendHtmlEmail(to, "Smart Bike Rental - Account Deleted Confirmation", html);
+    }
+
     private void sendHtmlEmail(String to, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

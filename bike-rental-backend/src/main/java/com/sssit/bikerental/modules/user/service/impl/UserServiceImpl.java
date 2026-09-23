@@ -7,15 +7,31 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sssit.bikerental.common.enums.Role;
+import com.sssit.bikerental.common.exception.ConflictException;
 import com.sssit.bikerental.common.exception.ResourceNotFoundException;
 import com.sssit.bikerental.common.exception.FileStorageException;
 import com.sssit.bikerental.common.exception.ValidationException;
+import com.sssit.bikerental.modules.auth.repository.OtpRepository;
+import com.sssit.bikerental.modules.auth.repository.RefreshTokenRepository;
+import com.sssit.bikerental.modules.auth.service.EmailService;
+import com.sssit.bikerental.modules.bike.entity.Bike;
+import com.sssit.bikerental.modules.bike.repository.BikeRepository;
+import com.sssit.bikerental.modules.booking.entity.Booking;
+import com.sssit.bikerental.modules.booking.enums.BookingStatus;
+import com.sssit.bikerental.modules.booking.repository.BookingRepository;
+import com.sssit.bikerental.modules.gps.entity.RideStatus;
+import com.sssit.bikerental.modules.gps.repository.RideRepository;
+import com.sssit.bikerental.modules.notification.entity.Notification;
+import com.sssit.bikerental.modules.notification.entity.NotificationRepository;
+import com.sssit.bikerental.modules.payment.repository.BankAccountRepository;
 import com.sssit.bikerental.modules.user.User;
 import com.sssit.bikerental.modules.user.dto.ChangePasswordRequest;
 import com.sssit.bikerental.modules.user.dto.UpdateProfileRequest;
@@ -24,6 +40,14 @@ import com.sssit.bikerental.modules.user.dto.UserProfileResponse;
 import com.sssit.bikerental.modules.user.dto.UserResponse;
 import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.user.service.UserService;
+import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
+import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
+import com.sssit.bikerental.modules.verification.admin.entity.DocumentReview;
+import com.sssit.bikerental.modules.verification.admin.repository.DocumentReviewRepository;
+import com.sssit.bikerental.modules.verification.bikedocument.entity.BikeDocument;
+import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
+import com.sssit.bikerental.modules.verification.drivinglicense.entity.DrivingLicense;
+import com.sssit.bikerental.modules.verification.drivinglicense.repository.DrivingLicenseRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,8 +57,19 @@ import lombok.RequiredArgsConstructor;
 public class UserServiceImpl implements UserService {
 
         private final UserRepository userRepository;
-
         private final PasswordEncoder passwordEncoder;
+        private final RefreshTokenRepository refreshTokenRepository;
+        private final OtpRepository otpRepository;
+        private final BookingRepository bookingRepository;
+        private final RideRepository rideRepository;
+        private final NotificationRepository notificationRepository;
+        private final BankAccountRepository bankAccountRepository;
+        private final AadhaarRepository aadhaarRepository;
+        private final DrivingLicenseRepository drivingLicenseRepository;
+        private final BikeDocumentRepository bikeDocumentRepository;
+        private final DocumentReviewRepository documentReviewRepository;
+        private final BikeRepository bikeRepository;
+        private final EmailService emailService;
 
         private User getLoggedInUser() {
                 Authentication authentication = SecurityContextHolder
@@ -250,6 +285,153 @@ public class UserServiceImpl implements UserService {
 
                 return map(user);
 
+        }
+
+        @Override
+        public void deleteCurrentAccount() {
+                User user = getLoggedInUser();
+
+                // 1. ADMIN PROTECTION: Admin users cannot self-delete
+                if (user.getRole() == Role.ADMIN) {
+                        throw new AccessDeniedException("Admin accounts cannot be deleted via self-service.");
+                }
+
+                Long userId = user.getId();
+
+                // 2. ACTIVE BOOKINGS & RIDES RESTRICTIONS
+                if (user.getRole() == Role.CUSTOMER) {
+                        // Check customer bookings
+                        if (bookingRepository != null) {
+                                List<Booking> customerBookings = bookingRepository.findByCustomerId(userId);
+                                boolean hasActiveBooking = customerBookings.stream().anyMatch(b -> {
+                                        BookingStatus status = b.getBookingStatus();
+                                        return status == BookingStatus.PENDING
+                                                        || status == BookingStatus.VERIFICATION_REQUIRED
+                                                        || status == BookingStatus.APPROVED
+                                                        || status == BookingStatus.CONFIRMED
+                                                        || status == BookingStatus.ACTIVE;
+                                });
+                                if (hasActiveBooking) {
+                                        throw new ConflictException("Account cannot be deleted while an active rental or pending booking exists.");
+                                }
+                        }
+
+                        // Check customer active rides
+                        if (rideRepository != null) {
+                                boolean hasActiveRide = rideRepository.existsByCustomerIdAndStatus(userId, RideStatus.ACTIVE)
+                                                || rideRepository.existsByCustomerIdAndStatus(userId, RideStatus.PAUSED);
+                                if (hasActiveRide) {
+                                        throw new ConflictException("Account cannot be deleted while an active ride is in progress.");
+                                }
+                        }
+                } else if (user.getRole() == Role.OWNER) {
+                        // Check bookings on owner's bikes
+                        if (bookingRepository != null) {
+                                List<Booking> ownerBookings = bookingRepository.findAllBookingsByOwnerId(userId);
+                                boolean hasActiveBooking = ownerBookings.stream().anyMatch(b -> {
+                                        BookingStatus status = b.getBookingStatus();
+                                        return status == BookingStatus.PENDING
+                                                        || status == BookingStatus.VERIFICATION_REQUIRED
+                                                        || status == BookingStatus.APPROVED
+                                                        || status == BookingStatus.CONFIRMED
+                                                        || status == BookingStatus.ACTIVE;
+                                });
+                                if (hasActiveBooking) {
+                                        throw new ConflictException("Account cannot be deleted while active bookings or rentals exist on your bikes.");
+                                }
+                        }
+
+                        // Check ongoing rides on owner's bikes
+                        if (bikeRepository != null && rideRepository != null) {
+                                List<Bike> ownerBikes = bikeRepository.findByOwnerId(userId);
+                                for (Bike bike : ownerBikes) {
+                                        boolean activeBikeRide = rideRepository.findAll().stream().anyMatch(r ->
+                                                bike.getBikeId().equals(r.getBikeId()) && (r.getStatus() == RideStatus.ACTIVE || r.getStatus() == RideStatus.PAUSED)
+                                        );
+                                        if (activeBikeRide) {
+                                                throw new ConflictException("Account cannot be deleted while an active ride is in progress on your bike.");
+                                        }
+                                }
+                        }
+                }
+
+                // 3. DATABASE RELATIONSHIPS & CLEANUP
+                // A. Invalidate and remove refresh tokens
+                if (refreshTokenRepository != null) {
+                        refreshTokenRepository.deleteByUser(user);
+                }
+
+                // B. Delete OTP records
+                if (otpRepository != null) {
+                        otpRepository.deleteByUser(user);
+                }
+
+                // C. Delete bank accounts
+                if (bankAccountRepository != null) {
+                        bankAccountRepository.findByUserId(userId).ifPresent(bankAccountRepository::delete);
+                }
+
+                // D. Delete notifications
+                if (notificationRepository != null) {
+                        List<Notification> notifications = notificationRepository.findByUserId(userId);
+                        if (!notifications.isEmpty()) {
+                                notificationRepository.deleteAll(notifications);
+                        }
+                }
+
+                // E. Clean up user verification records
+                if (aadhaarRepository != null) {
+                        List<AadhaarVerification> aadhaarList = aadhaarRepository.findAll().stream()
+                                        .filter(a -> userId.equals(a.getCustomerId()))
+                                        .toList();
+                        if (!aadhaarList.isEmpty()) {
+                                aadhaarRepository.deleteAll(aadhaarList);
+                        }
+                }
+
+                if (drivingLicenseRepository != null) {
+                        List<DrivingLicense> dlList = drivingLicenseRepository.findAll().stream()
+                                        .filter(d -> userId.equals(d.getCustomerId()))
+                                        .toList();
+                        if (!dlList.isEmpty()) {
+                                drivingLicenseRepository.deleteAll(dlList);
+                        }
+                }
+
+                if (bikeDocumentRepository != null) {
+                        List<BikeDocument> bikeDocs = bikeDocumentRepository.findByOwnerId(userId);
+                        if (!bikeDocs.isEmpty()) {
+                                bikeDocumentRepository.deleteAll(bikeDocs);
+                        }
+                }
+
+                if (documentReviewRepository != null) {
+                        List<DocumentReview> reviews = documentReviewRepository.findByUserId(userId);
+                        if (!reviews.isEmpty()) {
+                                documentReviewRepository.deleteAll(reviews);
+                        }
+                }
+
+                // F. For OWNER: remove owned bikes
+                if (bikeRepository != null) {
+                        List<Bike> bikes = bikeRepository.findByOwnerId(userId);
+                        if (!bikes.isEmpty()) {
+                                bikeRepository.deleteAll(bikes);
+                        }
+                }
+
+                // 4. Delete user record
+                String userEmail = user.getEmail();
+                String userName = user.getFullName();
+                userRepository.delete(user);
+
+                // 5. Send account deletion notification email
+                if (emailService != null && userEmail != null) {
+                        emailService.sendAccountDeletedEmail(userEmail, userName);
+                }
+
+                // 6. Clear Security Context
+                SecurityContextHolder.clearContext();
         }
 
 }

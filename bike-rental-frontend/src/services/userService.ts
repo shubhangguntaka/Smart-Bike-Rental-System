@@ -32,3 +32,7 @@ export const uploadProfileImage = (file: File) => {
         }
     });
 };
+
+export const deleteMyAccount = () => {
+    return api.delete("/users/me");
+};

@@ -39,4 +39,9 @@ public interface EmailService {
             String failureReason,
             String suggestion
     );
+
+    void sendAccountDeletedEmail(
+            String to,
+            String name
+    );
 }

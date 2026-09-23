@@ -26,4 +26,9 @@ public interface OtpRepository extends JpaRepository<OtpVerification, Long> {
 	 * Delete all OTPs of a user for a specific purpose.
 	 */
 	void deleteByUserAndPurpose(User user, OtpPurpose purpose);
+
+	/**
+	 * Delete all OTPs belonging to a user.
+	 */
+	void deleteByUser(User user);
 }

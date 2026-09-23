@@ -401,4 +401,47 @@ public final class EmailTemplate {
                 </html>
                 """.formatted(CSS_STYLES, subject, name, messageText);
     }
+
+    /**
+     * Generates Account Deletion Confirmation Email Template.
+     *
+     * @param name User Name
+     * @return HTML Email Template
+     */
+    public static String accountDeletedTemplate(String name) {
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        %s
+                    </style>
+                </head>
+                <body>
+                    <div class="wrapper">
+                        <div class="header">
+                            <h1>Smart Bike Rental 🚲</h1>
+                            <p>Account Security & Lifecycle</p>
+                        </div>
+                        <div class="content">
+                            <h2>Account Deletion Confirmation</h2>
+                            <p>Dear <b>%s</b>,</p>
+                            <div class="badge-danger">✕ ACCOUNT DELETED</div>
+                            <div class="info-card" style="border-left-color: #b3261e;">
+                                Your Smart Bike Rental account and associated personal profile data have been permanently removed from our system as per your request.
+                            </div>
+                            <p>Your session tokens, active OTPs, and verification records have been cleared.</p>
+                            <p>If you did not initiate this deletion or believe this was an error, please reach out immediately to our support team.</p>
+                            <p>Thank you for having been part of the Smart Bike Rental community.</p>
+                        </div>
+                        <div class="footer">
+                            <p>© Smart Bike Rental System • Customer Operations & Security</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(CSS_STYLES, name);
+    }
 }
