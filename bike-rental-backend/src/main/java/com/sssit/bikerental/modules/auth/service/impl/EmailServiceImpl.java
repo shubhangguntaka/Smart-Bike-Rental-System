@@ -1,11 +1,13 @@
 package com.sssit.bikerental.modules.auth.service.impl;
 
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.sssit.bikerental.common.util.EmailTemplate;
 import com.sssit.bikerental.modules.auth.service.EmailService;
 
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -18,120 +20,60 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendOtpEmail(String to, String name, String otp) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject("Bike Rental System - OTP Verification");
-            message.setText(buildOtpMessage(name, otp));
-            mailSender.send(message);
-        } catch (Exception e) {
-            log.warn("Email notification send skipped/failed: {}", e.getMessage());
-        }
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String html = EmailTemplate.otpVerificationTemplate(recipientName, otp);
+        sendHtmlEmail(to, "Bike Rental System - OTP Verification", html);
+    }
+
+    @Override
+    public void sendPasswordResetEmail(String to, String name, String otp) {
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String html = EmailTemplate.passwordResetTemplate(recipientName, otp);
+        sendHtmlEmail(to, "Bike Rental System - Password Reset Request", html);
+    }
+
+    @Override
+    public void sendWelcomeEmail(String to, String name) {
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String html = EmailTemplate.welcomeTemplate(recipientName);
+        sendHtmlEmail(to, "Welcome to Bike Rental System 🚲", html);
     }
 
     @Override
     public void sendAdminMessageEmail(String to, String name, String subject, String messageText) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject(subject != null && !subject.isBlank() ? subject : "Bike Rental System - Document Verification Update");
-            
-            String body = """
-                    Dear %s,
-
-                    %s
-
-                    Regards,
-                    Smart Bike Rental Compliance & Verification Team
-                    """.formatted(name != null ? name : "User", messageText);
-            
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Admin verification email sent successfully to {}", to);
-        } catch (Exception e) {
-            log.warn("Admin verification email send skipped/failed for {}: {}", to, e.getMessage());
-        }
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String emailSubject = (subject != null && !subject.isBlank()) ? subject : "Bike Rental System - Document Verification Update";
+        String html = EmailTemplate.adminMessageTemplate(recipientName, emailSubject, messageText);
+        sendHtmlEmail(to, emailSubject, html);
     }
 
     @Override
     public void sendVerificationSuccessEmail(String to, String name, String documentName) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject("Document Verification Passed - Smart Bike Rental");
-            String body = """
-                    Dear %s,
-
-                    Your documents have been successfully verified.
-
-                    Verified Document: %s
-
-                    Thank you for choosing Smart Bike Rental System.
-
-                    Regards,
-                    Smart Bike Rental Team
-                    """.formatted(name != null ? name : "User", documentName);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Verification success email sent to {}", to);
-        } catch (Exception e) {
-            log.warn("Verification success email skipped/failed for {}: {}", to, e.getMessage());
-        }
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String html = EmailTemplate.verificationSuccessTemplate(recipientName, documentName);
+        sendHtmlEmail(to, "Document Verification Passed - Smart Bike Rental", html);
     }
 
     @Override
     public void sendVerificationFailureEmail(String to, String name, String documentName, String failureReason, String suggestion) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject("Document Verification Failed - Smart Bike Rental");
-            String body = """
-                    Dear %s,
-
-                    Your document verification failed.
-
-                    Document Name: %s
-                    Failure Reason: %s
-                    Suggestion: %s
-
-                    Please upload the document again.
-
-                    Regards,
-                    Smart Bike Rental Team
-                    """.formatted(
-                            name != null ? name : "User",
-                            documentName,
-                            failureReason != null && !failureReason.isBlank() ? failureReason : "Information mismatch or unreadable document",
-                            suggestion != null && !suggestion.isBlank() ? suggestion : "Please upload a clear and current image."
-                    );
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Verification failure email sent to {}", to);
-        } catch (Exception e) {
-            log.warn("Verification failure email skipped/failed for {}: {}", to, e.getMessage());
-        }
+        String recipientName = (name != null && !name.isBlank()) ? name : "User";
+        String reason = (failureReason != null && !failureReason.isBlank()) ? failureReason : "Information mismatch or unreadable document";
+        String tips = (suggestion != null && !suggestion.isBlank()) ? suggestion : "Please upload a clear and current image.";
+        String html = EmailTemplate.verificationFailureTemplate(recipientName, documentName, reason, tips);
+        sendHtmlEmail(to, "Document Verification Failed - Smart Bike Rental", html);
     }
 
-    /**
-     * Builds the email body.
-     */
-    private String buildOtpMessage(String name, String otp) {
-
-        return """
-                Dear %s,
-
-                Welcome to Smart Bike Rental System.
-
-                Your One-Time Password (OTP) is:
-
-                %s
-
-                This OTP will expire in 10 minutes.
-
-                If you did not request this OTP, please ignore this email.
-
-                Regards,
-                Smart Bike Rental Team
-                """.formatted(name, otp);
+    private void sendHtmlEmail(String to, String subject, String htmlContent) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("HTML email [{}] successfully sent to {}", subject, to);
+        } catch (Exception e) {
+            log.warn("Email notification send skipped/failed for {}: {}", to, e.getMessage());
+        }
     }
 }

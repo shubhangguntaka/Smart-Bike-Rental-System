@@ -8,6 +8,17 @@ public interface EmailService {
             String otp
     );
 
+    void sendPasswordResetEmail(
+            String to,
+            String name,
+            String otp
+    );
+
+    void sendWelcomeEmail(
+            String to,
+            String name
+    );
+
     void sendAdminMessageEmail(
             String to,
             String name,

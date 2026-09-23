@@ -94,9 +94,10 @@ public class AuthServiceImpl implements AuthService {
                         String otp = otpService.generateOtp();
                         otpService.saveOtp(user, otp, OtpPurpose.EMAIL_VERIFICATION);
                         emailService.sendOtpEmail(user.getEmail(), user.getFirstName(), otp);
+                        emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName());
                 } catch (Exception ex) {
-    log.warn("OTP email sending skipped for user {}: {}", user.getId(), ex.getMessage());
-}
+                        log.warn("Registration/Welcome email sending skipped for user {}: {}", user.getId(), ex.getMessage());
+                }
 
                 String accessToken = jwtService.generateToken(user);
                 RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
@@ -232,7 +233,7 @@ public class AuthServiceImpl implements AuthService {
                                 otp,
                                 OtpPurpose.FORGOT_PASSWORD);
 
-                emailService.sendOtpEmail(
+                emailService.sendPasswordResetEmail(
                                 user.getEmail(),
                                 user.getFirstName(),
                                 otp);
