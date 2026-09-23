@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import OtpInput from "../common/OtpInput";
 import Button from "../common/Button";
-import { verifyOtp } from "../../services/authService";
+import { verifyOtp, resendOtp } from "../../services/authService";
 
 const VerifyOtpForm = () => {
     const navigate = useNavigate();
@@ -14,9 +14,50 @@ const VerifyOtpForm = () => {
     const purpose = location.state?.purpose || "EMAIL_VERIFICATION";
 
     const [loading, setLoading] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [countdown, setCountdown] = useState(30);
     const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
 
     const otp = otpDigits.join("");
+
+    useEffect(() => {
+        if (countdown <= 0) return;
+        const timer = setInterval(() => {
+            setCountdown((prev) => prev - 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [countdown]);
+
+    const handleResendOtp = async () => {
+        if (countdown > 0 || resendLoading) return;
+
+        if (!email) {
+            toast.error("Email address is missing. Please restart the verification process.");
+            return;
+        }
+
+        try {
+            setResendLoading(true);
+            await resendOtp({
+                email,
+                purpose,
+            });
+
+            toast.success("A new OTP code has been sent to your email.");
+            setCountdown(30);
+            setOtpDigits(["", "", "", "", "", ""]);
+        } catch (error: any) {
+            const response = error.response?.data;
+            if (response?.data) {
+                const errors = Object.values(response.data);
+                toast.error(errors.join(", "));
+            } else {
+                toast.error(response?.message || "Failed to resend OTP. Please try again.");
+            }
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -79,6 +120,18 @@ const VerifyOtpForm = () => {
                 <OtpInput otp={otpDigits} setOtp={setOtpDigits} />
             </div>
 
+            <div className="flex items-center justify-between text-xs sm:text-sm pt-1">
+                <span className="text-muted-foreground">Didn't receive the code?</span>
+                <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={countdown > 0 || resendLoading}
+                    className="font-semibold text-primary transition-colors hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                    {resendLoading ? "Resending..." : countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
+                </button>
+            </div>
+
             <div className="pt-1 [&>button]:h-10 [&>button]:rounded-lg [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:shadow-md [&>button]:transition-all [&>button]:duration-200 [&>button:hover]:-translate-y-0.5 [&>button:hover]:bg-primary/90 [&>button:hover]:shadow-lg [&>button:focus-visible]:outline-none [&>button:focus-visible]:ring-2 [&>button:focus-visible]:ring-ring [&>button:focus-visible]:ring-offset-2">
                 <Button
                     title="Verify Code"
@@ -89,7 +142,7 @@ const VerifyOtpForm = () => {
             </div>
 
             <p className="pt-2 text-center text-xs sm:text-sm text-muted-foreground">
-                Didn't receive the code or need to sign in?
+                Need to sign in with an existing account?
                 <Link
                     to="/login"
                     className="ml-2 font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

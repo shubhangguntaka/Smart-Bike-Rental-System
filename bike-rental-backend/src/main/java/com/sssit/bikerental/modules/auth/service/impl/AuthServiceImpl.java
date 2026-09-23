@@ -18,6 +18,7 @@ import com.sssit.bikerental.modules.auth.dto.LogoutResponse;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenRequest;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenResponse;
 import com.sssit.bikerental.modules.auth.dto.RegisterRequest;
+import com.sssit.bikerental.modules.auth.dto.ResendOtpRequest;
 import com.sssit.bikerental.modules.auth.dto.ResetPasswordRequest;
 import com.sssit.bikerental.modules.auth.dto.VerifyOtpRequest;
 import com.sssit.bikerental.modules.auth.entity.RefreshToken;
@@ -216,6 +217,35 @@ public class AuthServiceImpl implements AuthService {
                 }
 
         }
+
+        // =====================================================
+        // RESEND OTP
+        // =====================================================
+
+        @Override
+        public String resendOtp(ResendOtpRequest request) {
+
+                String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+                String rawEmail = request.getEmail() != null ? request.getEmail().trim() : "";
+
+                User user = userRepository.findByEmail(cleanEmail)
+                                .orElseGet(() -> userRepository.findByEmail(rawEmail)
+                                                .orElseThrow(() -> new ResourceNotFoundException("User not found.")));
+
+                OtpPurpose purpose = request.getPurpose() != null ? request.getPurpose() : OtpPurpose.EMAIL_VERIFICATION;
+
+                String otp = otpService.generateOtp();
+                otpService.saveOtp(user, otp, purpose);
+
+                if (purpose == OtpPurpose.FORGOT_PASSWORD) {
+                        emailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), otp);
+                } else {
+                        emailService.sendOtpEmail(user.getEmail(), user.getFirstName(), otp);
+                }
+
+                return "OTP has been resent successfully to your registered email.";
+        }
+
         // =====================================================
         // FORGOT PASSWORD
         // =====================================================

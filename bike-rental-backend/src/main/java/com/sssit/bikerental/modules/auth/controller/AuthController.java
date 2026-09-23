@@ -14,6 +14,7 @@ import com.sssit.bikerental.modules.auth.dto.LogoutResponse;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenRequest;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenResponse;
 import com.sssit.bikerental.modules.auth.dto.RegisterRequest;
+import com.sssit.bikerental.modules.auth.dto.ResendOtpRequest;
 import com.sssit.bikerental.modules.auth.dto.ResetPasswordRequest;
 import com.sssit.bikerental.modules.auth.dto.VerifyOtpRequest;
 import com.sssit.bikerental.modules.auth.service.AuthService;
@@ -67,6 +68,21 @@ public class AuthController {
                         @Valid @RequestBody VerifyOtpRequest request) {
 
                 String response = authService.verifyOtp(request);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                response,
+                                                null));
+        }
+
+        /**
+         * Resend OTP
+         */
+        @PostMapping("/resend-otp")
+        public ResponseEntity<ApiResponse<String>> resendOtp(
+                        @Valid @RequestBody ResendOtpRequest request) {
+
+                String response = authService.resendOtp(request);
 
                 return ResponseEntity.ok(
                                 ApiResponse.success(

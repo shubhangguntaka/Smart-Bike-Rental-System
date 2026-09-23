@@ -45,6 +45,18 @@ export interface VerifyOtpRequest {
 }
 
 // =========================
+// Resend OTP
+// =========================
+
+export interface ResendOtpRequest {
+
+    email: string;
+
+    purpose?: string;
+
+}
+
+// =========================
 // Forgot Password
 // =========================
 

@@ -8,6 +8,7 @@ import com.sssit.bikerental.modules.auth.dto.LogoutResponse;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenRequest;
 import com.sssit.bikerental.modules.auth.dto.RefreshTokenResponse;
 import com.sssit.bikerental.modules.auth.dto.RegisterRequest;
+import com.sssit.bikerental.modules.auth.dto.ResendOtpRequest;
 import com.sssit.bikerental.modules.auth.dto.ResetPasswordRequest;
 import com.sssit.bikerental.modules.auth.dto.VerifyOtpRequest;
 
@@ -18,6 +19,8 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
 
     String verifyOtp(VerifyOtpRequest request);
+
+    String resendOtp(ResendOtpRequest request);
 
     String forgotPassword(ForgotPassword request);
 

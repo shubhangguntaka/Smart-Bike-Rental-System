@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -6,7 +6,7 @@ import Input from "../common/Input";
 import PasswordInput from "../common/PasswordInput";
 import PasswordStrength from "../common/PasswordStrength";
 import Button from "../common/Button";
-import { resetPassword } from "../../services/authService";
+import { resetPassword, resendOtp } from "../../services/authService";
 
 const ResetPasswordForm = () => {
     const navigate = useNavigate();
@@ -14,11 +14,52 @@ const ResetPasswordForm = () => {
     const email = location.state?.email || "";
 
     const [loading, setLoading] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [countdown, setCountdown] = useState(30);
     const [formData, setFormData] = useState({
         otp: "",
         newPassword: "",
         confirmPassword: ""
     });
+
+    useEffect(() => {
+        if (countdown <= 0) return;
+        const timer = setInterval(() => {
+            setCountdown((prev) => prev - 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [countdown]);
+
+    const handleResendOtp = async () => {
+        if (countdown > 0 || resendLoading) return;
+
+        if (!email) {
+            toast.error("Email is missing. Please initiate Forgot Password again.");
+            navigate("/forgot-password");
+            return;
+        }
+
+        try {
+            setResendLoading(true);
+            await resendOtp({
+                email,
+                purpose: "FORGOT_PASSWORD",
+            });
+            toast.success("A new password reset OTP has been sent to your email.");
+            setCountdown(30);
+            setFormData((prev) => ({ ...prev, otp: "" }));
+        } catch (error: any) {
+            const response = error.response?.data;
+            if (response?.data) {
+                const errors = Object.values(response.data);
+                toast.error(errors.join(", "));
+            } else {
+                toast.error(response?.message || "Failed to resend OTP. Please try again.");
+            }
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -88,16 +129,28 @@ const ResetPasswordForm = () => {
             )}
 
             <div className="space-y-3 [&_label]:mb-1.5 [&_label]:text-sm [&_label]:font-medium [&_label]:text-foreground [&_input]:h-10 [&_input]:rounded-lg [&_input]:border-border [&_input]:bg-background/50 [&_input]:px-3 [&_input]:text-foreground [&_input]:shadow-xs [&_input]:transition [&_input]:duration-200 [&_input]:focus:border-primary [&_input]:focus:ring-2 [&_input]:focus:ring-ring/25">
-                <Input
-                    label="6-Digit OTP"
-                    name="otp"
-                    inputMode="numeric"
-                    placeholder="Enter 6-digit OTP code"
-                    maxLength={6}
-                    value={formData.otp}
-                    onChange={handleChange}
-                    required
-                />
+                <div>
+                    <Input
+                        label="6-Digit OTP"
+                        name="otp"
+                        inputMode="numeric"
+                        placeholder="Enter 6-digit OTP code"
+                        maxLength={6}
+                        value={formData.otp}
+                        onChange={handleChange}
+                        required
+                    />
+                    <div className="flex justify-end mt-1">
+                        <button
+                            type="button"
+                            onClick={handleResendOtp}
+                            disabled={countdown > 0 || resendLoading}
+                            className="text-xs font-semibold text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none"
+                        >
+                            {resendLoading ? "Resending..." : countdown > 0 ? `Resend OTP in ${countdown}s` : "Resend OTP"}
+                        </button>
+                    </div>
+                </div>
                 <PasswordInput
                     label="New Password"
                     name="newPassword"

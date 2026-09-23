@@ -3,6 +3,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   VerifyOtpRequest,
+  ResendOtpRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
 } from "../types/auth";
@@ -18,6 +19,10 @@ export const login = (data: LoginRequest) => {
 
 export const verifyOtp = (data: VerifyOtpRequest) => {
   return api.post("/auth/verify-otp", data);
+};
+
+export const resendOtp = (data: ResendOtpRequest) => {
+  return api.post("/auth/resend-otp", data);
 };
 
 export const forgotPassword = (data: ForgotPasswordRequest) => {
