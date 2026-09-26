@@ -14,6 +14,8 @@ export interface DashboardStatistics {
   completedBookings: number;
   aadhaarVerified: boolean;
   rcVerified: boolean;
+  aadhaarStatus?: string;
+  rcStatus?: string;
 }
 
 export interface OwnerProfile {

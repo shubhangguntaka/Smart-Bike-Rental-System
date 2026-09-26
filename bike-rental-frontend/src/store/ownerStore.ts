@@ -48,6 +48,8 @@ export const ownerStore = createStore<OwnerStoreState>((set, get) => ({
         completedBookings: data?.completedBookings ?? 0,
         aadhaarVerified: data?.aadhaarVerified ?? false,
         rcVerified: data?.rcVerified ?? false,
+        aadhaarStatus: data?.aadhaarStatus,
+        rcStatus: data?.rcStatus,
         ownerId: data?.ownerId,
         ownerName: data?.ownerName,
         todayEarnings: data?.todayEarnings,

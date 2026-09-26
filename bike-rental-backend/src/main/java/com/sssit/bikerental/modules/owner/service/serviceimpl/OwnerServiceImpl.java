@@ -31,6 +31,7 @@ import com.sssit.bikerental.modules.payment.entity.Payment;
 import com.sssit.bikerental.modules.payment.entity.PaymentStatus;
 import com.sssit.bikerental.modules.payment.repository.PaymentRepository;
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
+import com.sssit.bikerental.modules.verification.bikedocument.entity.BikeDocument;
 import com.sssit.bikerental.modules.verification.bikedocument.repository.BikeDocumentRepository;
 import com.sssit.bikerental.modules.booking.dto.BookingResponse;
 import com.sssit.bikerental.modules.booking.service.BookingService;
@@ -123,6 +124,8 @@ public class OwnerServiceImpl implements OwnerService {
 
         boolean aadhaarVerified = checkAadhaarVerified(ownerId);
         boolean rcVerified = checkRcVerified(ownerId);
+        String aadhaarStatus = getAadhaarStatus(ownerId);
+        String rcStatus = getRcStatus(ownerId);
 
         List<Bike> ownerBikes = bikeRepository.findByOwnerId(ownerId);
         int totalBikes = ownerBikes.size();
@@ -215,6 +218,8 @@ public class OwnerServiceImpl implements OwnerService {
                 .pendingPayments(pendingPayments)
                 .aadhaarVerified(aadhaarVerified)
                 .rcVerified(rcVerified)
+                .aadhaarStatus(aadhaarStatus)
+                .rcStatus(rcStatus)
                 .build();
     }
 
@@ -542,7 +547,9 @@ public void rejectBooking(Long bookingId) {
     private boolean checkAadhaarVerified(Long ownerId) {
         try {
             return aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent()
-                    || aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED").isPresent();
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED").isPresent()
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent()
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(ownerId, "VERIFIED").isPresent();
         } catch (Exception e) {
             log.warn("Aadhaar verification check error for ownerId {}: {}", ownerId, e.getMessage());
             return false;
@@ -551,11 +558,57 @@ public void rejectBooking(Long bookingId) {
 
     private boolean checkRcVerified(Long ownerId) {
         try {
-            return bikeDocumentRepository.findByOwnerId(ownerId).stream()
+            boolean fromDoc = bikeDocumentRepository.findByOwnerId(ownerId).stream()
                     .anyMatch(doc -> "APPROVED".equalsIgnoreCase(doc.getStatus()) || "VERIFIED".equalsIgnoreCase(doc.getStatus()));
+            if (fromDoc) {
+                return true;
+            }
+            return bikeRepository.findByOwnerId(ownerId).stream()
+                    .anyMatch(b -> Boolean.TRUE.equals(b.getRcVerified()));
         } catch (Exception e) {
             log.warn("RC verification check error for ownerId {}: {}", ownerId, e.getMessage());
             return false;
+        }
+    }
+
+    private String getAadhaarStatus(Long ownerId) {
+        try {
+            if (checkAadhaarVerified(ownerId)) {
+                return "VERIFIED";
+            }
+            if (aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "PENDING").isPresent()
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(ownerId, "PENDING").isPresent()) {
+                return "PENDING";
+            }
+            if (aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "REJECTED").isPresent()
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(ownerId, "REJECTED").isPresent()) {
+                return "REJECTED";
+            }
+            return "NOT_SUBMITTED";
+        } catch (Exception e) {
+            log.warn("Aadhaar status determination error for ownerId {}: {}", ownerId, e.getMessage());
+            return "NOT_SUBMITTED";
+        }
+    }
+
+    private String getRcStatus(Long ownerId) {
+        try {
+            if (checkRcVerified(ownerId)) {
+                return "VERIFIED";
+            }
+            List<BikeDocument> docs = bikeDocumentRepository.findByOwnerId(ownerId);
+            if (!docs.isEmpty()) {
+                if (docs.stream().anyMatch(d -> "PENDING".equalsIgnoreCase(d.getStatus()))) {
+                    return "PENDING";
+                }
+                if (docs.stream().anyMatch(d -> "REJECTED".equalsIgnoreCase(d.getStatus()))) {
+                    return "REJECTED";
+                }
+            }
+            return "NOT_SUBMITTED";
+        } catch (Exception e) {
+            log.warn("RC status determination error for ownerId {}: {}", ownerId, e.getMessage());
+            return "NOT_SUBMITTED";
         }
     }
 }

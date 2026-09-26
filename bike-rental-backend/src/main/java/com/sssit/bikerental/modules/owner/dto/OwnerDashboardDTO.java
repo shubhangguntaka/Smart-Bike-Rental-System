@@ -41,4 +41,8 @@ public class OwnerDashboardDTO {
 
     private Boolean rcVerified;
 
+    private String aadhaarStatus;
+
+    private String rcStatus;
+
 }

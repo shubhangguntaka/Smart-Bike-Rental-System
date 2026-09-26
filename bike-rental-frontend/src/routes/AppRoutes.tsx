@@ -172,6 +172,7 @@ const AppRoutes = () => {
           <Route path="payments" element={<OwnerPayments />} />
           <Route path="earnings" element={<OwnerPayments />} />
           <Route path="documents" element={<OwnerVerification />} />
+          <Route path="verification" element={<OwnerVerification />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="settings" element={<OwnerSettings />} />
           <Route path="scan-booking" element={<Navigate to="/owner/bookings" replace />} />

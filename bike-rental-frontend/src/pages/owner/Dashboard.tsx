@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { useOwnerStore } from "../../store/ownerStore";
+import { BookingService } from "@/services/bookingService";
 import OwnerStatistics from "../../components/owner/OwnerStatistics";
 import EarningsCard from "../../components/owner/EarningsCard";
 import BookingRequestCard from "../../components/owner/BookingRequestCard";
@@ -70,6 +71,27 @@ export default function OwnerDashboard() {
         }, 30000);
         return () => clearInterval(timer);
     }, [fetchDashboard]);
+
+    const [verificationInfo, setVerificationInfo] = useState<{
+        aadhaarVerified: boolean;
+        aadhaarStatus: string;
+    }>({
+        aadhaarVerified: false,
+        aadhaarStatus: "NOT_SUBMITTED",
+    });
+
+    useEffect(() => {
+        if (user?.id) {
+            BookingService.getVerificationDetails(Number(user.id))
+                .then((details: any) => {
+                    setVerificationInfo({
+                        aadhaarVerified: details.aadhaarVerified,
+                        aadhaarStatus: details.aadhaarData?.status || (details.aadhaarVerified ? "VERIFIED" : "NOT_SUBMITTED"),
+                    });
+                })
+                .catch(() => {});
+        }
+    }, [user?.id]);
 
     if (loading && !dashboard) {
         return (
@@ -164,30 +186,44 @@ export default function OwnerDashboard() {
         return "OW";
     };
 
-    const isAadhaarVerified = dashboard?.aadhaarVerified ?? false;
-    const isRcVerified = dashboard?.rcVerified ?? false;
+    const isAadhaarVerified = Boolean(dashboard?.aadhaarVerified || verificationInfo.aadhaarVerified);
+    const isRcVerified = Boolean(dashboard?.rcVerified);
+
+    const aadhaarStatus = isAadhaarVerified 
+        ? "VERIFIED" 
+        : (verificationInfo.aadhaarStatus && verificationInfo.aadhaarStatus !== "NOT_SUBMITTED" 
+            ? verificationInfo.aadhaarStatus 
+            : (dashboard?.aadhaarStatus || "NOT SUBMITTED"));
+
+    const rcStatus = isRcVerified 
+        ? "VERIFIED" 
+        : (dashboard?.rcStatus || "NOT SUBMITTED");
 
     // Derived recent activities
     const activities = [
         {
             id: 1,
-            title: "Aadhaar Verification Status",
+            title: "Aadhaar Identity Status",
             desc: isAadhaarVerified 
-                ? "Identity verified successfully under Aadhaar record."
+                ? "Identity verified successfully under UIDAI record."
+                : aadhaarStatus === "PENDING"
+                ? "Aadhaar document submitted and pending verification."
                 : "Aadhaar verification is pending. Please upload card.",
-            time: isAadhaarVerified ? "Activated" : "Action Needed",
+            time: isAadhaarVerified ? "VERIFIED" : aadhaarStatus,
             icon: isAadhaarVerified ? ShieldCheck : ShieldAlert,
-            color: isAadhaarVerified ? "text-green-500 bg-green-500/10" : "text-amber-500 bg-amber-500/10"
+            color: isAadhaarVerified ? "text-emerald-500 bg-emerald-500/10" : "text-amber-500 bg-amber-500/10"
         },
         {
             id: 2,
-            title: "RC Verification Status",
+            title: "Vehicle RC Status",
             desc: isRcVerified 
                 ? "Vehicle Registration Certificate (RC) approved."
+                : rcStatus === "PENDING"
+                ? "RC document submitted and pending verification."
                 : "RC document upload needed to list new vehicles.",
-            time: isRcVerified ? "Approved" : "Pending RC",
+            time: isRcVerified ? "VERIFIED" : rcStatus,
             icon: isRcVerified ? ShieldCheck : ShieldAlert,
-            color: isRcVerified ? "text-green-500 bg-green-500/10" : "text-amber-500 bg-amber-500/10"
+            color: isRcVerified ? "text-emerald-500 bg-emerald-500/10" : "text-amber-500 bg-amber-500/10"
         }
     ];
 
@@ -303,59 +339,51 @@ export default function OwnerDashboard() {
                 {/* Right Side: Verification status, Quick actions & Recent Activities (Takes 1 column) */}
                 <div className="space-y-8">
                     
-                    {/* 4. Verification Status Panel */}
-                    <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
-                        <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-1.5">
-                            <ShieldCheck className="h-5 w-5 text-primary" />
-                            Verification Status
-                        </h2>
-                        
-                        <div className="space-y-4">
-                            {/* Aadhaar Verification Row */}
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
-                                <div className="space-y-0.5">
-                                    <p className="text-xs font-bold text-foreground">Aadhaar Identity</p>
-                                    <p className="text-[10px] text-muted-foreground">National ID check</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                        isAadhaarVerified 
-                                            ? "bg-green-500/10 text-green-500" 
-                                            : "bg-amber-500/10 text-amber-500 animate-pulse"
-                                    }`}>
-                                        {isAadhaarVerified ? "VERIFIED" : "PENDING"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* RC Verification Row */}
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
-                                <div className="space-y-0.5">
-                                    <p className="text-xs font-bold text-foreground">Registration Certificate (RC)</p>
-                                    <p className="text-[10px] text-muted-foreground">Vehicle registry checks</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                        isRcVerified 
-                                            ? "bg-green-500/10 text-green-500" 
-                                            : "bg-amber-500/10 text-amber-500"
-                                    }`}>
-                                        {isRcVerified ? "VERIFIED" : "ACTION NEEDED"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Verification CTA */}
-                            {(!isAadhaarVerified || !isRcVerified) && (
-                                <Link 
-                                    to="/owner/documents"
-                                    className="w-full py-2.5 px-4 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 focus:outline-none"
-                                >
-                                    <span>Complete Verification</span>
-                                    <ArrowRight className="h-3.5 w-3.5" />
-                                </Link>
-                            )}
+                    {/* Account Verification Card (Matches Customer Dashboard style) */}
+                    <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-bold text-foreground">Identity & RC Status</h3>
+                            <ShieldCheck className="h-5 w-5 text-emerald-500" />
                         </div>
+
+                        <div className="space-y-3 text-xs">
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                                <span className="font-semibold text-foreground">Registration Certificate (RC)</span>
+                                <span className={`font-extrabold px-2 py-0.5 rounded-md ${
+                                    isRcVerified
+                                        ? "text-emerald-600 bg-emerald-500/10"
+                                        : rcStatus === "PENDING"
+                                        ? "text-amber-600 bg-amber-500/10"
+                                        : rcStatus === "REJECTED"
+                                        ? "text-destructive bg-destructive/10"
+                                        : "text-amber-600 bg-amber-500/10"
+                                }`}>
+                                    {isRcVerified ? "VERIFIED" : (rcStatus || "NOT SUBMITTED")}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                                <span className="font-semibold text-foreground">Aadhaar Identity</span>
+                                <span className={`font-extrabold px-2 py-0.5 rounded-md ${
+                                    isAadhaarVerified
+                                        ? "text-emerald-600 bg-emerald-500/10"
+                                        : aadhaarStatus === "PENDING"
+                                        ? "text-amber-600 bg-amber-500/10"
+                                        : aadhaarStatus === "REJECTED"
+                                        ? "text-destructive bg-destructive/10"
+                                        : "text-amber-600 bg-amber-500/10"
+                                }`}>
+                                    {isAadhaarVerified ? "VERIFIED" : (aadhaarStatus || "NOT SUBMITTED")}
+                                </span>
+                            </div>
+                        </div>
+
+                        <Link
+                            to="/owner/documents"
+                            className="block w-full text-center rounded-xl border border-border py-2 text-xs font-bold text-foreground hover:bg-muted transition"
+                        >
+                            View Verification Documents
+                        </Link>
                     </div>
 
                     {/* 6. Quick Actions Grid */}
