@@ -170,21 +170,39 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
             //-----------------------------------
             // Step 7: Registration Number Match & Validation
+            // Exactly distinguish:
+            // 1. EXTRACTION_AMBIGUOUS (multiple competing candidates, neither matching target)
+            // 2. EXTRACTION_FAILED (no valid registration number detected)
+            // 3. REGISTRATION_MISMATCH (valid RC registration detected but does not match bike details)
+            // 4. VERIFIED (valid RC registration matches bike details)
             //-----------------------------------
             String extractedReg = DocumentIdentifierUtil.normalizeRegistrationNumber(rcData.getRegistrationNumber());
 
-            // Case A: Extraction failure - no valid identifier found
-            if (extractedReg == null || extractedReg.isEmpty() || !DocumentIdentifierUtil.isValidRegistrationNumber(extractedReg)) {
+            // Case 1: Ambiguity detected
+            if (rcData.isAmbiguous()) {
                 response.setVerified(false);
                 response.setStatus("REJECTED");
-                response.setMessage("Could not identify a valid registration number from the RC.");
+                response.setMessage("Unable to confidently identify the vehicle registration number from this RC. Please upload a clearer document.");
+                response.setRegistrationNumber(extractedReg);
+                response.setOwnerName(rcData.getOwnerName());
                 applyStamp(response, false);
 
                 triggerEmailNotification(ownerId, response);
                 return response;
             }
 
-            // Case B: Target reg provided -> Compare normalized values
+            // Case 2: Extraction failure - no valid identifier found
+            if (extractedReg == null || extractedReg.isEmpty() || !DocumentIdentifierUtil.isValidRegistrationNumber(extractedReg)) {
+                response.setVerified(false);
+                response.setStatus("REJECTED");
+                response.setMessage("Could not identify a valid vehicle registration number from the Registration Certificate (RC).");
+                applyStamp(response, false);
+
+                triggerEmailNotification(ownerId, response);
+                return response;
+            }
+
+            // Case 3: Target reg provided -> Compare normalized values (Mismatch vs Match)
             if (targetReg != null && !targetReg.isEmpty()) {
                 if (!extractedReg.equals(targetReg)) {
                     response.setVerified(false);

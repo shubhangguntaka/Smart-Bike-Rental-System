@@ -293,4 +293,57 @@ public class ImageUtil {
 
         return enhanced;
     }
+
+    /**
+     * Converts an image to 8-bit grayscale.
+     */
+    public static BufferedImage toGrayscale(BufferedImage src) {
+        if (src == null) return null;
+        if (src.getType() == BufferedImage.TYPE_BYTE_GRAY) return src;
+        int w = src.getWidth();
+        int h = src.getHeight();
+        BufferedImage gray = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = gray.createGraphics();
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return gray;
+    }
+
+    /**
+     * Binarizes an image using adaptive Otsu thresholding.
+     */
+    public static BufferedImage binarizeAdaptive(BufferedImage src) {
+        if (src == null) return null;
+        BufferedImage gray = toGrayscale(src);
+        int threshold = otsuThreshold(gray);
+        int w = gray.getWidth();
+        int h = gray.getHeight();
+        BufferedImage bin = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int sample = gray.getRaster().getSample(x, y, 0);
+                bin.setRGB(x, y, sample > threshold ? Color.WHITE.getRGB() : Color.BLACK.getRGB());
+            }
+        }
+        return bin;
+    }
+
+    /**
+     * Rotates an image by 90, 180, or 270 degrees.
+     */
+    public static BufferedImage rotate(BufferedImage src, double angleDegrees) {
+        if (src == null || angleDegrees == 0) return src;
+        int w = src.getWidth();
+        int h = src.getHeight();
+        boolean is90or270 = ((int) Math.abs(angleDegrees) % 180) != 0;
+        int newW = is90or270 ? h : w;
+        int newH = is90or270 ? w : h;
+        BufferedImage rotated = new BufferedImage(newW, newH, src.getType() != 0 ? src.getType() : BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = rotated.createGraphics();
+        g.translate((newW - w) / 2.0, (newH - h) / 2.0);
+        g.rotate(Math.toRadians(angleDegrees), w / 2.0, h / 2.0);
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return rotated;
+    }
 }

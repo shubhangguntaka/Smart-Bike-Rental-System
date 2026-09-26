@@ -39,8 +39,72 @@ public class RCExtractor {
             "registration number", "reg. no.", "reg. no", "regn. no.", "regn. no",
             "regn no", "reg no", "regd. no.", "regd. no", "regd no", "vehicle no.",
             "vehicle no", "vehicle reg no", "vehicle regn no", "vehicle registration number",
-            "vehicle registration no", "vehicle number", "regn", "registration"
+            "vehicle registration no", "vehicle number", "rc no.", "rc no", "rc number", "regn", "registration"
     };
+
+    private static final String[] NORMALIZED_REG_LABELS = {
+            "REGN NUMBER", "REGISTRATION NUMBER", "REGISTRATION NO", "REGN NO",
+            "REG NO", "REGD NO", "VEHICLE NO", "VEHICLE NUMBER", "VEHICLE REG NO",
+            "VEHICLE REGN NO", "VEHICLE REGISTRATION NUMBER", "VEHICLE REGISTRATION NO",
+            "RC NO", "RC NUMBER", "REG NUMBER"
+    };
+
+    private static boolean isRegistrationLabel(String line) {
+        if (line == null) return false;
+        String norm = line.replaceAll("[^A-Za-z0-9]", " ").replaceAll("\\s+", " ").trim().toUpperCase();
+        for (String label : NORMALIZED_REG_LABELS) {
+            if (norm.contains(label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isAddressOrPinLine(String line) {
+        if (line == null) return false;
+        String upper = line.toUpperCase();
+        return upper.contains("ADDRESS")
+                || upper.contains("H.NO")
+                || upper.contains("HNO")
+                || upper.contains("FLAT")
+                || upper.contains("PLOT")
+                || upper.contains("STREET")
+                || upper.contains("ROAD")
+                || upper.contains("VILLAGE")
+                || upper.contains("MANDAL")
+                || upper.contains("DISTRICT")
+                || upper.contains("DIST")
+                || upper.contains("PIN")
+                || upper.contains("PINCODE")
+                || upper.contains("POST")
+                || upper.matches(".*\\b[1-9][0-9]{5}\\b.*");
+    }
+
+    private static boolean isDateOrValidityLine(String line) {
+        if (line == null) return false;
+        String upper = line.toUpperCase();
+        return upper.contains("DATE")
+                || upper.contains("VALID")
+                || upper.contains("UPTO")
+                || upper.contains("EXPIRY")
+                || upper.contains("MFG")
+                || upper.contains("TAX")
+                || upper.contains("FITNESS")
+                || upper.contains("INSURANCE")
+                || upper.contains("PUCC");
+    }
+
+    private static boolean isChassisOrEngineLine(String line) {
+        if (line == null) return false;
+        String upper = line.toUpperCase();
+        return upper.contains("CHASSIS")
+                || upper.contains("ENGINE")
+                || upper.contains("CYLINDER")
+                || upper.contains("HORSE POWER")
+                || upper.contains("CC")
+                || upper.contains("MAKER")
+                || upper.contains("MODEL");
+    }
 
     private static final Pattern DATE_PATTERN =
             Pattern.compile("\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}");
@@ -93,196 +157,216 @@ public class RCExtractor {
     // Registration Number Candidate Selection
     //-------------------------------------------------------
 
-    private static class RegCandidate {
-        String value;
-        int score;
-
-        RegCandidate(String value, int score) {
-            this.value = value;
-            this.score = score;
-        }
-    }
-
     private void extractRegistrationNumber(String rawText, String[] lines, String expectedRegNumber, RCData data) {
         String targetNormalized = DocumentIdentifierUtil.normalizeRegistrationNumber(expectedRegNumber);
-        java.util.Map<String, Integer> candidates = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Integer> candidateScores = new java.util.LinkedHashMap<>();
 
-        // Helper to record candidate with score
+        // Helper to add or upgrade a candidate score
         java.util.function.BiConsumer<String, Integer> addCandidate = (cand, score) -> {
             if (cand == null) return;
             String norm = DocumentIdentifierUtil.normalizeRegistrationNumber(cand);
-            // Must not contain 5 or more consecutive digits (PIN code or arbitrary numeric block like 505001)
+            if (norm == null || norm.isEmpty()) return;
+
+            // Reject strings with 5 or more consecutive digits (e.g. PIN code or address numeric block like 505001 or AR505001)
             if (norm.matches(".*[0-9]{5,}.*")) {
                 return;
             }
-            if (isValidIndianRegNumber(norm)) {
-                int s = score;
-                if (targetNormalized != null && !targetNormalized.isEmpty() && norm.equals(targetNormalized)) {
-                    s += 1500;
-                }
-                if (DocumentIdentifierUtil.isExactProjectRcFormat(norm)) {
-                    s += 200;
-                }
-                int existingScore = candidates.getOrDefault(norm, 0);
-                if (s > existingScore) {
-                    candidates.put(norm, s);
+
+            if (!isValidIndianRegNumber(norm)) {
+                // Try OCR noise repair (e.g. TSO2EY4494 -> TS02EY4494)
+                String repaired = fixRegistrationNumberOcrNoise(norm);
+                if (repaired != null && !repaired.matches(".*[0-9]{5,}.*") && isValidIndianRegNumber(repaired)) {
+                    norm = repaired;
+                } else {
+                    return;
                 }
             }
 
-            // Also test if OCR digit repair turns candidate into exact project format
-            String repaired = fixRegistrationNumberOcrNoise(cand);
-            if (repaired != null && !repaired.equals(norm) && !repaired.matches(".*[0-9]{5,}.*") && DocumentIdentifierUtil.isExactProjectRcFormat(repaired)) {
-                int s = score + 150;
-                if (targetNormalized != null && !targetNormalized.isEmpty() && repaired.equals(targetNormalized)) {
-                    s += 1500;
-                }
-                int existingScore = candidates.getOrDefault(repaired, 0);
-                if (s > existingScore) {
-                    candidates.put(repaired, s);
-                }
+            int finalScore = score;
+            if (DocumentIdentifierUtil.isExactProjectRcFormat(norm)) {
+                finalScore += 200;
+            } else {
+                finalScore += 100;
+            }
+
+            if (targetNormalized != null && !targetNormalized.isEmpty() && norm.equals(targetNormalized)) {
+                finalScore += 1000;
+            }
+
+            int existing = candidateScores.getOrDefault(norm, Integer.MIN_VALUE);
+            if (finalScore > existing) {
+                candidateScores.put(norm, finalScore);
             }
         };
 
-        // Pass 0: RC Upper Zone / Red Header Banner & "Regn. Number" Region Search
-        // Target region is the upper portion around:
-        // CERTIFICATE OF REGISTRATION -> Registration Number area -> Regd. Owner
-        for (int i = 0; i < lines.length; i++) {
-            String lower = lines[i].toLowerCase();
-
-            // Check if this line is in the header area or has "regn" context or is an upper/color pass marker
-            boolean isHeader = lower.contains("certificate of registration")
-                    || lower.contains("registration certificate")
-                    || lower.contains("transport department")
-                    || lower.contains("telangana state")
-                    || lower.contains("upper region")
-                    || lower.contains("red contrast")
-                    || lower.contains("red binary");
-
-            boolean isRegnContext = lower.contains("regn") || lower.contains("registration");
-
-            if (isHeader || isRegnContext) {
-                // 1. Inspect the line itself (e.g. if registration number is mixed with red header text)
-                Matcher mExactSameLine = EXACT_PROJECT_PATTERN.matcher(lines[i].toUpperCase());
-                while (mExactSameLine.find()) {
-                    addCandidate.accept(mExactSameLine.group(), 200);
-                }
-
-                // 2. Inspect nearby lines in this upper zone (preceding line, next 1 to 4 lines)
-                int startRange = Math.max(0, i - 1);
-                int endRange = Math.min(lines.length - 1, i + 4);
-                for (int r = startRange; r <= endRange; r++) {
-                    String targetLine = lines[r].trim();
-                    if (targetLine.isBlank()) continue;
-
-                    // Skip lines clearly into owner name
-                    if (targetLine.toLowerCase().contains("regd. owner") || targetLine.toLowerCase().contains("registered owner")) {
-                        continue;
-                    }
-
-                    Matcher mExact = EXACT_PROJECT_PATTERN.matcher(targetLine.toUpperCase());
-                    while (mExact.find()) {
-                        addCandidate.accept(mExact.group(), 180);
-                    }
-
-                    Matcher mGen = REG_NUMBER_PATTERN.matcher(targetLine.toUpperCase());
-                    while (mGen.find()) {
-                        addCandidate.accept(mGen.group(), 140);
-                    }
-
-                    String cand = findRegInText(targetLine);
-                    if (cand != null) {
-                        addCandidate.accept(cand, 130);
-                    }
-                }
-            }
-        }
-
-        // Pass 1: Check lines containing registration labels (and immediate lines after)
+        // Scan lines
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
-            String lower = line.toLowerCase();
-            for (String label : REG_LABELS) {
-                if (lower.contains(label)) {
-                    // Check remainder of the current line after label
-                    String candidate = findRegInLineOrValue(line, label);
-                    if (candidate != null) {
-                        addCandidate.accept(candidate, 80);
-                    }
+            if (line.isBlank()) continue;
 
-                    // Check next 1-2 lines
-                    for (int next = i + 1; next < lines.length && next <= i + 2; next++) {
-                        String nextLine = lines[next].trim();
-                        String nextCandidate = findRegInText(nextLine);
-                        if (nextCandidate != null) {
-                            addCandidate.accept(nextCandidate, 70);
-                        }
+            boolean inAddress = isAddressOrPinLine(line);
+            boolean inDate = isDateOrValidityLine(line);
+            boolean inChassisEngine = isChassisOrEngineLine(line);
+            boolean isUpperZone = (i <= (int) (lines.length * 0.45));
+            boolean hasRegLabel = isRegistrationLabel(line);
+
+            int lineContextModifier = 0;
+            if (hasRegLabel) {
+                lineContextModifier += 500;
+            } else if (i > 0 && isRegistrationLabel(lines[i - 1])) {
+                lineContextModifier += 350; // immediately below label
+            } else if (i < lines.length - 1 && isRegistrationLabel(lines[i + 1])) {
+                lineContextModifier += 250; // immediately above label
+            } else if (isUpperZone) {
+                lineContextModifier += 150;
+            }
+
+            if (inAddress) lineContextModifier -= 800;
+            if (inDate) lineContextModifier -= 500;
+            if (inChassisEngine) lineContextModifier -= 500;
+
+            // 1. If line has registration label, check remainder of line after label
+            if (hasRegLabel) {
+                String remainder = extractValueAfterLabel(line);
+                if (remainder != null && !remainder.isBlank()) {
+                    String cand = findRegInText(remainder);
+                    if (cand != null) {
+                        addCandidate.accept(cand, lineContextModifier + 200);
                     }
                 }
             }
-        }
 
-        // Pass 2: Line-by-line regex search
-        for (String line : lines) {
-            // Check exact project format first
+            // 2. Exact Project Pattern match on this line
             Matcher mExact = EXACT_PROJECT_PATTERN.matcher(line.toUpperCase());
             while (mExact.find()) {
-                addCandidate.accept(mExact.group(), 60);
+                addCandidate.accept(mExact.group(), lineContextModifier + 150);
             }
-            // General format
-            Matcher mGeneral = REG_NUMBER_PATTERN.matcher(line.toUpperCase());
-            while (mGeneral.find()) {
-                addCandidate.accept(mGeneral.group(), 40);
-            }
-        }
 
-        // Pass 3: Token merge pass per line (handles spaced-out characters like "T S 0 9 A B 1 2 3 4" or "TS 09 AB 1234")
-        for (String line : lines) {
+            // 3. General Reg Number Pattern match on this line
+            Matcher mGen = REG_NUMBER_PATTERN.matcher(line.toUpperCase());
+            while (mGen.find()) {
+                addCandidate.accept(mGen.group(), lineContextModifier + 100);
+            }
+
+            // 4. Bharat Series Pattern match on this line
+            Matcher mBh = BH_SERIES_PATTERN.matcher(line.toUpperCase());
+            while (mBh.find()) {
+                addCandidate.accept(mBh.group(), lineContextModifier + 100);
+            }
+
+            // 5. Spaced token merge (e.g. "TS 02 EY 4494" or "TS-02-EY-4494")
             String cleanCompact = line.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
             if (cleanCompact.length() >= 6 && cleanCompact.length() <= 20) {
-                for (int i = 0; i <= cleanCompact.length() - 6; i++) {
-                    String sub = cleanCompact.substring(i);
-                    String candidate = findRegInText(sub);
-                    if (candidate != null) {
-                        addCandidate.accept(candidate, 50);
+                for (int start = 0; start <= cleanCompact.length() - 6; start++) {
+                    String sub = cleanCompact.substring(start);
+                    String cand = findRegInText(sub);
+                    if (cand != null) {
+                        addCandidate.accept(cand, lineContextModifier + 80);
                     }
+                }
+            }
+
+            // 6. Target-assisted confusion resolution on this line
+            if (targetNormalized != null && !targetNormalized.isEmpty() && !inAddress) {
+                if (isOcrConfusionOfTarget(line, targetNormalized)) {
+                    addCandidate.accept(targetNormalized, lineContextModifier + 800);
                 }
             }
         }
 
-        // Pass 4: Full text scan
-        Matcher mAllExact = EXACT_PROJECT_PATTERN.matcher(rawText.toUpperCase());
-        while (mAllExact.find()) {
-            addCandidate.accept(mAllExact.group(), 50);
-        }
-
-        // Pass 5: Lenient OCR digit repair across whole text
-        String repairedRaw = fixRegistrationNumberOcrNoise(rawText.toUpperCase());
-        String repairedCandidate = findRegInText(repairedRaw);
-        if (repairedCandidate != null) {
-            addCandidate.accept(repairedCandidate, 30);
-        }
-
-        // Check if rawText directly contains the target normalized number
-        if (targetNormalized != null && !targetNormalized.isEmpty()) {
-            String compactAll = rawText.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
-            if (compactAll.contains(targetNormalized) && isValidIndianRegNumber(targetNormalized)) {
-                addCandidate.accept(targetNormalized, 1500);
+        // Full document scan fallback if no candidates yet
+        if (candidateScores.isEmpty()) {
+            Matcher mAll = EXACT_PROJECT_PATTERN.matcher(rawText.toUpperCase());
+            while (mAll.find()) {
+                addCandidate.accept(mAll.group(), 50);
+            }
+            Matcher mAllGen = REG_NUMBER_PATTERN.matcher(rawText.toUpperCase());
+            while (mAllGen.find()) {
+                addCandidate.accept(mAllGen.group(), 30);
             }
         }
 
-        // Select candidate with the highest score
-        String bestCandidate = null;
-        int maxScore = -1;
-        for (java.util.Map.Entry<String, Integer> entry : candidates.entrySet()) {
-            if (entry.getValue() > maxScore) {
-                maxScore = entry.getValue();
-                bestCandidate = entry.getKey();
+        // Filter and sort candidates
+        java.util.List<java.util.Map.Entry<String, Integer>> validCandidates = candidateScores.entrySet().stream()
+                .filter(e -> e.getValue() > 0)
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (validCandidates.isEmpty()) {
+            data.setRegistrationNumber(null);
+            data.setAmbiguous(false);
+            return;
+        }
+
+        java.util.Map.Entry<String, Integer> best = validCandidates.get(0);
+
+        // Check for ambiguity: multiple top candidates with very close scores where neither is target
+        if (validCandidates.size() > 1) {
+            java.util.Map.Entry<String, Integer> second = validCandidates.get(1);
+            boolean neitherIsTarget = targetNormalized == null
+                    || (!best.getKey().equals(targetNormalized) && !second.getKey().equals(targetNormalized));
+            if (neitherIsTarget && (best.getValue() - second.getValue()) <= 50 && best.getValue() >= 200) {
+                data.setAmbiguous(true);
+                data.setRegistrationNumber(best.getKey());
+                return;
             }
         }
 
-        if (bestCandidate != null) {
-            data.setRegistrationNumber(bestCandidate);
+        data.setAmbiguous(false);
+        data.setRegistrationNumber(best.getKey());
+    }
+
+    private static String extractValueAfterLabel(String line) {
+        String lower = line.toLowerCase();
+        for (String label : REG_LABELS) {
+            int idx = lower.indexOf(label);
+            if (idx >= 0) {
+                String after = line.substring(idx + label.length()).trim();
+                while (after.startsWith(":") || after.startsWith("-") || after.startsWith(".") || after.startsWith("/")) {
+                    after = after.substring(1).trim();
+                }
+                return after;
+            }
         }
+        return null;
+    }
+
+    private static boolean isOcrConfusionOfTarget(String line, String target) {
+        if (line == null || target == null || target.length() < 7) return false;
+        String compact = line.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        if (compact.length() < target.length()) return false;
+
+        for (int i = 0; i <= compact.length() - target.length(); i++) {
+            String window = compact.substring(i, i + target.length());
+            int diffs = 0;
+            boolean plausible = true;
+            for (int j = 0; j < target.length(); j++) {
+                char cW = window.charAt(j);
+                char cT = target.charAt(j);
+                if (cW != cT) {
+                    diffs++;
+                    if (!isCommonOcrConfusion(cW, cT)) {
+                        plausible = false;
+                        break;
+                    }
+                }
+            }
+            if (plausible && diffs >= 1 && diffs <= 2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isCommonOcrConfusion(char a, char b) {
+        if (a == b) return true;
+        String pair = "" + a + b;
+        String rPair = "" + b + a;
+        String[] pairs = {"O0", "0O", "I1", "1I", "S5", "5S", "B8", "8B", "Z2", "2Z", "G6", "6G", "U0", "0U", "D0", "0D", "L1", "1L", "T7", "7T", "Q0", "0Q"};
+        for (String p : pairs) {
+            if (p.equals(pair) || p.equals(rPair)) return true;
+        }
+        return false;
     }
 
     private String findRegInLineOrValue(String line, String label) {

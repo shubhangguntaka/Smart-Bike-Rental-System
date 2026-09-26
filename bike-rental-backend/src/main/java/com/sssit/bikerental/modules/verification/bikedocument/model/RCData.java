@@ -142,4 +142,14 @@ public class RCData {
     public void setAddress(String address) {
         this.address = address;
     }
+
+    private boolean ambiguous;
+
+    public boolean isAmbiguous() {
+        return ambiguous;
+    }
+
+    public void setAmbiguous(boolean ambiguous) {
+        this.ambiguous = ambiguous;
+    }
 }

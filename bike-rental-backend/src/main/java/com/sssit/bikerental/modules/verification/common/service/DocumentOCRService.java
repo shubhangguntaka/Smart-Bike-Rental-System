@@ -45,8 +45,9 @@ public class DocumentOCRService {
 
     /**
      * Dedicated multi-pass OCR extraction for Registration Certificates (RC).
-     * Preserves red text, performs upper registration region cropping, applies
-     * color-aware filters, and merges candidates.
+     * Generic, document-layout-agnostic, and color-agnostic: uses full document OCR,
+     * upper registration region localization, adaptive contrast stretching, Otsu binarization,
+     * and multiple segmentation modes (PSM 3, 6, 11).
      */
     public RCData extractRcDocument(File imageFile, String targetReg) {
         StringBuilder combinedText = new StringBuilder();
@@ -67,13 +68,22 @@ public class DocumentOCRService {
                 String fullText = tesseract.doOCR(original);
                 if (fullText != null && !fullText.isBlank()) {
                     combinedText.append(fullText).append("\n");
+                    // Fast path check: if Pass 1 gave a high-confidence match with targetReg
+                    RCData pass1Data = rcExtractor.extract(fullText, targetReg);
+                    if (pass1Data.getRegistrationNumber() != null
+                            && targetReg != null
+                            && !pass1Data.isAmbiguous()
+                            && pass1Data.getRegistrationNumber().equals(DocumentIdentifierUtil.normalizeRegistrationNumber(targetReg))) {
+                        pass1Data.setOcrText(fullText);
+                        return pass1Data;
+                    }
                 }
             } catch (Exception e) {
                 log.warn("RC Pass 1 (full image) error: {}", e.getMessage());
             }
 
-            // PASS 2: Upper Registration Region Crop (top 42% of document)
-            BufferedImage upperCrop = ImageUtil.cropRegion(original, 0.0, 0.42);
+            // PASS 2: Upper Registration Region Crop (top 45% of document)
+            BufferedImage upperCrop = ImageUtil.cropRegion(original, 0.0, 0.45);
             if (upperCrop != null) {
                 BufferedImage upscaledCrop = ImageUtil.upscaleImage(upperCrop, 2.0);
 
@@ -99,29 +109,51 @@ public class DocumentOCRService {
                     log.warn("RC Pass 2B (crop PSM 3) error: {}", e.getMessage());
                 }
 
-                // PASS 3: Color-aware red-text preservation pass
-                // Red text absorbs green/blue light; green-channel difference turns red text dark on bright background
+                // PASS 3: Adaptive Grayscale & High Contrast (Document Agnostic)
+                // Enhances contrast for any color combination (black on white, light on dark, colored backgrounds)
                 try {
-                    BufferedImage redContrast = ImageUtil.extractRedContrastGrayscale(upscaledCrop);
+                    BufferedImage gray = ImageUtil.toGrayscale(upscaledCrop);
+                    BufferedImage enhancedGray = ImageUtil.enhanceContrast(gray);
                     tesseract.setPageSegMode(6);
-                    String redText = tesseract.doOCR(redContrast);
-                    if (redText != null && !redText.isBlank()) {
-                        combinedText.append("\n--- RED CONTRAST PASS ---\n").append(redText).append("\n");
+                    String contrastText = tesseract.doOCR(enhancedGray);
+                    if (contrastText != null && !contrastText.isBlank()) {
+                        combinedText.append("\n--- ENHANCED CONTRAST PASS ---\n").append(contrastText).append("\n");
+                    }
+
+                    // Adaptive Otsu binarization
+                    BufferedImage otsuBin = ImageUtil.binarizeAdaptive(upscaledCrop);
+                    String otsuText = tesseract.doOCR(otsuBin);
+                    if (otsuText != null && !otsuText.isBlank()) {
+                        combinedText.append("\n--- ADAPTIVE BINARY PASS ---\n").append(otsuText).append("\n");
                     }
                 } catch (Exception e) {
-                    log.warn("RC Pass 3 (red contrast) error: {}", e.getMessage());
+                    log.warn("RC Pass 3 (contrast & binary) error: {}", e.getMessage());
                 }
 
-                // PASS 4: Binary red-text foreground isolation
+                // PASS 4: Sparse Text Mode (PSM 11) for scattered document fields
                 try {
-                    BufferedImage redBinary = ImageUtil.extractRedTextBinary(upscaledCrop);
-                    tesseract.setPageSegMode(6);
-                    String binText = tesseract.doOCR(redBinary);
-                    if (binText != null && !binText.isBlank()) {
-                        combinedText.append("\n--- RED BINARY PASS ---\n").append(binText).append("\n");
+                    tesseract.setPageSegMode(11);
+                    String psm11Text = tesseract.doOCR(upscaledCrop);
+                    if (psm11Text != null && !psm11Text.isBlank()) {
+                        combinedText.append("\n--- SPARSE TEXT PSM 11 ---\n").append(psm11Text).append("\n");
                     }
                 } catch (Exception e) {
-                    log.warn("RC Pass 4 (red binary) error: {}", e.getMessage());
+                    log.warn("RC Pass 4 (PSM 11) error: {}", e.getMessage());
+                }
+
+                // PASS 5: Optional Color-aware fallback (ONLY if no candidate yet or target not found)
+                RCData intermediate = rcExtractor.extract(combinedText.toString(), targetReg);
+                if (intermediate.getRegistrationNumber() == null || intermediate.isAmbiguous()) {
+                    try {
+                        BufferedImage redContrast = ImageUtil.extractRedContrastGrayscale(upscaledCrop);
+                        tesseract.setPageSegMode(6);
+                        String redText = tesseract.doOCR(redContrast);
+                        if (redText != null && !redText.isBlank()) {
+                            combinedText.append("\n--- COLOR FALLBACK PASS ---\n").append(redText).append("\n");
+                        }
+                    } catch (Exception e) {
+                        log.debug("Color fallback pass: {}", e.getMessage());
+                    }
                 }
             }
 
