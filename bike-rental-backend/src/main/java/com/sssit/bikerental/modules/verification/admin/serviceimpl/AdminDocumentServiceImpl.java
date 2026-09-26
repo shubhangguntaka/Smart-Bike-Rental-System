@@ -149,6 +149,45 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
         review.setReviewedAt(LocalDateTime.now());
         documentReviewRepository.save(review);
 
+        // Propagate approval to underlying entity
+        if ("AADHAAR".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            aadhaarRepository.findById(review.getDocumentId()).ifPresent(av -> {
+                av.setStatus("APPROVED");
+                av.setVerifiedBy(reviewer);
+                av.setVerifiedAt(LocalDateTime.now());
+                av.setStampLabel("VERIFIED");
+                av.setStampColor("green");
+                aadhaarRepository.save(av);
+            });
+        } else if ("DRIVING_LICENSE".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            drivingLicenseRepository.findById(review.getDocumentId()).ifPresent(dl -> {
+                dl.setStatus("APPROVED");
+                dl.setVerifiedAt(LocalDateTime.now());
+                drivingLicenseRepository.save(dl);
+            });
+        } else if ("RC".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            bikeDocumentRepository.findById(review.getDocumentId()).ifPresent(rc -> {
+                rc.setStatus("APPROVED");
+                rc.setVerifiedBy(reviewer);
+                rc.setVerifiedAt(LocalDateTime.now());
+                rc.setStampLabel("VERIFIED");
+                rc.setStampColor("green");
+                bikeDocumentRepository.save(rc);
+
+                if (rc.getBikeId() != null) {
+                    bikeRepository.findById(rc.getBikeId()).ifPresent(b -> {
+                        b.setRcVerified(true);
+                        bikeRepository.save(b);
+                    });
+                } else if (rc.getRegistrationNumber() != null) {
+                    bikeRepository.findByRegistrationNumber(rc.getRegistrationNumber()).ifPresent(b -> {
+                        b.setRcVerified(true);
+                        bikeRepository.save(b);
+                    });
+                }
+            });
+        }
+
         addAuditLog(review.getId(), "APPROVED", request != null ? request.getReason() : "Verification approved by admin", reviewer);
 
         return getVerificationById(id);
@@ -172,6 +211,48 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
         review.setReviewedAt(LocalDateTime.now());
         documentReviewRepository.save(review);
 
+        // Propagate rejection to underlying entity
+        if ("AADHAAR".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            aadhaarRepository.findById(review.getDocumentId()).ifPresent(av -> {
+                av.setStatus("REJECTED");
+                av.setRejectionReason(request.getReason().trim());
+                av.setVerifiedBy(reviewer);
+                av.setVerifiedAt(LocalDateTime.now());
+                av.setStampLabel("REJECTED");
+                av.setStampColor("red");
+                aadhaarRepository.save(av);
+            });
+        } else if ("DRIVING_LICENSE".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            drivingLicenseRepository.findById(review.getDocumentId()).ifPresent(dl -> {
+                dl.setStatus("REJECTED");
+                dl.setRemarks(request.getReason().trim());
+                dl.setVerifiedAt(LocalDateTime.now());
+                drivingLicenseRepository.save(dl);
+            });
+        } else if ("RC".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            bikeDocumentRepository.findById(review.getDocumentId()).ifPresent(rc -> {
+                rc.setStatus("REJECTED");
+                rc.setRemarks(request.getReason().trim());
+                rc.setVerifiedBy(reviewer);
+                rc.setVerifiedAt(LocalDateTime.now());
+                rc.setStampLabel("REJECTED");
+                rc.setStampColor("red");
+                bikeDocumentRepository.save(rc);
+
+                if (rc.getBikeId() != null) {
+                    bikeRepository.findById(rc.getBikeId()).ifPresent(b -> {
+                        b.setRcVerified(false);
+                        bikeRepository.save(b);
+                    });
+                } else if (rc.getRegistrationNumber() != null) {
+                    bikeRepository.findByRegistrationNumber(rc.getRegistrationNumber()).ifPresent(b -> {
+                        b.setRcVerified(false);
+                        bikeRepository.save(b);
+                    });
+                }
+            });
+        }
+
         addAuditLog(review.getId(), "REJECTED", request.getReason().trim(), reviewer);
 
         return getVerificationById(id);
@@ -194,6 +275,27 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
         review.setReviewedBy(reviewer);
         review.setReviewedAt(LocalDateTime.now());
         documentReviewRepository.save(review);
+
+        // Propagate reupload requirement to underlying entity
+        if ("AADHAAR".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            aadhaarRepository.findById(review.getDocumentId()).ifPresent(av -> {
+                av.setStatus("REUPLOAD_REQUIRED");
+                av.setRejectionReason(request.getReason().trim());
+                aadhaarRepository.save(av);
+            });
+        } else if ("DRIVING_LICENSE".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            drivingLicenseRepository.findById(review.getDocumentId()).ifPresent(dl -> {
+                dl.setStatus("REUPLOAD_REQUIRED");
+                dl.setRemarks(request.getReason().trim());
+                drivingLicenseRepository.save(dl);
+            });
+        } else if ("RC".equalsIgnoreCase(review.getDocumentType()) && review.getDocumentId() != null) {
+            bikeDocumentRepository.findById(review.getDocumentId()).ifPresent(rc -> {
+                rc.setStatus("REUPLOAD_REQUIRED");
+                rc.setRemarks(request.getReason().trim());
+                bikeDocumentRepository.save(rc);
+            });
+        }
 
         addAuditLog(review.getId(), "REUPLOAD_REQUIRED", request.getReason().trim(), reviewer);
 
@@ -466,67 +568,6 @@ public class AdminDocumentServiceImpl implements AdminDocumentService {
     // =========================================================================
 
     private void syncExistingVerificationRecords() {
-        // Step 0A: Auto-create AadhaarVerification for any registered User/Owner missing one
-        try {
-            List<User> users = userRepository.findAll();
-            for (User user : users) {
-                if (user.getRole() == com.sssit.bikerental.common.enums.Role.OWNER || user.getRole() == com.sssit.bikerental.common.enums.Role.CUSTOMER) {
-                    boolean hasAadhaar = aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(user.getId(), "APPROVED").isPresent()
-                            || aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(user.getId(), "VERIFIED").isPresent();
-                    if (!hasAadhaar) {
-                        AadhaarVerification av = new AadhaarVerification();
-                        av.setCustomerId(user.getId());
-                        av.setAadhaarNumber("9000" + String.format("%08d", user.getId()));
-                        av.setCustomerName(user.getFirstName() + " " + user.getLastName());
-                        av.setStatus("APPROVED");
-                        av.setUploadedFile("aadhaar_" + user.getId() + ".png");
-                        av.setUploadedAt(LocalDateTime.now());
-                        av.setVerifiedAt(LocalDateTime.now());
-                        av.setVerifiedBy("SYSTEM");
-                        av.setStampLabel("VERIFIED");
-                        av.setStampColor("green");
-                        aadhaarRepository.save(av);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Non-fatal, continue with existing records
-        }
-
-        // Step 0B: Auto-create BikeDocument for any registered Bike missing an RC verification record
-        try {
-            List<Bike> bikes = bikeRepository.findAll();
-            for (Bike b : bikes) {
-                if (b.getRegistrationNumber() != null && !b.getRegistrationNumber().isBlank()) {
-                    if (bikeDocumentRepository.findByRegistrationNumber(b.getRegistrationNumber()).isEmpty()) {
-                        BikeDocument doc = new BikeDocument();
-                        doc.setOwnerId(b.getOwnerId());
-                        doc.setBikeId(b.getBikeId());
-                        String ownerName = "Registered Owner";
-                        if (b.getOwnerId() != null) {
-                            User u = userRepository.findById(b.getOwnerId()).orElse(null);
-                            if (u != null) {
-                                ownerName = u.getFirstName() + " " + u.getLastName();
-                            }
-                        }
-                        doc.setOwnerName(ownerName);
-                        doc.setRegistrationNumber(b.getRegistrationNumber());
-                        doc.setMakerName(b.getBrand());
-                        doc.setModel(b.getModel());
-                        doc.setVehicleClass("MOTOR CYCLE");
-                        doc.setStatus("APPROVED");
-                        doc.setRegistrationDate(java.time.LocalDate.now().minusYears(2));
-                        doc.setInsuranceValidUpto(java.time.LocalDate.now().plusYears(1));
-                        doc.setDocumentPath("rc_" + b.getRegistrationNumber() + ".png");
-                        doc.setUploadedAt(LocalDateTime.now());
-                        bikeDocumentRepository.save(doc);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Non-fatal, continue with existing records
-        }
-
         // Synchronize Aadhaar
         List<AadhaarVerification> aadhaars = aadhaarRepository.findAll();
         for (AadhaarVerification av : aadhaars) {

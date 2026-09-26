@@ -193,7 +193,10 @@ public class BookingServiceImpl implements BookingService {
         // 1. Check verification status
         log.info("Evaluating customer verification status for customerId: {}", customerId);
         boolean isVerified = checkVerificationStatus(customerId);
-        BookingStatus initialStatus = isVerified ? BookingStatus.PENDING : BookingStatus.VERIFICATION_REQUIRED;
+        if (!isVerified) {
+            throw new com.sssit.bikerental.modules.booking.exception.VerificationRequiredException("Customer verification is required before booking a bike.");
+        }
+        BookingStatus initialStatus = BookingStatus.PENDING;
 
         // 2. Check bike availability and overlaps
         checkBikeAvailability(bike, request.getStartTime(), request.getReturnTime(), null);

@@ -676,10 +676,10 @@ public class AadhaarServiceImpl implements AadhaarService {
                 && qrData.getAadhaarNumber() != null
                 && !qrData.getAadhaarNumber().isBlank()) {
 
-            return qrData.getAadhaarNumber();
+            return com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil.normalizeAadhaarNumber(qrData.getAadhaarNumber());
         }
 
-        return ocrData.getAadhaarNumber();
+        return com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil.normalizeAadhaarNumber(ocrData.getAadhaarNumber());
     }
 
     //-----------------------------------
@@ -730,37 +730,53 @@ public class AadhaarServiceImpl implements AadhaarService {
     //-----------------------------------
 
     @Override
-public AadhaarVerification getApprovedAadhaar(Long customerId, String purpose) {
+    public AadhaarVerification getApprovedAadhaar(Long customerId, String purpose) {
 
-    if (customerId == null) {
-        return null;
-    }
+        if (customerId == null) {
+            return null;
+        }
 
-    boolean isBikeOwnerPurpose =
-            VerificationConstants.PURPOSE_BIKE_OWNER.equalsIgnoreCase(
-                    purpose == null ? "" : purpose.trim());
+        boolean isBikeOwnerPurpose =
+                VerificationConstants.PURPOSE_BIKE_OWNER.equalsIgnoreCase(
+                        purpose == null ? "" : purpose.trim());
 
-    if (isBikeOwnerPurpose) {
+        if (isBikeOwnerPurpose) {
+            return repository
+                    .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                            customerId,
+                            VerificationConstants.STATUS_APPROVED)
+                    .or(() -> repository
+                            .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                                    customerId,
+                                    "VERIFIED"))
+                    .or(() -> repository
+                            .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                                    customerId,
+                                    VerificationConstants.STATUS_APPROVED))
+                    .or(() -> repository
+                            .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                                    customerId,
+                                    "VERIFIED"))
+                    .orElse(null);
+        }
+
         return repository
-                .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
                         customerId,
                         VerificationConstants.STATUS_APPROVED)
                 .or(() -> repository
-                        .findFirstByCustomerIdAndStatusAndVerifiedForBikeOwnerTrueOrderByVerifiedAtDesc(
+                        .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
+                                customerId,
+                                "VERIFIED"))
+                .or(() -> repository
+                        .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
+                                customerId,
+                                VerificationConstants.STATUS_APPROVED))
+                .or(() -> repository
+                        .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(
                                 customerId,
                                 "VERIFIED"))
                 .orElse(null);
     }
-
-    return repository
-            .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
-                    customerId,
-                    VerificationConstants.STATUS_APPROVED)
-            .or(() -> repository
-                    .findFirstByCustomerIdAndStatusAndVerifiedForUserTrueOrderByVerifiedAtDesc(
-                            customerId,
-                            "VERIFIED"))
-            .orElse(null);
-}
 
 }

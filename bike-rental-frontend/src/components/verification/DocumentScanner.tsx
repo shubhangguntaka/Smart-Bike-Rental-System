@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 
 interface Props {
   imageSrc: string;
   scanning: boolean;
   steps: string[];
+  hasError?: boolean;
+  failedStepIndex?: number;
 }
 
 const STEP_INTERVAL_MS = 900;
@@ -18,13 +20,11 @@ const STEP_INTERVAL_MS = 900;
  * the document is actually being read rather than just waiting on a
  * spinner.
  *
- * When `scanning` flips back to false, every step is fast-forwarded
- * to "checked" for a beat before the parent swaps in the result -
- * previously the checklist just snapped back to its blank/unchecked
- * state the instant the API responded, which read as broken rather
- * than finished.
+ * When `scanning` flips back to false without errors, every step is fast-forwarded
+ * to "checked" for a beat before the parent swaps in the result.
+ * If `hasError` is true, success checkmarks and celebration overlays are suppressed.
  */
-const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
+const DocumentScanner = ({ imageSrc, scanning, steps, hasError = false, failedStepIndex }: Props) => {
   const [activeStep, setActiveStep] = useState(0);
   const [justFinished, setJustFinished] = useState(false);
   const wasScanning = useRef(false);
@@ -43,16 +43,21 @@ const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
     }
 
     if (wasScanning.current) {
-      // Scan just ended - fast-forward every checklist item to
-      // "checked" rather than resetting, so the last thing the
-      // person sees is a fully-completed scan, not a blank list.
-      setActiveStep(steps.length);
-      setJustFinished(true);
+      if (!hasError) {
+        // Scan ended successfully - fast-forward to checked
+        setActiveStep(steps.length);
+        setJustFinished(true);
+      } else {
+        setJustFinished(false);
+        if (failedStepIndex !== undefined) {
+          setActiveStep(failedStepIndex);
+        }
+      }
       wasScanning.current = false;
     }
-  }, [scanning, steps.length]);
+  }, [scanning, steps.length, hasError, failedStepIndex]);
 
-  const showChecklist = scanning || justFinished;
+  const showChecklist = scanning || justFinished || hasError;
 
   return (
     <div className="flex flex-col gap-5">
@@ -106,7 +111,8 @@ const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
 
       <ul className="mx-auto flex w-full max-w-sm flex-col gap-2">
         {steps.map((step, i) => {
-          const done = showChecklist ? i < activeStep : false;
+          const isFailed = !scanning && hasError && (failedStepIndex !== undefined ? i === failedStepIndex : i === activeStep);
+          const done = showChecklist ? (hasError ? i < (failedStepIndex ?? activeStep) : i < activeStep) : false;
           const current = scanning && i === activeStep;
 
           return (
@@ -116,7 +122,9 @@ const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
             >
               <span
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                  done
+                  isFailed
+                    ? "border-destructive bg-destructive/10 text-destructive"
+                    : done
                     ? "border-verified bg-verified text-white"
                     : current
                     ? "border-brass text-brass"
@@ -124,7 +132,16 @@ const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
                 }`}
               >
                 <AnimatePresence mode="wait" initial={false}>
-                  {done ? (
+                  {isFailed ? (
+                    <motion.span
+                      key="failed"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                    >
+                      <X size={12} strokeWidth={3} />
+                    </motion.span>
+                  ) : done ? (
                     <motion.span
                       key="check"
                       initial={{ scale: 0 }}
@@ -143,7 +160,9 @@ const DocumentScanner = ({ imageSrc, scanning, steps }: Props) => {
 
               <span
                 className={
-                  done
+                  isFailed
+                    ? "font-medium text-destructive"
+                    : done
                     ? "text-slate-500 line-through decoration-slate-300"
                     : current
                     ? "font-medium text-ink"

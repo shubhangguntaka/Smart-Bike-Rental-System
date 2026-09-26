@@ -48,6 +48,12 @@ export default function CustomerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedBikeDetail, setSelectedBikeDetail] = useState<Bike | null>(null);
+  const [verificationInfo, setVerificationInfo] = useState<{
+    aadhaarVerified: boolean;
+    dlVerified: boolean;
+    aadhaarStatus?: string;
+    dlStatus?: string;
+  }>({ aadhaarVerified: false, dlVerified: false });
 
   const fetchCustomerDashboardBikes = async () => {
     try {
@@ -204,6 +210,21 @@ export default function CustomerDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (user?.id) {
+      BookingService.getVerificationDetails(Number(user.id))
+        .then((details) => {
+          setVerificationInfo({
+            aadhaarVerified: details.aadhaarVerified,
+            dlVerified: details.dlVerified,
+            aadhaarStatus: details.aadhaarData?.status || (details.aadhaarVerified ? "VERIFIED" : "NOT_SUBMITTED"),
+            dlStatus: details.dlData?.status || (details.dlVerified ? "VERIFIED" : "NOT_SUBMITTED"),
+          });
+        })
+        .catch(() => {});
+    }
+  }, [user?.id]);
+
   const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "Customer";
 
   const getInitials = () => {
@@ -214,7 +235,7 @@ export default function CustomerDashboard() {
     return "CU";
   };
 
-  const isIdentityVerified = Boolean(user?.enabled || user?.id);
+  const isIdentityVerified = Boolean(verificationInfo.aadhaarVerified && verificationInfo.dlVerified);
 
   const isBikeWithinOperatingHours = (bike: Bike): boolean => {
     if (!bike.availableStartTime || !bike.availableEndTime) return true;
@@ -686,15 +707,23 @@ export default function CustomerDashboard() {
             <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
                 <span className="font-semibold text-foreground">Driving License (DL)</span>
-                <span className="font-extrabold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                  VERIFIED
+                <span className={`font-extrabold px-2 py-0.5 rounded-md ${
+                  verificationInfo.dlVerified
+                    ? "text-emerald-600 bg-emerald-500/10"
+                    : "text-amber-600 bg-amber-500/10"
+                }`}>
+                  {verificationInfo.dlVerified ? "VERIFIED" : (verificationInfo.dlStatus || "NOT SUBMITTED")}
                 </span>
               </div>
 
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
                 <span className="font-semibold text-foreground">Aadhaar Identity</span>
-                <span className="font-extrabold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                  VERIFIED
+                <span className={`font-extrabold px-2 py-0.5 rounded-md ${
+                  verificationInfo.aadhaarVerified
+                    ? "text-emerald-600 bg-emerald-500/10"
+                    : "text-amber-600 bg-amber-500/10"
+                }`}>
+                  {verificationInfo.aadhaarVerified ? "VERIFIED" : (verificationInfo.aadhaarStatus || "NOT SUBMITTED")}
                 </span>
               </div>
             </div>

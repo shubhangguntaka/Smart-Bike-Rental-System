@@ -8,6 +8,8 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil;
+import com.sssit.bikerental.modules.verification.common.util.IndianStateCodeUtil;
 import com.sssit.bikerental.modules.verification.drivinglicense.model.DLData;
 
 /**
@@ -22,14 +24,27 @@ import com.sssit.bikerental.modules.verification.drivinglicense.model.DLData;
 @Component
 public class DLExtractor {
 
-    // Typical Indian DL formats: TS0920210012345 / TS-09 20210012345
-    // RTO code can be 2 or 3 digits and the serial 6 or 7 digits
-    // depending on the issuing state, so both are kept flexible.
-    private static final Pattern DL_NUMBER_PATTERN =
-            Pattern.compile("\\b[A-Z]{2}[-\\s]?[0-9]{2,3}[-\\s]?[0-9]{4}[-\\s]?[0-9]{6,7}\\b");
+    // Primary project format: 2-character Indian state code + 14 digits (Total 16 characters)
+    // E.g. TG00220240006700, TS00123456789012
+    private static final Pattern DL_EXACT_PATTERN =
+            Pattern.compile("(?i)\\b([A-Z]{2})[-\\s/.]*([0-9]{14})\\b");
+
+    // Parivahan & Indian DL formats split by common spaces or slashes
+    private static final Pattern DL_TOKENIZED_PATTERN =
+            Pattern.compile("(?i)\\b([A-Z]{2})[-\\s/.]*([0-9]{1,4})[-\\s/.]*([0-9]{4})[-\\s/.]*([0-9]{4,8})\\b");
+
+    private static final Pattern DL_GENERAL_PATTERN =
+            Pattern.compile("(?i)\\b([A-Z]{2})[-\\s/.]*([0-9A-Z]{10,16})\\b");
 
     private static final Pattern DATE_PATTERN =
             Pattern.compile("\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}");
+
+    private static final String[] DL_LABELS = {
+            "dl no", "dl no.", "dl. no", "dlno", "dl.", "dl number", "dl",
+            "licence no", "licence no.", "license no", "license no.", "licence number",
+            "license number", "driving licence", "driving license", "lic no", "card no",
+            "authorisation no", "authorization no"
+    };
 
     public DLData extract(String rawText) {
 
@@ -51,39 +66,239 @@ public class DLExtractor {
     }
 
     //-------------------------------------------------------
-    // License Number
+    // License Number Candidate Selection
     //-------------------------------------------------------
 
     private void extractLicenseNumber(String rawText, String[] lines, DLData data) {
+        java.util.Map<String, Integer> candidates = new java.util.LinkedHashMap<>();
 
-        // Prefer a labelled line ("DL No", "Licence No", "License No")
-        for (String line : lines) {
+        java.util.function.BiConsumer<String, Integer> addCandidate = (cand, score) -> {
+            if (cand == null) return;
+            String norm = DocumentIdentifierUtil.normalizeDrivingLicenseNumber(cand);
+            if (isValidDlCandidate(norm)) {
+                // Decisive boost for exact project standard AA + 14 digits (length 16)
+                if (norm.length() == 16 && DocumentIdentifierUtil.isExactDlFormat(norm)) {
+                    score += 300;
+                }
+                int existing = candidates.getOrDefault(norm, 0);
+                if (score > existing) {
+                    candidates.put(norm, score);
+                }
+            }
+        };
 
-            String lower = line.toLowerCase();
+        // Pass 0: Location-based priority - identify document title and inspect region directly below it
+        // e.g. "Indian Union Driving Licence", "Issued by Telangana", "DL TITLE REGION", etc.
+        for (int i = 0; i < lines.length; i++) {
+            String lower = lines[i].toLowerCase();
+            boolean isTitle = lower.contains("driving licence") || lower.contains("driving license")
+                    || lower.contains("indian union") || lower.contains("issued by telangana")
+                    || lower.contains("issued by") || lower.contains("union of india")
+                    || lower.contains("dl title region");
 
-            if (lower.contains("dl no") || lower.contains("dlno")
-                    || lower.contains("licence no") || lower.contains("license no")) {
+            if (isTitle) {
+                // Inspect lines directly below the title (next 1 to 5 lines, before personal details)
+                for (int next = i + 1; next < lines.length && next <= i + 5; next++) {
+                    String targetLine = lines[next].trim();
+                    if (targetLine.isBlank()) continue;
 
-                Matcher m = DL_NUMBER_PATTERN.matcher(line.toUpperCase());
+                    // Match exact AA + 14 digits pattern prominently below title
+                    Matcher mExact = DL_EXACT_PATTERN.matcher(targetLine.toUpperCase());
+                    while (mExact.find()) {
+                        addCandidate.accept(mExact.group(), 350);
+                    }
 
-                if (m.find()) {
-                    data.setLicenseNumber(stripSeparators(m.group()));
-                    return;
+                    // Match tokenized or spaced tokens
+                    Matcher mTok = DL_TOKENIZED_PATTERN.matcher(targetLine.toUpperCase());
+                    while (mTok.find()) {
+                        addCandidate.accept(mTok.group(), 300);
+                    }
+
+                    String cand = findDlInText(targetLine);
+                    if (cand != null) {
+                        addCandidate.accept(cand, 250);
+                    }
                 }
             }
         }
 
-        // Fallback: search the whole document for anything matching
-        // the license-number shape.
-        Matcher m = DL_NUMBER_PATTERN.matcher(rawText.toUpperCase());
+        // Pass 1: Check lines containing DL labels (or next 1-2 lines)
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            String lower = line.toLowerCase();
+            for (String label : DL_LABELS) {
+                if (lower.contains(label)) {
+                    int labelIdx = lower.indexOf(label);
+                    String after = line.substring(labelIdx + label.length()).trim();
+                    while (after.startsWith(":") || after.startsWith("-") || after.startsWith(".") || after.startsWith("/")) {
+                        after = after.substring(1).trim();
+                    }
+                    String cand = findDlInText(after);
+                    if (cand != null) {
+                        addCandidate.accept(cand, 100);
+                    }
 
-        if (m.find()) {
-            data.setLicenseNumber(stripSeparators(m.group()));
+                    cand = findDlInText(line);
+                    if (cand != null) {
+                        addCandidate.accept(cand, 90);
+                    }
+
+                    for (int next = i + 1; next < lines.length && next <= i + 2; next++) {
+                        String nextCand = findDlInText(lines[next].trim());
+                        if (nextCand != null) {
+                            addCandidate.accept(nextCand, 80);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 2: Line-by-line regex search for exact AA + 14 digits pattern
+        for (String line : lines) {
+            Matcher mExact = DL_EXACT_PATTERN.matcher(line.toUpperCase());
+            while (mExact.find()) {
+                addCandidate.accept(mExact.group(), 120);
+            }
+
+            Matcher mTok = DL_TOKENIZED_PATTERN.matcher(line.toUpperCase());
+            while (mTok.find()) {
+                addCandidate.accept(mTok.group(), 90);
+            }
+
+            String cand = findDlInText(line);
+            if (cand != null) {
+                addCandidate.accept(cand, 70);
+            }
+        }
+
+        // Pass 3: Token merge pass per line (handles spaced-out tokens like "TG002 2024 0006700")
+        for (String line : lines) {
+            String compactLine = line.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+            if (compactLine.length() >= 13 && compactLine.length() <= 30) {
+                for (int i = 0; i <= compactLine.length() - 13; i++) {
+                    String sub = compactLine.substring(i);
+                    if (sub.length() >= 13) {
+                        String state = sub.substring(0, 2);
+                        if (IndianStateCodeUtil.isValidStateCode(state)) {
+                            // Check exact 16 chars (2 state + 14 digits)
+                            if (sub.length() >= 16) {
+                                String exact16 = sub.substring(0, 16);
+                                String repaired = repairOcrDigits(exact16.substring(2));
+                                if (repaired.matches("^[0-9]{14}$")) {
+                                    addCandidate.accept(state + repaired, 140);
+                                }
+                            }
+                            // General length
+                            for (int len = 13; len <= Math.min(18, sub.length()); len++) {
+                                String cand = sub.substring(0, len);
+                                String rest = cand.substring(2);
+                                String repaired = repairOcrDigits(rest);
+                                if (repaired.matches("^[0-9]{11,16}$")) {
+                                    addCandidate.accept(state + repaired, 50);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 4: Full text scan for exact pattern
+        Matcher mAllExact = DL_EXACT_PATTERN.matcher(rawText.toUpperCase());
+        while (mAllExact.find()) {
+            addCandidate.accept(mAllExact.group(), 110);
+        }
+
+        // Pass 5: Token-level OCR repair across all tokens
+        for (String line : lines) {
+            String[] tokens = line.split("[\\s,;:]+");
+            for (String tok : tokens) {
+                String clean = tok.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+                if (clean.length() >= 13 && clean.length() <= 18) {
+                    String state = clean.substring(0, 2);
+                    if (IndianStateCodeUtil.isValidStateCode(state)) {
+                        String rest = clean.substring(2);
+                        String repairedDigits = repairOcrDigits(rest);
+                        if (repairedDigits.matches("^[0-9]{11,16}$")) {
+                            addCandidate.accept(state + repairedDigits, 60);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pick highest-scoring candidate
+        String bestCandidate = null;
+        int maxScore = -1;
+        for (java.util.Map.Entry<String, Integer> entry : candidates.entrySet()) {
+            if (entry.getValue() > maxScore) {
+                maxScore = entry.getValue();
+                bestCandidate = entry.getKey();
+            }
+        }
+
+        if (bestCandidate != null) {
+            data.setLicenseNumber(bestCandidate);
         }
     }
 
+    private boolean isValidDlCandidate(String cand) {
+        if (cand == null || cand.length() < 13 || cand.length() > 18) return false;
+        String state = cand.substring(0, 2);
+        if (!IndianStateCodeUtil.isValidStateCode(state)) return false;
+        String rest = cand.substring(2);
+        return rest.matches("^[0-9]{11,16}$");
+    }
+
+    private String findDlInText(String text) {
+        if (text == null || text.isBlank()) return null;
+
+        Matcher m1 = DL_EXACT_PATTERN.matcher(text.toUpperCase());
+        if (m1.find()) {
+            return stripSeparators(m1.group());
+        }
+
+        Matcher m2 = DL_GENERAL_PATTERN.matcher(text.toUpperCase());
+        while (m2.find()) {
+            String found = m2.group();
+            String state = found.substring(0, 2);
+            if (IndianStateCodeUtil.isValidStateCode(state)) {
+                String rest = found.substring(2);
+                String repaired = repairOcrDigits(rest);
+                if (repaired.matches("^[0-9]{11,16}$")) {
+                    return state + repaired;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String repairOcrDigits(String s) {
+        if (s == null) return "";
+        return s.replace('O', '0')
+                .replace('o', '0')
+                .replace('D', '0')
+                .replace('Q', '0')
+                .replace('I', '1')
+                .replace('l', '1')
+                .replace('|', '1')
+                .replace('S', '5')
+                .replace('s', '5')
+                .replace('B', '8')
+                .replace('Z', '2')
+                .replace('z', '2');
+    }
+
     private String stripSeparators(String value) {
-        return value.replaceAll("[\\s-]", "");
+        if (value == null) return null;
+        String clean = value.replaceAll("[\\s-/:.]", "").toUpperCase();
+        if (clean.length() >= 2) {
+            String state = clean.substring(0, 2);
+            String rest = repairOcrDigits(clean.substring(2));
+            return state + rest;
+        }
+        return clean;
     }
 
     //-------------------------------------------------------
@@ -96,15 +311,44 @@ public class DLExtractor {
 
             String lower = line.toLowerCase().trim();
 
-            // Avoid matching "S/o", "D/o", "W/o" (relative's name) lines
-            if (lower.startsWith("name")) {
+            // Avoid matching "S/o", "D/o", "W/o", "Father" lines
+            if (lower.contains("s/o") || lower.contains("d/o") || lower.contains("w/o")
+                    || lower.contains("son of") || lower.contains("daughter of") || lower.contains("wife of")
+                    || lower.contains("father")) {
+                continue;
+            }
+
+            if (lower.contains("name")) {
 
                 String value = valueAfterLabel(line, "name");
+                if (value == null && line.contains(":")) {
+                    int colonIdx = line.indexOf(':');
+                    value = line.substring(colonIdx + 1).trim();
+                }
+
                 value = truncateAtJunk(value);
 
                 if (isPlausibleName(value)) {
                     data.setCustomerName(cleanText(value));
                     return;
+                }
+            }
+        }
+
+        // Fallback: look for line right before "Date of birth" or "Son/Daughter"
+        for (int i = 0; i < lines.length; i++) {
+            String lower = lines[i].toLowerCase().trim();
+            if (lower.contains("date of birth") || lower.contains("dob") || lower.contains("son/daughter")) {
+                if (i > 0) {
+                    String prevLine = lines[i - 1].trim();
+                    if (!prevLine.toLowerCase().contains("indian") && !prevLine.toLowerCase().contains("licence")
+                            && !prevLine.toLowerCase().contains("driving") && isPlausibleName(prevLine)) {
+                        String clean = cleanText(truncateAtJunk(prevLine));
+                        if (clean.length() >= 3) {
+                            data.setCustomerName(clean);
+                            return;
+                        }
+                    }
                 }
             }
         }
@@ -114,8 +358,9 @@ public class DLExtractor {
     // (e.g. "Holder's Signature" sitting to the right of "Name" on
     // the card image). Anything from here onward is discarded.
     private static final String[] NAME_JUNK_MARKERS = {
-            "holder", "signature", "organ", "donor", "blood",
-            "son/daughter", "s/o", "d/o", "w/o", "dob", "address"
+            "holder's signature", "holder signature", "signature", "organ donor",
+            "blood group", "blood", "son/daughter", "s/o", "d/o", "w/o", "dob",
+            "date of birth", "address", "validity"
     };
 
     private String truncateAtJunk(String value) {

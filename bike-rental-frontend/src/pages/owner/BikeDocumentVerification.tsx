@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Sparkles,
   FileCheck2,
+  Bike as BikeIcon,
 } from "lucide-react";
 
 import UploadBox from "../../components/verification/UploadBox";
@@ -30,9 +31,9 @@ interface Props {
 
 const SCAN_STEPS = [
   "Reading Registration Certificate (RC)",
-  "Extracting vehicle & owner details via OCR",
+  "Extracting vehicle & registration details via OCR",
   "Checking registration uniqueness",
-  "Fuzzy matching RC name with Aadhaar (≥80% match)",
+  "Verifying vehicle registration number match",
 ];
 
 const MIN_SCAN_MS = SCAN_STEPS.length * 900 + 400;
@@ -72,7 +73,7 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
       setResult(data);
 
       if (!data.verified) {
-        setError(data.message || "RC Verification Failed. Name mismatch or invalid RC.");
+        setError(data.message || "RC Verification Failed. Could not verify registration details.");
       }
 
       onVerified?.(data);
@@ -98,10 +99,18 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
 
   const rejected = !!result && !result.verified;
 
+  const isRegMatched = Boolean(
+    result?.verified &&
+    result?.registrationNumber &&
+    (!registrationNumber ||
+      result.registrationNumber.replace(/[\s-]/g, "").toUpperCase() ===
+        registrationNumber.replace(/[\s-]/g, "").toUpperCase())
+  );
+
   return (
-    <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-card shadow-2xl backdrop-blur-xl">
+    <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
       {/* Header Band */}
-      <div className="border-b border-border/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-8 py-6">
+      <div className="border-b border-border bg-muted/40 px-6 py-6 sm:px-8">
         {onBack && (
           <button
             type="button"
@@ -116,13 +125,13 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
-              Bike Document Check
+              Bike Document Verification
             </p>
             <h1 className="mt-1 font-serif text-2xl font-bold text-foreground">
               Registration Certificate (RC) Verification
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Upload your bike RC. We will read the RC details and match the owner name with your verified Aadhaar (≥80% match required).
+              Upload the bike's RC. We extract registration details and verify the number against your vehicle.
             </p>
           </div>
           <div className="hidden rounded-2xl bg-primary/10 p-3.5 text-primary sm:block">
@@ -138,11 +147,16 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
             <UploadBox
               onFileSelect={handleFileSelect}
               title="Upload Bike RC Image"
-              subtitle="Front side, registration & owner name clearly visible"
+              subtitle="Front or smart card side with registration number clearly visible"
             />
           ) : (
             <>
-              <DocumentScanner imageSrc={preview} scanning={loading} steps={SCAN_STEPS} />
+              <DocumentScanner
+                imageSrc={preview}
+                scanning={loading}
+                steps={SCAN_STEPS}
+                hasError={rejected || Boolean(error)}
+              />
               {!loading && !result && (
                 <UploadBox onFileSelect={handleFileSelect} title="" preview={preview} />
               )}
@@ -154,10 +168,10 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
               type="button"
               onClick={handleVerify}
               disabled={loading || !file}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 shadow-md shadow-primary/20"
             >
               <Sparkles size={18} />
-              {loading ? "Scanning & Matching Name..." : "Verify RC Document"}
+              {loading ? "Scanning & Extracting RC..." : "Verify RC Document"}
             </button>
           )}
 
@@ -202,7 +216,7 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
                   RC Verification Pending
                 </h3>
                 <p className="max-w-xs text-xs text-muted-foreground">
-                  OCR will extract registration number, owner name, maker, and fuzzy match against Aadhaar.
+                  OCR will extract registration number, vehicle class, make, and verify match against bike details.
                 </p>
               </motion.div>
             ) : (
@@ -217,7 +231,7 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
                 }`}
               >
                 <DocumentStamp
-                  key={result.registrationNumber + result.status}
+                  key={(result.registrationNumber || "") + result.status}
                   label={result.stampLabel ?? result.status}
                   color={result.stampColor}
                   message={result.message}
@@ -225,21 +239,19 @@ const BikeDocumentVerification = ({ ownerId, bikeId, registrationNumber, onVerif
 
                 <div className="mt-5 space-y-4 border-t border-border/60 pt-5">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Info title="Extracted Regn Number" value={result.registrationNumber} mono />
+                    {registrationNumber && (
+                      <Info title="Bike Regn Number" value={registrationNumber} mono />
+                    )}
+                    <Info title="Registration Match" value={isRegMatched ? "MATCHED" : "MISMATCH"} highlight={isRegMatched} />
                     <Info title="RC Owner Name" value={result.ownerName || "Not Detected"} />
-                    <Info title="Aadhaar Verified Name" value={result.aadhaarOwnerName || "N/A"} />
-                    <Info title="Registration Number" value={result.registrationNumber} mono />
-                    <Info title="Maker & Model" value={[result.makerName, result.model].filter(Boolean).join(" · ") || null} />
-                    <Info title="Vehicle Class" value={result.vehicleClass} />
+                    <Info title="Vehicle Class" value={result.vehicleClass || "Motor Cycle"} />
+                    <Info title="Make & Model" value={[result.makerName, result.model].filter(Boolean).join(" · ") || "—"} />
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <MatchBadge label="QR Verified" ok={result.qrVerified} />
-                    {ownerId !== undefined && (
-                      <MatchBadge
-                        label="Aadhaar Name Match ≥ 80%"
-                        ok={result.ownerAadhaarNameMatched}
-                      />
-                    )}
+                    <MatchBadge label="QR Verified" ok={Boolean(result?.verified && result?.qrVerified)} />
+                    <MatchBadge label="Vehicle Number Matched" ok={isRegMatched} />
                   </div>
                 </div>
               </motion.div>
@@ -255,12 +267,21 @@ interface InfoProps {
   title: string;
   value: string | null;
   mono?: boolean;
+  highlight?: boolean;
 }
 
-const Info = ({ title, value, mono }: InfoProps) => (
+const Info = ({ title, value, mono, highlight }: InfoProps) => (
   <div>
     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
-    <p className={`mt-0.5 text-xs font-extrabold text-foreground ${mono ? "font-mono tracking-wider" : ""}`}>
+    <p
+      className={`mt-0.5 text-xs font-extrabold ${
+        highlight !== undefined
+          ? highlight
+            ? "text-emerald-600"
+            : "text-destructive"
+          : "text-foreground"
+      } ${mono ? "font-mono tracking-wider" : ""}`}
+    >
       {value || "—"}
     </p>
   </div>

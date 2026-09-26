@@ -34,7 +34,17 @@ public class RCData {
 
     private String address;
 
+    private String ocrText;
+
     public RCData() {
+    }
+
+    public String getOcrText() {
+        return ocrText;
+    }
+
+    public void setOcrText(String ocrText) {
+        this.ocrText = ocrText;
     }
 
     public String getOwnerName() {

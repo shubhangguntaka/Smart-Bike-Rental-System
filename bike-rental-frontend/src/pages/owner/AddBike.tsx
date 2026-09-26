@@ -217,12 +217,12 @@ const AddBike = () => {
     if (!result.verified) {
       toast.error(
         result.message ||
-          "RC Verification failed. Ensure RC owner name matches Aadhaar details (≥80% similarity required)."
+          "RC Verification failed. Please ensure the RC document is clear and matches the bike registration number."
       );
       return;
     }
 
-    const reg = result.registrationNumber || bikeDraft?.registrationNumber || "TS09AB1234";
+    const reg = result.registrationNumber || bikeDraft?.registrationNumber || "";
 
     // Update draft with OCR extracted metadata
     setBikeDraft((prev) =>

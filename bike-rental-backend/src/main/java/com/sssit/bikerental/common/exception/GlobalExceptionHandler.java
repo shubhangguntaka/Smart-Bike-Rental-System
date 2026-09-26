@@ -42,6 +42,17 @@ public class GlobalExceptionHandler {
         }
 
         /**
+         * Verification Required Exception
+         */
+        @ExceptionHandler(com.sssit.bikerental.modules.booking.exception.VerificationRequiredException.class)
+        public ResponseEntity<ApiResponse<Object>> handleVerificationRequiredException(
+                        com.sssit.bikerental.modules.booking.exception.VerificationRequiredException ex) {
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.error(ex.getMessage(), "VERIFICATION_REQUIRED"));
+        }
+
+        /**
          * Conflict (409)
          */
         @ExceptionHandler(ConflictException.class)
@@ -66,16 +77,6 @@ public class GlobalExceptionHandler {
                                 .body(ApiResponse.error(ex.getMessage()));
         }
 
-        /**
-         * Verification Required Exception
-         */
-        @ExceptionHandler(com.sssit.bikerental.modules.booking.exception.VerificationRequiredException.class)
-        public ResponseEntity<ApiResponse<Object>> handleVerificationRequiredException(
-                        com.sssit.bikerental.modules.booking.exception.VerificationRequiredException ex) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.error("VERIFICATION_REQUIRED", ex.getMessage()));
-        }
 
         /**
          * Booking Not Available Exception

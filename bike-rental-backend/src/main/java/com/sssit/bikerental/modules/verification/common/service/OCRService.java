@@ -110,15 +110,9 @@ public class OCRService {
     //-------------------------------------------------------
 
     private void extractAadhaar(String text, OCRData data) {
-
-        Pattern pattern = Pattern.compile("\\b\\d{4}\\s?\\d{4}\\s?\\d{4}\\b");
-
-        Matcher matcher = pattern.matcher(text);
-
-        if (matcher.find()) {
-            data.setAadhaarNumber(
-                    matcher.group().replaceAll("\\s+", "")
-            );
+        String extracted = com.sssit.bikerental.modules.verification.aadhaar.regex.AadhaarRegexExtractor.extractAadhaarNumber(text);
+        if (extracted != null) {
+            data.setAadhaarNumber(extracted);
         }
     }
 

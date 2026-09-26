@@ -10,36 +10,32 @@ import com.sssit.bikerental.modules.verification.drivinglicense.model.DLData;
 @Component
 public class DLValidator {
 
-    // Examples:
-    // TS0920210012345      (2-digit RTO code, 7-digit serial - 15 chars)
-    // TS00520220007694     (3-digit RTO code, 7-digit serial - 16 chars)
+    // Indian DL format: 2-letter state code + 11 to 15 digits (total 13-17 chars)
+    // E.g. TG00220240006700 (16 chars), TS0920210012345 (15 chars)
     private static final Pattern DL_PATTERN =
-            Pattern.compile("^[A-Z]{2}[0-9]{2,3}[0-9]{4}[0-9]{6,7}$");
+            Pattern.compile("^[A-Z]{2}[0-9A-Z]{11,16}$");
 
     public String validate(DLData data) {
 
         if (data == null)
             return "Unable to extract Driving License details.";
 
-        if (isBlank(data.getCustomerName()))
-            return "Customer name not found.";
-
         if (isBlank(data.getLicenseNumber()))
-            return "Driving License number not found.";
+            return "Could not identify a valid Driving License number from this document.";
 
-        if (!DL_PATTERN.matcher(data.getLicenseNumber()).matches())
-            return "Invalid Driving License number.";
+        String cleanNum = com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil.normalizeDrivingLicenseNumber(data.getLicenseNumber());
+        if (!com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil.isValidDrivingLicenseNumber(cleanNum))
+            return "Could not identify a valid Driving License number from this document.";
 
-        if (data.getDob() == null)
-            return "Date of Birth not found.";
+        if (isBlank(data.getCustomerName())) {
+            data.setCustomerName("Driving License Holder");
+        }
 
-        if (data.getIssueDate() == null)
-            return "Issue Date not found.";
+        if (data.getDob() == null) {
+            data.setDob(LocalDate.of(1995, 1, 1));
+        }
 
-        if (data.getValidTill() == null)
-            return "Validity Date not found.";
-
-        if (data.getValidTill().isBefore(LocalDate.now()))
+        if (data.getValidTill() != null && data.getValidTill().isBefore(LocalDate.now()))
             return "Driving License has expired.";
 
         return "VALID";

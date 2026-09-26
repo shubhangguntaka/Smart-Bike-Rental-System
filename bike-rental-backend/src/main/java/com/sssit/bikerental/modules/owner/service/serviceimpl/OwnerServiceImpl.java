@@ -541,7 +541,8 @@ public void rejectBooking(Long bookingId) {
 
     private boolean checkAadhaarVerified(Long ownerId) {
         try {
-            return aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent();
+            return aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "APPROVED").isPresent()
+                    || aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED").isPresent();
         } catch (Exception e) {
             log.warn("Aadhaar verification check error for ownerId {}: {}", ownerId, e.getMessage());
             return false;
@@ -551,7 +552,7 @@ public void rejectBooking(Long bookingId) {
     private boolean checkRcVerified(Long ownerId) {
         try {
             return bikeDocumentRepository.findByOwnerId(ownerId).stream()
-                    .anyMatch(doc -> "APPROVED".equals(doc.getStatus()));
+                    .anyMatch(doc -> "APPROVED".equalsIgnoreCase(doc.getStatus()) || "VERIFIED".equalsIgnoreCase(doc.getStatus()));
         } catch (Exception e) {
             log.warn("RC verification check error for ownerId {}: {}", ownerId, e.getMessage());
             return false;

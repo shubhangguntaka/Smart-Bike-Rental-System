@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, AlertTriangle, BadgeCheck, BadgeX, ArrowLeft, RotateCcw } from "lucide-react";
+import { ShieldCheck, AlertTriangle, BadgeCheck, BadgeX, ArrowLeft, RotateCcw, Sparkles } from "lucide-react";
 
 import UploadBox from "../../components/verification/UploadBox";
 import DocumentScanner from "../../components/verification/DocumentScanner";
@@ -11,27 +11,19 @@ import { withMinDuration } from "../../utils/scan";
 import type { DrivingLicenseVerificationResult } from "../../types/verification";
 
 interface Props {
-  // If Aadhaar was verified first, pass its customerId through here
-  // so the backend can cross-check the DL name against it.
   customerId?: number;
   onVerified?: (result: DrivingLicenseVerificationResult) => void;
-  // Lets the person return to the previous step (re-do Aadhaar) if
-  // they landed here by mistake or want to upload a different card.
   onBack?: () => void;
 }
 
 const SCAN_STEPS = [
-  "Reading document",
-  "Locating QR code",
-  "Verifying license data",
-  "Matching with Aadhaar name",
+  "Reading Driving License with OCR",
+  "Locating Parivahan / RTO license number",
+  "Validating license structure & dates",
+  "Cross-checking identity details",
 ];
 
-// Keep the perceived scan at least as long as the checklist takes to
-// finish stepping through on its own (plus a small buffer for the
-// final "all checked" beat), so a fast backend response can't cut
-// the animation off mid-step.
-const MIN_SCAN_MS = SCAN_STEPS.length * 900 + 500;
+const MIN_SCAN_MS = SCAN_STEPS.length * 900 + 400;
 
 const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) => {
   const [file, setFile] = useState<File | null>(null);
@@ -49,7 +41,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
 
   const handleVerify = async () => {
     if (!file) {
-      setError("Please select a Driving License image.");
+      setError("Please select a clear Driving License image.");
       return;
     }
 
@@ -63,19 +55,25 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
       );
 
       setResult(data);
+
+      if (!data.verified) {
+        setError(data.message || "Driving License verification failed. Please try a clearer document image.");
+      }
+
       onVerified?.(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      setError("Driving License verification failed. Please try a clearer image.");
+      const serverMsg = (err as { response?: { data?: { message?: string } | string } })?.response?.data;
+      const errorText =
+        typeof serverMsg === "string"
+          ? serverMsg
+          : serverMsg?.message || "Driving License verification failed. Please ensure the document is clear and readable.";
+      setError(errorText);
     } finally {
       setLoading(false);
     }
   };
 
-  // Wipes the current attempt so a new document can be picked from
-  // scratch. Previously the upload control disappeared as soon as a
-  // result arrived, so a wrong/rejected upload had no way to be
-  // corrected without leaving the step entirely.
   const handleStartOver = () => {
     setFile(null);
     setPreview("");
@@ -86,43 +84,55 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
   const rejected = !!result && !result.verified;
 
   return (
-    <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-ink/10 shadow-[0_20px_60px_-25px_rgba(11,18,32,0.35)]">
-
+    <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
       {/* Header band */}
-      <div className="border-b border-ink/10 bg-bureau px-8 py-6 text-parchment">
+      <div className="border-b border-border bg-muted/40 px-6 py-6 sm:px-8">
         {onBack && (
           <button
+            type="button"
             onClick={onBack}
-            className="mb-3 flex items-center gap-1.5 text-sm font-medium text-parchment/70 transition hover:text-parchment"
+            className="mb-3 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition hover:text-foreground"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={14} />
             Back to Aadhaar
           </button>
         )}
 
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-brass">
-          Identity Check · Step 2 of 2
-        </p>
-        <h1 className="mt-1 font-display text-2xl font-semibold">Driving License Verification</h1>
-        <p className="mt-1 text-sm text-parchment/70">
-          Upload a clear photo of your Driving License. We'll confirm it's valid and matches
-          your Aadhaar details.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
+              Identity Verification · Step 2 of 2
+            </p>
+            <h1 className="mt-1 font-serif text-2xl font-bold text-foreground">
+              Driving License Verification
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Upload a clear photo of your Driving License. We will verify your license number and validity.
+            </p>
+          </div>
+          <div className="hidden rounded-2xl bg-primary/10 p-3.5 text-primary sm:block">
+            <ShieldCheck className="h-7 w-7" />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 p-8 md:grid-cols-2">
-
+      <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 md:grid-cols-2">
         {/* Left: document / scanner */}
         <div className="flex flex-col gap-4">
           {!preview ? (
             <UploadBox
               onFileSelect={handleFileSelect}
               title="Upload Driving License"
-              subtitle="Front side, all four corners visible"
+              subtitle="Front side or smart card with license number clearly visible"
             />
           ) : (
             <>
-              <DocumentScanner imageSrc={preview} scanning={loading} steps={SCAN_STEPS} />
+              <DocumentScanner
+                imageSrc={preview}
+                scanning={loading}
+                steps={SCAN_STEPS}
+                hasError={rejected || Boolean(error)}
+              />
               {!loading && !result && (
                 <UploadBox onFileSelect={handleFileSelect} title="" preview={preview} />
               )}
@@ -131,33 +141,35 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
 
           {preview && !result && (
             <button
+              type="button"
               onClick={handleVerify}
               disabled={loading || !file}
-              className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-bureau px-6 py-3 font-medium text-white transition hover:bg-bureau-light disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 shadow-md shadow-primary/20"
             >
-              <ShieldCheck size={17} />
-              {loading ? "Scanning..." : "Scan & Verify License"}
+              <Sparkles size={18} />
+              {loading ? "Scanning & Extracting DL..." : "Scan & Verify License"}
             </button>
           )}
 
           {result && (
             <button
+              type="button"
               onClick={handleStartOver}
-              className={`flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium transition ${
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition ${
                 rejected
-                  ? "bg-bureau text-white hover:bg-bureau-light"
-                  : "border border-bureau/25 text-bureau hover:bg-bureau/5"
+                  ? "bg-destructive text-destructive-foreground hover:opacity-90"
+                  : "border border-border bg-card text-foreground hover:bg-muted"
               }`}
             >
               <RotateCcw size={16} />
-              {rejected ? "Try a different document" : "Upload a different document"}
+              {rejected ? "Try a different document" : "Upload another document"}
             </button>
           )}
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-crimson-dim px-4 py-3 text-sm text-crimson">
+            <div className="flex items-start gap-2.5 rounded-2xl bg-destructive/10 p-4 text-xs font-semibold text-destructive border border-destructive/20">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              {error}
+              <span>{error}</span>
             </div>
           )}
         </div>
@@ -171,48 +183,56 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-ink/10 bg-parchment px-6 py-14 text-center"
+                className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center"
               >
-                <ShieldCheck size={28} className="text-ink/20" />
-                <p className="text-sm text-slate-400">
-                  Your verification result will appear here once the scan completes.
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                  <ShieldCheck size={24} />
+                </div>
+                <h3 className="font-serif text-base font-semibold text-foreground">
+                  Driving License Verification Pending
+                </h3>
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  Your extracted license number, holder name, and validity dates will appear here once verified.
                 </p>
               </motion.div>
             ) : (
               <motion.div
                 key="result"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`rounded-xl border px-6 py-6 ${
-                  rejected ? "border-crimson/20 bg-crimson-dim/40" : "border-verified/20 bg-verified-dim/50"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`rounded-2xl border p-6 shadow-lg ${
+                  rejected
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-emerald-500/30 bg-emerald-500/5"
                 }`}
               >
                 <DocumentStamp
-                  key={result.licenseNumber + result.status}
+                  key={(result.licenseNumber || "") + result.status}
                   label={result.stampLabel ?? result.status}
                   color={result.stampColor}
                   message={result.message}
                 />
 
-                {result.verified && (
-                  <div className="mt-5 space-y-5 border-t border-ink/10 pt-5">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Info title="Name" value={result.customerName} />
-                      <Info title="License Number" value={result.licenseNumber} mono />
-                      <Info title="Date of Birth" value={result.dob} />
-                      <Info title="Valid Till" value={result.validTill} />
-                    </div>
-
-                    <Info title="Address" value={result.address} />
-
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      <MatchBadge label="QR verified" ok={result.qrVerified} />
-                      {customerId !== undefined && (
-                        <MatchBadge label="Matches Aadhaar name" ok={result.aadhaarNameMatched} />
-                      )}
-                    </div>
+                <div className="mt-5 space-y-4 border-t border-border/60 pt-5">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Info title="Driver Name" value={result.customerName || "License Holder"} />
+                    <Info title="License Number" value={result.licenseNumber} mono />
+                    <Info title="Date of Birth" value={result.dob || "—"} />
+                    <Info title="Valid Till" value={result.validTill || "—"} />
                   </div>
-                )}
+
+                  {result.address && <Info title="Address" value={result.address} />}
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <MatchBadge label="QR Verified" ok={Boolean(result?.verified && result?.qrVerified)} />
+                    {customerId !== undefined && (
+                      <MatchBadge
+                        label="Identity Matched"
+                        ok={Boolean(result?.verified && result?.licenseNumber && result?.aadhaarNameMatched)}
+                      />
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -230,8 +250,8 @@ interface InfoProps {
 
 const Info = ({ title, value, mono }: InfoProps) => (
   <div>
-    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{title}</p>
-    <p className={`mt-0.5 font-semibold text-ink ${mono ? "font-mono tracking-wide" : ""}`}>
+    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
+    <p className={`mt-0.5 text-xs font-extrabold text-foreground ${mono ? "font-mono tracking-wider" : ""}`}>
       {value || "—"}
     </p>
   </div>
@@ -239,11 +259,11 @@ const Info = ({ title, value, mono }: InfoProps) => (
 
 const MatchBadge = ({ label, ok }: { label: string; ok: boolean }) => (
   <span
-    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-      ok ? "bg-verified-dim text-verified" : "bg-crimson-dim text-crimson"
+    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${
+      ok ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"
     }`}
   >
-    {ok ? <BadgeCheck size={13} /> : <BadgeX size={13} />}
+    {ok ? <BadgeCheck size={14} /> : <BadgeX size={14} />}
     {label}
   </span>
 );

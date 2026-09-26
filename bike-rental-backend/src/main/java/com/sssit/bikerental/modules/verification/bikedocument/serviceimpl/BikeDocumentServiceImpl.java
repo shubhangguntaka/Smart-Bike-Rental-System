@@ -15,8 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.sssit.bikerental.common.exception.ResourceNotFoundException;
-import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerification;
-import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
+import com.sssit.bikerental.modules.bike.repository.BikeRepository;
 import com.sssit.bikerental.modules.verification.bikedocument.dto.BikeDocumentResponseDTO;
 import com.sssit.bikerental.modules.verification.bikedocument.entity.BikeDocument;
 import com.sssit.bikerental.modules.verification.bikedocument.model.RCData;
@@ -28,46 +27,13 @@ import com.sssit.bikerental.modules.verification.bikedocument.util.RCExtractor;
 import com.sssit.bikerental.modules.verification.bikedocument.util.RCImageQualityValidator;
 import com.sssit.bikerental.modules.verification.bikedocument.util.RCQRReader;
 import com.sssit.bikerental.modules.verification.bikedocument.util.RCValidator;
+import com.sssit.bikerental.modules.auth.service.EmailService;
+import com.sssit.bikerental.modules.user.repository.UserRepository;
 import com.sssit.bikerental.modules.verification.common.constants.VerificationConstants;
 import com.sssit.bikerental.modules.verification.common.model.OCRData;
 import com.sssit.bikerental.modules.verification.common.service.OCRService;
+import com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil;
 import com.sssit.bikerental.modules.verification.common.util.NameMatchUtil;
-
-/**
- * Verifies an uploaded bike Registration Certificate (RC), following
- * the same layered approach as DrivingLicenseServiceImpl:
- *
- *   1. Basic file check
- *   2. Image quality check (reject tiny/cropped uploads early)
- *   3. Store the uploaded image temporarily
- *   4. OCR - extract raw text
- *   5. Document-type check (reject if it isn't an RC at all)
- *   6. RCExtractor - extract structured RC fields
- *   7. Read QR code (if any) and soft-cross-check against OCR
- *   8. Validate extracted fields (required, format, not expired)
- *   9. Cross-check the RC owner's name against a verified Aadhaar
- *      (owner must have verified their identity before listing a bike)
- *  10. Duplicate check - block if this exact RC is already APPROVED
- *      under a different owner (or re-submission of an already
- *      APPROVED record)
- *  11. Save + build response
- *
- * IMPORTANT LIMITATION (see also the RC authenticity discussion):
- * everything below only proves the upload is internally consistent
- * (right document type, well-formed fields, OCR text matches the QR
- * text) - it does NOT prove the RC is government-genuine. There is
- * no VAHAN/Parivahan API call here, same as there's no equivalent
- * government check in the existing Aadhaar/DL flow. A true
- * real-vs-fake check would need to call VAHAN via a licensed KYC
- * aggregator (Surepass/Signzy/IDfy/Cashfree etc.) and compare the
- * registration number against what's returned - that integration
- * point is intentionally left for later (would slot in as an
- * additional step between 8 and 9 above, e.g. a
- * VahanVerificationService called with the extracted registration
- * number).
- */
-import com.sssit.bikerental.modules.auth.service.EmailService;
-import com.sssit.bikerental.modules.user.repository.UserRepository;
 
 @Service
 public class BikeDocumentServiceImpl implements BikeDocumentService {
@@ -76,10 +42,10 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
     private OCRService ocrService;
 
     @Autowired
-    private BikeDocumentRepository repository;
+    private com.sssit.bikerental.modules.verification.common.service.DocumentOCRService documentOCRService;
 
     @Autowired
-    private AadhaarRepository aadhaarRepository;
+    private BikeDocumentRepository repository;
 
     @Autowired
     private RCImageQualityValidator imageQualityValidator;
@@ -98,6 +64,9 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BikeRepository bikeRepository;
 
     @Autowired
     private EmailService emailService;
@@ -164,19 +133,31 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             uploadedFile = path.toFile();
 
             //-----------------------------------
-            // Step 4: OCR - extract raw text
+            // Step 4: Determine Target Registration Number from Bike Details
             //-----------------------------------
-
-            OCRData ocrData = ocrService.extractData(file);
-
-            String rawText = ocrData.getRawText();
+            String targetReg = null;
+            if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
+                targetReg = DocumentIdentifierUtil.normalizeRegistrationNumber(registrationNumberParam);
+            } else if (bikeId != null) {
+                try {
+                    com.sssit.bikerental.modules.bike.entity.Bike bike = bikeRepository.findById(bikeId).orElse(null);
+                    if (bike != null && bike.getRegistrationNumber() != null) {
+                        targetReg = DocumentIdentifierUtil.normalizeRegistrationNumber(bike.getRegistrationNumber());
+                    }
+                } catch (Exception ignored) {}
+            }
 
             //-----------------------------------
-            // Step 5: Document-type check - make sure this is
-            // actually an RC before trying to parse RC-shaped fields
-            // out of it.
+            // Step 5: Multi-pass RC OCR Strategy
+            // Performs full-image, upper crop (0-42%), red-contrast, and binary red passes,
+            // preserving red registration text and extracting scored candidates.
             //-----------------------------------
+            RCData rcData = documentOCRService.extractRcDocument(uploadedFile, targetReg);
+            String rawText = rcData.getOcrText() != null ? rcData.getOcrText() : "";
 
+            //-----------------------------------
+            // Step 6: Document-type check
+            //-----------------------------------
             if (!documentTypeValidator.isRCDocument(rawText, registrationNumberParam)) {
 
                 response.setVerified(false);
@@ -188,30 +169,40 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             }
 
             //-----------------------------------
-            // Step 6: RCExtractor - extract RC fields
+            // Step 7: Registration Number Match & Validation
             //-----------------------------------
+            String extractedReg = DocumentIdentifierUtil.normalizeRegistrationNumber(rcData.getRegistrationNumber());
 
-            RCData rcData = rcExtractor.extract(rawText);
+            // Case A: Extraction failure - no valid identifier found
+            if (extractedReg == null || extractedReg.isEmpty() || !DocumentIdentifierUtil.isValidRegistrationNumber(extractedReg)) {
+                response.setVerified(false);
+                response.setStatus("REJECTED");
+                response.setMessage("Could not identify a valid registration number from the RC.");
+                applyStamp(response, false);
 
-            // Cross-check & Fallback: If user provided registration number (e.g. TS02EY4494),
-            // adopt it if OCR missed/misread faint red dot-matrix font or if raw text contains it.
-            if (registrationNumberParam != null && !registrationNumberParam.isBlank()) {
-                String normEntered = registrationNumberParam.toUpperCase().replaceAll("[\\s-]", "");
-                String normOcr = rcData.getRegistrationNumber() != null ? rcData.getRegistrationNumber().toUpperCase().replaceAll("[\\s-]", "") : "";
-                String normRaw = rawText != null ? rawText.toUpperCase().replaceAll("[\\s-]", "") : "";
-                
-                if (normOcr.isEmpty() || normRaw.contains(normEntered) || NameMatchUtil.namesRoughlyMatch(normEntered, normOcr) || normEntered.matches("^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$")) {
-                    rcData.setRegistrationNumber(normEntered);
+                triggerEmailNotification(ownerId, response);
+                return response;
+            }
+
+            // Case B: Target reg provided -> Compare normalized values
+            if (targetReg != null && !targetReg.isEmpty()) {
+                if (!extractedReg.equals(targetReg)) {
+                    response.setVerified(false);
+                    response.setStatus("REJECTED");
+                    response.setMessage("Registration number on the RC does not match the registration number entered for this bike.");
+                    response.setRegistrationNumber(extractedReg);
+                    response.setOwnerName(rcData.getOwnerName());
+                    applyStamp(response, false);
+
+                    triggerEmailNotification(ownerId, response);
+                    return response;
+                } else {
+                    rcData.setRegistrationNumber(targetReg);
                 }
             }
 
             //-----------------------------------
-            // Step 7: Read QR code (if available) and soft-compare
-            // against OCR. Like DL, most RC QR codes just encode a
-            // Parivahan verification URL/short text block rather
-            // than a signed structured payload, so a missing/
-            // non-matching QR does NOT fail verification on its own
-            // - it's recorded as a signal, not a hard gate.
+            // Step 8: Read QR code (if available) and soft-compare against OCR
             //-----------------------------------
 
             String qrText = qrReader.readQRCode(uploadedFile);
@@ -219,50 +210,9 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             boolean qrVerified = false;
 
             if (qrText != null && rcData.getRegistrationNumber() != null) {
-
                 String normalizedQr = qrText.toUpperCase().replaceAll("[\\s-]", "");
                 String normalizedRegNo = rcData.getRegistrationNumber().toUpperCase();
-
                 qrVerified = normalizedQr.contains(normalizedRegNo);
-            }
-
-            //-----------------------------------
-            // Step 8: Validate extracted fields
-            //-----------------------------------
-
-            //-----------------------------------
-            // Step 8: Look up verified Aadhaar for name cross-check
-            //-----------------------------------
-
-            AadhaarVerification matchedAadhaar = null;
-
-            if (ownerId != null) {
-                matchedAadhaar = aadhaarRepository
-                        .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, VerificationConstants.STATUS_APPROVED)
-                        .orElse(null);
-                if (matchedAadhaar == null) {
-                    matchedAadhaar = aadhaarRepository
-                            .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(ownerId, "VERIFIED")
-                            .orElse(null);
-                }
-            }
-
-            if (matchedAadhaar == null) {
-                List<AadhaarVerification> approvedAadhaars =
-                        new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
-                approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
-
-                for (AadhaarVerification candidate : approvedAadhaars) {
-                    if (rcData.getOwnerName() != null && NameMatchUtil.namesRoughlyMatch(
-                            candidate.getCustomerName(), rcData.getOwnerName())) {
-                        matchedAadhaar = candidate;
-                        break;
-                    }
-                }
-            }
-
-            if (matchedAadhaar != null) {
-                response.setAadhaarOwnerName(matchedAadhaar.getCustomerName());
             }
 
             // Populate whatever was extracted regardless of outcome
@@ -288,93 +238,33 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
                 response.setMessage(validationResult);
                 applyStamp(response, false);
 
+                triggerEmailNotification(ownerId, response);
                 return response;
-            }
-
-            if (matchedAadhaar == null) {
-                response.setVerified(false);
-                response.setStatus("REJECTED");
-                response.setMessage(RCConstants.ERROR_OWNER_AADHAAR_NOT_VERIFIED_FIRST);
-                applyStamp(response, false);
-
-                return response;
-            }
-
-            if ((rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) && matchedAadhaar != null && rawText != null) {
-                String aadhaarName = matchedAadhaar.getCustomerName();
-                if (aadhaarName != null) {
-                    for (String part : aadhaarName.split("\\s+")) {
-                        if (part.length() >= 3 && rawText.toUpperCase().contains(part.toUpperCase())) {
-                            rcData.setOwnerName(aadhaarName);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Perform explicit 80% fuzzy name matching check between verified Aadhaar and RC owner name
-            if (rcData.getOwnerName() == null || rcData.getOwnerName().isBlank()) {
-                response.setVerified(false);
-                response.setStatus("REJECTED");
-                response.setOwnerAadhaarNameMatched(false);
-                response.setMessage("RC Owner Name could not be detected. Please ensure you upload a clear image of your RC document.");
-                applyStamp(response, false);
-
-                return response;
-            }
-
-            boolean nameMatched = NameMatchUtil.namesRoughlyMatch(matchedAadhaar.getCustomerName(), rcData.getOwnerName());
-
-            if (!nameMatched) {
-                response.setVerified(false);
-                response.setStatus("REJECTED");
-                response.setMessage("RC Owner Name ('" + rcData.getOwnerName() + "') does not match verified Aadhaar Name ('" + matchedAadhaar.getCustomerName() + "').");
-                response.setOwnerAadhaarNameMatched(false);
-                applyStamp(response, false);
-
-                return response;
-            }
-
-            response.setOwnerAadhaarNameMatched(true);
-
-            // Adopt the matched Aadhaar's customerId as ownerId (if
-            // the caller didn't already supply one) so downstream
-            // records stay linked to the same person, without the
-            // caller having to already know that id.
-            if (ownerId == null) {
-                ownerId = matchedAadhaar.getCustomerId();
             }
 
             //-----------------------------------
-            // Step 10: Duplicate check. If this exact registration
-            // number is already APPROVED (under this owner or any
-            // other), block re-submission rather than silently
-            // re-approving/reassigning it - this is exactly the
-            // "fake RC for someone else's / a stolen bike" pattern
-            // this check exists to catch.
+            // Step 9: Duplicate check. If this exact registration
+            // number is already APPROVED under a DIFFERENT owner,
+            // block re-submission.
             //-----------------------------------
 
             Optional<BikeDocument> existing =
                     repository.findByRegistrationNumber(rcData.getRegistrationNumber());
 
             if (existing.isPresent()) {
-
                 BikeDocument existingRecord = existing.get();
-
-                boolean alreadyApproved = RCConstants.STATUS_APPROVED.equals(existingRecord.getStatus());
+                boolean alreadyApproved = RCConstants.STATUS_APPROVED.equals(existingRecord.getStatus()) || "VERIFIED".equals(existingRecord.getStatus());
                 boolean isDifferentOwner = existingRecord.getOwnerId() != null &&
                         ownerId != null &&
                         !existingRecord.getOwnerId().equals(ownerId);
 
                 if (alreadyApproved && isDifferentOwner) {
-
                     response.setVerified(false);
                     response.setStatus("REJECTED");
                     response.setMessage(RCConstants.ERROR_RC_ALREADY_EXISTS);
                     applyStamp(response, false);
 
-                    // Not saved - existingRecord (already approved under a DIFFERENT owner)
-                    // is left completely untouched.
+                    triggerEmailNotification(ownerId, response);
                     return response;
                 }
             }
@@ -383,7 +273,7 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
             entity.setOwnerId(ownerId);
             entity.setBikeId(bikeId);
-            entity.setOwnerName(rcData.getOwnerName());
+            entity.setOwnerName(rcData.getOwnerName() != null ? rcData.getOwnerName() : "Registered Owner");
             entity.setRegistrationNumber(rcData.getRegistrationNumber());
             entity.setChassisNumber(rcData.getChassisNumber());
             entity.setEngineNumber(rcData.getEngineNumber());
@@ -402,17 +292,31 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
             entity.setStampLabel(RCConstants.STAMP_APPROVED_LABEL);
             entity.setStampIcon(RCConstants.STAMP_APPROVED_ICON);
             entity.setStampColor(RCConstants.STAMP_APPROVED_COLOR);
-            // Kept permanently (not deleted in the finally block
-            // below) so an admin can view it later - see the
-            // fileRetained flag.
             entity.setDocumentPath(path(uploadedFile));
             entity.setOcrText(rawText);
 
             repository.save(entity);
             fileRetained = true;
 
+            // Also update the Bike entity if bikeId is present or looked up
+            if (bikeId != null) {
+                try {
+                    bikeRepository.findById(bikeId).ifPresent(b -> {
+                        b.setRcVerified(true);
+                        bikeRepository.save(b);
+                    });
+                } catch (Exception ignored) {}
+            } else if (rcData.getRegistrationNumber() != null) {
+                try {
+                    bikeRepository.findByRegistrationNumber(rcData.getRegistrationNumber()).ifPresent(b -> {
+                        b.setRcVerified(true);
+                        bikeRepository.save(b);
+                    });
+                } catch (Exception ignored) {}
+            }
+
             //-----------------------------------
-            // Step 11: Build response
+            // Step 10: Build response
             //-----------------------------------
 
             response.setVerified(true);
@@ -422,7 +326,6 @@ public class BikeDocumentServiceImpl implements BikeDocumentService {
 
             triggerEmailNotification(ownerId, response);
             return response;
-
         } catch (IOException e) {
 
             response.setVerified(false);

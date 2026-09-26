@@ -40,13 +40,13 @@ const SCAN_STEPS = [
 const MIN_SCAN_MS = SCAN_STEPS.length * 900 + 400;
 
 const maskAadhaar = (val: string | null | undefined) => {
-  if (!val) return "XXXX-XXXX-4920";
+  if (!val) return "•••• •••• ••••";
   const clean = val.replace(/\D/g, "");
   if (clean.length >= 4) {
     const last4 = clean.slice(-4);
-    return `XXXX-XXXX-${last4}`;
+    return `•••• •••• ${last4}`;
   }
-  return "XXXX-XXXX-4920";
+  return "•••• •••• ••••";
 };
 
 const extractDobAndGender = (text?: string) => {

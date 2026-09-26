@@ -1,11 +1,11 @@
 package com.sssit.bikerental.modules.verification.bikedocument.util;
 
 import java.time.LocalDate;
-import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
 import com.sssit.bikerental.modules.verification.bikedocument.model.RCData;
+import com.sssit.bikerental.modules.verification.common.util.DocumentIdentifierUtil;
 
 /**
  * Validates the fields extracted off an RC image, mirroring
@@ -15,21 +15,19 @@ import com.sssit.bikerental.modules.verification.bikedocument.model.RCData;
 @Component
 public class RCValidator {
 
-    private static final Pattern REG_NUMBER_PATTERN =
-            Pattern.compile("^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$");
-
     public String validate(RCData data) {
 
         if (data == null)
             return "Unable to extract Registration Certificate details.";
 
-        // Owner name validation is performed in Step 9 via Aadhaar cross-check / fuzzy matching
-
         if (isBlank(data.getRegistrationNumber()))
-            return "Registration number not found.";
+            return "Could not identify a valid registration number from the RC.";
 
-        if (!REG_NUMBER_PATTERN.matcher(data.getRegistrationNumber()).matches())
-            return "Invalid registration number format.";
+        String norm = DocumentIdentifierUtil.normalizeRegistrationNumber(data.getRegistrationNumber());
+        if (!DocumentIdentifierUtil.isValidRegistrationNumber(norm))
+            return "Invalid registration number format on the RC document.";
+
+        data.setRegistrationNumber(norm);
 
         // For front-side smart card scans where chassis/engine/regDate are printed on the back:
         if (isBlank(data.getChassisNumber())) {
@@ -64,4 +62,5 @@ public class RCValidator {
         return s == null || s.trim().isEmpty();
     }
 }
+
 

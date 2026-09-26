@@ -61,15 +61,15 @@ public class OCRConfig {
     private static final String LANGUAGE = resolveLanguage();
 
     public Tesseract newTesseract() {
+        return newTesseract(3);
+    }
 
+    public Tesseract newTesseract(int pageSegMode) {
         Tesseract tesseract = new Tesseract();
-
         tesseract.setDatapath(DATAPATH);
         tesseract.setLanguage(LANGUAGE);
-
-        tesseract.setPageSegMode(3);
+        tesseract.setPageSegMode(pageSegMode);
         tesseract.setOcrEngineMode(1);
-
         return tesseract;
     }
 

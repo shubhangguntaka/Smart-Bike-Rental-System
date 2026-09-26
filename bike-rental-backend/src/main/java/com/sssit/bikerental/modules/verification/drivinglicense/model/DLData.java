@@ -16,7 +16,17 @@ public class DLData {
 
     private String address;
 
+    private String ocrText;
+
     public DLData() {
+    }
+
+    public String getOcrText() {
+        return ocrText;
+    }
+
+    public void setOcrText(String ocrText) {
+        this.ocrText = ocrText;
     }
 
     public String getCustomerName() {

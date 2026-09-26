@@ -69,9 +69,11 @@ export const BookingService = {
         axios.get(`/aadhaar/status?customerId=${customerId}`).catch(() => null),
         axios.get(`/driving-license/status?customerId=${customerId}`).catch(() => null),
       ]);
+      const isAadhaarApproved = Boolean(aadhaarRes?.data && (aadhaarRes.data.status === 'APPROVED' || aadhaarRes.data.status === 'VERIFIED' || aadhaarRes.data.verified));
+      const isDlApproved = Boolean(dlRes?.data && (dlRes.data.status === 'APPROVED' || dlRes.data.status === 'VERIFIED' || dlRes.data.verified));
       return {
-        aadhaarVerified: !!aadhaarRes?.data,
-        dlVerified: !!dlRes?.data,
+        aadhaarVerified: isAadhaarApproved,
+        dlVerified: isDlApproved,
         aadhaarData: aadhaarRes?.data || null,
         dlData: dlRes?.data || null,
       };

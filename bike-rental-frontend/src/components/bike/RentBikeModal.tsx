@@ -273,7 +273,14 @@ export default function RentBikeModal({
       onBookingSuccess?.();
     } catch (err: any) {
       console.error(err);
-      const errMsg = err.response?.data?.message || "Booking request failed. Please check availability.";
+      const errMsg = err.response?.data?.message || err.message || "Booking request failed. Please check availability.";
+      const errData = err.response?.data?.data;
+      if (errData === "VERIFICATION_REQUIRED" || errMsg.toLowerCase().includes("verification is required")) {
+        toast.error("Customer verification (Aadhaar + DL) is required before booking a bike. Redirecting to verification...", { duration: 4000 });
+        onClose();
+        navigate("/customer/verification");
+        return;
+      }
       toast.error(errMsg);
     } finally {
       setConfirmLoading(false);

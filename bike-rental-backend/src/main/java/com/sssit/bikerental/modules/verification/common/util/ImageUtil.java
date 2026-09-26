@@ -150,4 +150,147 @@ public class ImageUtil {
 
         return bestThreshold;
     }
+
+    /**
+     * Crops a vertical region of the image based on proportional percentages (0.0 to 1.0).
+     * Creates a fresh, contiguous raster to prevent Leptonica/Tess4J stride/offset memory corruptions.
+     */
+    public static BufferedImage cropRegion(BufferedImage src, double yStartPercent, double yEndPercent) {
+        if (src == null) return null;
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        int yStart = (int) Math.max(0, Math.min(h - 1, h * yStartPercent));
+        int yEnd = (int) Math.max(yStart + 10, Math.min(h, h * yEndPercent));
+        int cropHeight = Math.max(1, yEnd - yStart);
+
+        int imageType = src.getType() != 0 ? src.getType() : BufferedImage.TYPE_INT_RGB;
+        BufferedImage cropped = new BufferedImage(w, cropHeight, imageType);
+        Graphics2D g = cropped.createGraphics();
+        g.drawImage(src, 0, 0, w, cropHeight, 0, yStart, w, yEnd, null);
+        g.dispose();
+
+        return cropped;
+    }
+
+    /**
+     * Upscales a BufferedImage by a given factor using Bicubic interpolation.
+     * Guards against excessive scaling if image is already sufficiently high resolution.
+     */
+    public static BufferedImage upscaleImage(BufferedImage src, double factor) {
+        if (src == null || factor <= 1.0) return src;
+        if (src.getWidth() >= 1400) return src;
+
+        int targetW = (int) (src.getWidth() * factor);
+        int targetH = (int) (src.getHeight() * factor);
+
+        int imageType = src.getType() != 0 ? src.getType() : BufferedImage.TYPE_INT_RGB;
+        BufferedImage upscaled = new BufferedImage(targetW, targetH, imageType);
+
+        Graphics2D g = upscaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(src, 0, 0, targetW, targetH, null);
+        g.dispose();
+
+        return upscaled;
+    }
+
+    /**
+     * Extracts a grayscale image tuned specifically for red/magenta text.
+     * Since red pigments absorb green and blue wavelengths, examining the green channel
+     * or subtracting red dominance causes red text to appear dark against light backgrounds.
+     */
+    public static BufferedImage extractRedContrastGrayscale(BufferedImage src) {
+        if (src == null) return null;
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        BufferedImage result = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rgb = src.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+
+                // Red text absorption metric: Green channel is low for red text
+                // Subtract extra red chromatic difference to make red text even darker
+                int redDiff = Math.max(0, r - Math.max(g, b));
+                int val = Math.max(0, Math.min(255, g - redDiff));
+
+                result.getRaster().setSample(x, y, 0, val);
+            }
+        }
+
+        return enhanceContrast(result);
+    }
+
+    /**
+     * Binarizes specifically targeting red / magenta foreground text.
+     * Pixels with high red chromaticity relative to green/blue become black (foreground),
+     * and non-red areas become white.
+     */
+    public static BufferedImage extractRedTextBinary(BufferedImage src) {
+        if (src == null) return null;
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        BufferedImage result = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
+
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rgb = src.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+
+                // Red text condition: high red relative to green/blue
+                boolean isReddish = (r > 80) && ((r - g) > 20 || (r - b) > 20);
+
+                if (isReddish) {
+                    result.setRGB(x, y, Color.BLACK.getRGB());
+                } else {
+                    result.setRGB(x, y, Color.WHITE.getRGB());
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Contrast-enhances a grayscale image using histogram min-max stretching.
+     */
+    public static BufferedImage enhanceContrast(BufferedImage gray) {
+        if (gray == null) return null;
+        int w = gray.getWidth();
+        int h = gray.getHeight();
+
+        int min = 255;
+        int max = 0;
+
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int v = gray.getRaster().getSample(x, y, 0);
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+        }
+
+        if (max <= min) return gray;
+
+        BufferedImage enhanced = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int v = gray.getRaster().getSample(x, y, 0);
+                int stretched = (v - min) * 255 / (max - min);
+                enhanced.getRaster().setSample(x, y, 0, Math.max(0, Math.min(255, stretched)));
+            }
+        }
+
+        return enhanced;
+    }
 }

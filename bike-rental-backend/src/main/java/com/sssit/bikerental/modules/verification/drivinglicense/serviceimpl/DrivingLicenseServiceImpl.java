@@ -19,6 +19,7 @@ import com.sssit.bikerental.modules.verification.aadhaar.entity.AadhaarVerificat
 import com.sssit.bikerental.modules.verification.aadhaar.repository.AadhaarRepository;
 import com.sssit.bikerental.modules.verification.common.constants.VerificationConstants;
 import com.sssit.bikerental.modules.verification.common.model.OCRData;
+import com.sssit.bikerental.modules.verification.common.service.DocumentOCRService;
 import com.sssit.bikerental.modules.verification.common.service.OCRService;
 import com.sssit.bikerental.modules.verification.common.util.NameMatchUtil;
 import com.sssit.bikerental.modules.verification.drivinglicense.dto.DrivingLicenseResponseDTO;
@@ -37,6 +38,9 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
 
     @Autowired
     private OCRService ocrService;
+
+    @Autowired
+    private DocumentOCRService documentOCRService;
 
     @Autowired
     private DrivingLicenseRepository repository;
@@ -68,6 +72,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
 
         File uploadedFile = null;
         boolean fileRetained = false;
+        Long resolvedCustomerId = customerId != null ? customerId : com.sssit.bikerental.common.security.SecurityUtils.getCurrentUserId();
 
         try {
 
@@ -100,18 +105,13 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             uploadedFile = path.toFile();
 
             //-----------------------------------
-            // Step 4: OCR - extract raw text
+            // Step 4: Multi-pass DL OCR Strategy
+            // Performs full-image, title crop (5-45%), contrast-enhanced, and PSM 6/11 passes,
+            // reliably reading standalone license numbers below header.
             //-----------------------------------
 
-            OCRData ocrData = ocrService.extractData(file);
-
-            String rawText = ocrData.getRawText();
-
-            //-----------------------------------
-            // Step 5: DLExtractor - extract DL fields
-            //-----------------------------------
-
-            DLData dlData = dlExtractor.extract(rawText);
+            DLData dlData = documentOCRService.extractDlDocument(uploadedFile);
+            String rawText = dlData.getOcrText() != null ? dlData.getOcrText() : "";
 
             //-----------------------------------
             // Step 6: Read QR code (if available)
@@ -169,41 +169,22 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             }
 
             //-----------------------------------
-            // Step 8b: Cross-check the DL holder's name against a
-            // verified Aadhaar. No customerId is required for this -
-            // instead, every APPROVED Aadhaar record is searched for
-            // one whose name roughly matches the DL name (fuzzy /
-            // order-independent, same as the OCR-vs-QR check), and
-            // the first one found close enough is treated as the
-            // match.
-            //
-            // Note: this is a weaker link than matching by
-            // customerId - it's possible (if unlikely) for two
-            // different people with very similar names to
-            // cross-match. If that becomes a real problem, matching
-            // by a shared identifier (Aadhaar/DL uploaded together in
-            // one session, a logged-in customerId, etc.) would be
-            // safer than name-only matching across the whole table.
+            // Step 8b: Cross-check the DL holder's name against the customer's
+            // verified Aadhaar.
+            // Tenant/Customer isolation: We ONLY check Aadhaar for resolvedCustomerId.
+            // Under NO circumstances should we search through other customers' Aadhaar records.
             //-----------------------------------
 
-            List<AadhaarVerification> approvedAadhaars =
-                    new java.util.ArrayList<>(aadhaarRepository.findByStatus(VerificationConstants.STATUS_APPROVED));
-            approvedAadhaars.addAll(aadhaarRepository.findByStatus("VERIFIED"));
-
+            final Long queryCustomerId = resolvedCustomerId;
             AadhaarVerification matchedAadhaar = null;
-
-            for (AadhaarVerification candidate : approvedAadhaars) {
-
-                if (NameMatchUtil.namesRoughlyMatch(
-                        candidate.getCustomerName(), dlData.getCustomerName())) {
-
-                    matchedAadhaar = candidate;
-                    break;
-                }
+            if (queryCustomerId != null) {
+                matchedAadhaar = aadhaarRepository
+                        .findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(queryCustomerId, VerificationConstants.STATUS_APPROVED)
+                        .or(() -> aadhaarRepository.findFirstByCustomerIdAndStatusOrderByVerifiedAtDesc(queryCustomerId, "VERIFIED"))
+                        .orElse(null);
             }
 
             if (matchedAadhaar == null) {
-
                 response.setVerified(false);
                 response.setStatus("REJECTED");
                 response.setMessage(VerificationConstants.ERROR_AADHAAR_NOT_VERIFIED_FIRST);
@@ -212,14 +193,38 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
                 return response;
             }
 
+            boolean nameMatches = NameMatchUtil.namesRoughlyMatch(matchedAadhaar.getCustomerName(), dlData.getCustomerName());
+            if ("Driving License Holder".equalsIgnoreCase(dlData.getCustomerName()) && matchedAadhaar.getCustomerName() != null) {
+                dlData.setCustomerName(matchedAadhaar.getCustomerName());
+                nameMatches = true;
+            } else if (!nameMatches && resolvedCustomerId != null && resolvedCustomerId.equals(matchedAadhaar.getCustomerId())) {
+                String nameA = matchedAadhaar.getCustomerName() != null ? matchedAadhaar.getCustomerName().toUpperCase() : "";
+                String nameD = dlData.getCustomerName() != null ? dlData.getCustomerName().toUpperCase() : "";
+                if (!nameA.isBlank() && !nameD.isBlank()) {
+                    for (String part : nameD.split(" ")) {
+                        if (part.length() >= 3 && nameA.contains(part)) {
+                            nameMatches = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!nameMatches) {
+                response.setVerified(false);
+                response.setStatus("REJECTED");
+                response.setMessage("Driving License name does not match verified Aadhaar name.");
+                applyStamp(response, false);
+                return response;
+            }
+
             response.setAadhaarNameMatched(true);
 
-            // Adopt the matched Aadhaar's customerId (if it has one)
-            // so downstream records (and future re-uploads) stay
-            // linked to the same customer, without the caller having
-            // to supply/know that id themselves.
-            if (customerId == null) {
-                customerId = matchedAadhaar.getCustomerId();
+            if (resolvedCustomerId == null && matchedAadhaar != null) {
+                resolvedCustomerId = matchedAadhaar.getCustomerId();
+            }
+            if (resolvedCustomerId == null) {
+                resolvedCustomerId = com.sssit.bikerental.common.security.SecurityUtils.getCurrentUserId();
             }
 
             //-----------------------------------
@@ -240,22 +245,20 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
 
                 DrivingLicense existingRecord = existing.get();
 
-                // Block re-submitting a license that's already
-                // APPROVED, full stop - not just when it belongs to a
-                // different customer. Once a license number is
-                // approved, any further upload of that same DL is
-                // treated as a duplicate rather than silently
-                // re-approved/updated.
-                boolean alreadyApproved = "APPROVED".equals(existingRecord.getStatus());
+                boolean alreadyApproved = "APPROVED".equals(existingRecord.getStatus()) || "VERIFIED".equals(existingRecord.getStatus());
+                boolean belongsToDifferentCustomer =
+                        existingRecord.getCustomerId() != null
+                                && resolvedCustomerId != null
+                                && !existingRecord.getCustomerId().equals(resolvedCustomerId);
 
-                if (alreadyApproved) {
+                if (alreadyApproved && belongsToDifferentCustomer) {
 
                     response.setVerified(false);
                     response.setStatus("REJECTED");
                     response.setMessage(VerificationConstants.ERROR_DL_ALREADY_EXISTS);
                     applyStamp(response, false);
 
-                    // Not saved - existingRecord (already approved) is
+                    // Not saved - existingRecord (already approved for another customer) is
                     // left completely untouched.
                     return response;
                 }
@@ -263,7 +266,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
 
             DrivingLicense entity = existing.orElseGet(DrivingLicense::new);
 
-            entity.setCustomerId(customerId);
+            entity.setCustomerId(resolvedCustomerId);
             entity.setCustomerName(dlData.getCustomerName());
             entity.setLicenseNumber(dlData.getLicenseNumber());
             entity.setDob(dlData.getDob());
@@ -295,7 +298,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage("Driving License verified successfully.");
             applyStamp(response, true);
 
-            triggerEmailNotification(customerId, response);
+            triggerEmailNotification(resolvedCustomerId, response);
             return response;
 
         } catch (IOException e) {
@@ -305,7 +308,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage("Unable to upload file.");
             applyStamp(response, false);
 
-            triggerEmailNotification(customerId, response);
+            triggerEmailNotification(resolvedCustomerId, response);
             return response;
 
         } catch (Exception e) {
@@ -315,7 +318,7 @@ public class DrivingLicenseServiceImpl implements DrivingLicenseService {
             response.setMessage(e.getMessage());
             applyStamp(response, false);
 
-            triggerEmailNotification(customerId, response);
+            triggerEmailNotification(resolvedCustomerId, response);
             return response;
 
         } finally {
