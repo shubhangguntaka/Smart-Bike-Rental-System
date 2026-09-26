@@ -14,6 +14,8 @@ import {
   Activity,
   CalendarCheck,
   Filter,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 import useAuth from "@/hooks/useAuth";
@@ -137,6 +139,10 @@ const MyBikes = () => {
   const [modalHourlyRate, setModalHourlyRate] = useState(80);
   const [modalLocation, setModalLocation] = useState("Hyderabad");
   const [savingTiming, setSavingTiming] = useState(false);
+
+  // Bike Delete Modal State
+  const [deleteModalBike, setDeleteModalBike] = useState<Bike | null>(null);
+  const [deletingBike, setDeletingBike] = useState(false);
 
   const loadBikes = async () => {
     const targetOwnerId = ownerId || (user as any)?.id || 17;
@@ -354,49 +360,81 @@ const MyBikes = () => {
     }
   };
 
-  const handleDelete = async (bikeId: number | string, bikeObj?: Bike) => {
-    const ok = window.confirm("Delete this bike from your fleet?");
-    if (!ok) return;
+  const handleDelete = (bikeId: number | string, bikeObj?: Bike) => {
+    const target = bikeObj || bikes.find((b) => (b.bikeId || b.id || b.registrationNumber) === bikeId) || null;
+    if (target) {
+      setDeleteModalBike(target);
+    } else {
+      const fallbackBike = bikes.find((b) => String(b.bikeId || b.id) === String(bikeId));
+      if (fallbackBike) {
+        setDeleteModalBike(fallbackBike);
+      }
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModalBike) return;
 
     try {
-      const numId = Number(bikeId);
+      setDeletingBike(true);
+      const rawId = deleteModalBike.bikeId || deleteModalBike.id;
+      const numId = rawId ? Number(rawId) : NaN;
+
       if (!isNaN(numId) && numId > 0) {
         try {
           await bikeService.deleteBike(numId);
-        } catch (e) {
+        } catch (e: any) {
           console.warn("Backend API delete notice:", e);
+          const errMsg = e?.response?.data?.message || e?.message;
+          if (errMsg && (errMsg.includes("booking") || errMsg.includes("active"))) {
+            toast.error(errMsg);
+            setDeletingBike(false);
+            return;
+          }
         }
       }
 
       const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_bike_keys") || "[]");
-      if (bikeObj?.registrationNumber) {
-        deletedKeys.push(bikeObj.registrationNumber.trim().toUpperCase());
+      if (deleteModalBike.registrationNumber) {
+        deletedKeys.push(deleteModalBike.registrationNumber.trim().toUpperCase());
+      }
+      if (rawId) {
+        deletedKeys.push(String(rawId));
       }
       localStorage.setItem("deleted_bike_keys", JSON.stringify(Array.from(new Set(deletedKeys))));
 
       const localCached: Bike[] = JSON.parse(localStorage.getItem("custom_owner_bikes") || "[]");
-      const targetReg = (bikeObj?.registrationNumber || "").trim().toUpperCase();
-      const targetName = (bikeObj?.bikeName || "").trim().toUpperCase();
+      const targetReg = (deleteModalBike.registrationNumber || "").trim().toUpperCase();
+      const targetName = (deleteModalBike.bikeName || "").trim().toUpperCase();
 
       const filteredList = localCached.filter((b) => {
         const bId = b.bikeId || b.id;
         const bReg = (b.registrationNumber || "").trim().toUpperCase();
         const bName = (b.bikeName || "").trim().toUpperCase();
 
-        if (bId && (bId === bikeId || String(bId) === String(bikeId))) return false;
+        if (rawId && bId && (bId === rawId || String(bId) === String(rawId))) return false;
         if (targetReg && bReg === targetReg) return false;
         if (targetName && bName === targetName) return false;
         return true;
       });
 
       localStorage.setItem("custom_owner_bikes", JSON.stringify(filteredList));
+      localStorage.setItem("local_owner_bikes", JSON.stringify(filteredList));
       window.dispatchEvent(new Event("custom_bikes_updated"));
 
-      toast.success("Bike Deleted Successfully!");
+      notifyBikeUpdated({
+        ...deleteModalBike,
+        bikeStatus: "NOT_AVAILABLE" as any,
+      });
+
+      toast.success(`${deleteModalBike.bikeName || "Bike"} removed from fleet successfully!`);
+      setDeleteModalBike(null);
       await loadBikes();
     } catch (err) {
       console.error("Delete error:", err);
-      toast.error("Unable to delete bike");
+      toast.error("Unable to delete bike. Please try again.");
+    } finally {
+      setDeletingBike(false);
     }
   };
 
@@ -687,6 +725,101 @@ const MyBikes = () => {
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Edit Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BIKE DELETE CONFIRMATION MODAL */}
+      {deleteModalBike && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl sm:rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Close button */}
+            <button
+              type="button"
+              disabled={deletingBike}
+              onClick={() => setDeleteModalBike(null)}
+              className="absolute right-3.5 top-3.5 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition cursor-pointer disabled:opacity-50"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Header with warning icon */}
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive border border-destructive/20 shadow-inner">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div className="space-y-1 pr-6">
+                <h3 className="text-base sm:text-lg font-black text-foreground">
+                  Remove Bike from Fleet?
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This action will permanently delete the vehicle from your active fleet and unlist it from customer discovery.
+                </p>
+              </div>
+            </div>
+
+            {/* Bike Preview Card */}
+            <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/30 p-3.5">
+              {deleteModalBike.imageUrl || (deleteModalBike.imageUrls && deleteModalBike.imageUrls[0]) ? (
+                <img
+                  src={deleteModalBike.imageUrl || deleteModalBike.imageUrls?.[0]}
+                  alt={deleteModalBike.bikeName}
+                  className="h-14 w-14 rounded-xl object-cover border border-border/60 shrink-0"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                  <BikeIcon className="h-7 w-7" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1 space-y-1">
+                <h4 className="text-sm font-extrabold text-foreground truncate">
+                  {deleteModalBike.bikeName}
+                </h4>
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  {deleteModalBike.brand && (
+                    <span className="font-semibold">{deleteModalBike.brand}</span>
+                  )}
+                  {deleteModalBike.brand && deleteModalBike.registrationNumber && (
+                    <span>•</span>
+                  )}
+                  {deleteModalBike.registrationNumber && (
+                    <span className="font-mono font-bold bg-muted px-1.5 py-0.5 rounded border border-border/60 text-foreground">
+                      {deleteModalBike.registrationNumber}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs font-bold text-foreground">
+                  ₹{deleteModalBike.hourlyRate || 80}
+                  <span className="text-[10px] text-muted-foreground font-normal"> / hr</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Warning note */}
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-[11px] text-destructive leading-relaxed font-medium">
+              ⚠️ Note: Once deleted, any upcoming unconfirmed reservations will be cancelled. Past completed booking records will remain saved in your earnings history.
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={deletingBike}
+                onClick={() => setDeleteModalBike(null)}
+                className="inline-flex flex-1 items-center justify-center rounded-xl border border-border bg-card py-2.5 px-4 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingBike}
+                onClick={handleConfirmDelete}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive py-2.5 px-4 text-xs font-extrabold text-destructive-foreground shadow-lg shadow-destructive/25 transition hover:bg-destructive/90 disabled:opacity-50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deletingBike ? "Deleting Bike..." : "Yes, Delete Bike"}
               </button>
             </div>
           </div>
