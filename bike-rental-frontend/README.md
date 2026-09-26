@@ -1,409 +1,177 @@
-# 🚲 Bike Rental System – Frontend
+# 🚲 Bike Rental System — Modern Frontend Client
 
-A modern, scalable frontend for the **Smart Bike Rental System** built using **React**, **TypeScript**, **Vite**, and **Tailwind CSS**.
-
----
-
-# 📖 Project Overview
-
-The Smart Bike Rental System is a full-stack web application that enables bike owners to rent out their bikes while allowing customers to easily discover, book, and track bikes online.
-
-The frontend is responsible for delivering a responsive, secure, and user-friendly experience for all user roles.
+An enterprise-grade, responsive, and high-performance web application for the **Smart Bike Rental System**, built with **React 19**, **TypeScript**, **Vite**, **Tailwind CSS v4**, **Material-UI**, and **Three.js**.
 
 ---
 
-# 👥 User Roles
+## 🌟 Highlights & Key Features
 
-* 👤 Customer
-* 🏍️ Bike Owner
-* 🛡️ Admin
+### 👤 Customer Experience
+- **Interactive Fleet Catalog**: Filter bikes by brand, fuel type, daily/hourly rate, CC category, and availability.
+- **Dual Map Navigation**: Interactive **Leaflet / OpenStreetMap** and **Google Maps** integration for locating nearby bikes in Hyderabad.
+- **3D Bike Interactive Showcase**: Real-time 3D vehicle inspection powered by **Three.js**.
+- **Seamless Booking Flow**: Live fare estimation, date/time pickers, and automated 18% GST calculation.
+- **Razorpay Checkout Integration**: Instant card, net banking, and UPI payment simulation with signature verification.
+- **Live Ride GPS Tracking**: Real-time geolocation coordinates, ride duration, and speed telemetry.
+- **QR Code Handover**: Dynamic QR code generation for pickup and dropoff validation.
+- **Document KYC Submission**: Upload Aadhaar and Driving License documents with instant status checks.
+- **Ride History & PDF Invoices**: Detailed booking records with downloadable PDF tax receipts using `jspdf`.
 
----
+### 🏍️ Fleet Owner Portal
+- **Fleet Management**: Add, update, archive, and manage bike specifications and rental prices.
+- **Vehicle Document Verification**: Upload and track RC, fitness, and insurance documentation.
+- **Booking Requests Dashboard**: Approve or decline incoming customer reservations in real-time.
+- **QR Handover Scanner**: In-browser camera QR code scanner powered by `jsqr` to authenticate bike release to customers.
+- **Earnings & Analytics**: Revenue tracking, utilization graphs, and payouts history.
 
-# 🛠️ Tech Stack
-
-| Technology       | Purpose                 |
-| ---------------- | ----------------------- |
-| React 19         | Frontend Library        |
-| TypeScript       | Type Safety             |
-| Vite             | Build Tool              |
-| Tailwind CSS v4  | Styling                 |
-| React Router     | Routing                 |
-| Redux Toolkit    | State Management        |
-| Axios            | API Communication       |
-| React Query      | Server State Management |
-| React Hook Form  | Form Handling           |
-| Yup              | Form Validation         |
-| React Hot Toast  | Notifications           |
-| Framer Motion    | Animations              |
-| Day.js           | Date Handling           |
-| React Icons      | Icons                   |
-| Google Maps API  | Maps Integration        |
-| Socket.IO Client | Real-time Updates       |
+### 🛡️ Administrative Control Center
+- **System Overview Dashboard**: Real-time counters for active rides, revenue, fleet utilization, and user growth.
+- **KYC Verification Reviewer**: Review pending Aadhaar, Driving License, and RC certificates with one-click approve/reject actions.
+- **Fleet Moderation**: Audit vehicle listings, enforce maintenance locks, and inspect reports.
+- **Financial Analytics & Export**: Interactive charts powered by `Recharts` and `Chart.js`, with CSV and PDF export capabilities.
 
 ---
 
-# 🚀 Getting Started
+## 🛠️ Technology Stack
 
-## 1. Clone Repository
-
-```bash
-git clone <repository-url>
-```
+| Category | Technologies |
+| :--- | :--- |
+| **Core Framework** | React 19, TypeScript, Vite |
+| **Styling & UI** | Tailwind CSS v4, Material-UI (MUI v5), Emotion, Lucide React, React Icons |
+| **State Management** | Redux Toolkit, Zustand, Context API |
+| **Data Fetching** | Axios, TanStack React Query (v5) |
+| **Forms & Validation** | React Hook Form, Yup schema validator |
+| **Maps & Geolocation** | Leaflet, React-Leaflet, Google Maps API (`@react-google-maps/api`) |
+| **3D Rendering** | Three.js (`@types/three`) |
+| **Charts & Analytics** | Recharts, Chart.js, React-Chartjs-2 |
+| **Utilities & PDF** | Day.js, jspdf, jspdf-autotable, react-qr-code, jsqr, react-hot-toast |
 
 ---
 
-## 2. Navigate to Frontend
+## 🚀 Getting Started
+
+### 1. Prerequisites
+- **Node.js**: v18.x or v20.x+
+- **npm**: v9.x or v10.x+
+- **Backend Service**: Ensure the Spring Boot backend is active on port `8888`.
+
+### 2. Installation
+Navigate to the frontend folder and install dependencies:
 
 ```bash
 cd bike-rental-frontend
-```
-
----
-
-## 3. Install Dependencies
-
-```bash
 npm install
 ```
 
----
-
-## 4. Frontend Environment Setup
-
-### 4.1 Copy Example Configuration
-
-Create a local environment file from the template:
+### 3. Environment Configuration
+Copy the sample environment file to create `.env`:
 
 ```bash
 # Windows PowerShell
 Copy-Item .env.example .env
 
-# macOS / Linux
+# Linux / macOS
 cp .env.example .env
 ```
 
-### 4.2 Required Environment Variables
+Ensure the configuration matches your local backend:
 
-| Variable | Description | Required | Default / Example |
-| :--- | :--- | :--- | :--- |
-| `VITE_API_BASE_URL` | Backend Spring Boot API base URL | Yes | `http://localhost:8888/api` |
-| `VITE_APP_NAME` | Application display title | No | `Bike Rental System` |
-| `VITE_GOOGLE_MAPS_API_KEY` | Optional Google Maps API browser key | No | `your_google_maps_api_key` |
-| `VITE_RAZORPAY_KEY_ID` | Optional Razorpay client key | No | `rzp_test_...` |
-| `VITE_CLOUDINARY_CLOUD_NAME` | Optional Cloudinary cloud name | No | `your_cloud_name` |
+```env
+# Backend API Base URL
+VITE_API_BASE_URL=http://localhost:8888/api
 
-> ⚠️ **Security Reminder:** Never commit `.env` or `.env.*.local` files containing real API credentials to Git. Environment changes require restarting the Vite development server (`npm run dev`).
+# Application Display Title
+VITE_APP_NAME=Smart Bike Rental System
 
----
+# Optional Third-Party Keys
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_RAZORPAY_KEY_ID=rzp_test_TU4lU75r4fP9AF
+VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
+```
 
-## 5. Run Development Server
+### 4. Development Server
+Start Vite with hot-module replacement (HMR):
 
 ```bash
 npm run dev
 ```
 
----
-
-## 6. Build Project
-
-```bash
-npm run build
+The application will be accessible at:
+```text
+http://localhost:5173
 ```
 
 ---
 
-## 7. Preview Production Build
+## 📂 Project Directory Structure
 
-```bash
-npm run preview
-```
-
----
-
-# 📂 Folder Structure
-
-```
+```text
 bike-rental-frontend/
-│
-├── public/
-│
+├── public/                 # Static public assets, favicon, mock models
 ├── src/
-│
-│   ├── api/
-│   │
-│   ├── assets/
-│   │   ├── css/
-│   │   ├── fonts/
-│   │   ├── icons/
-│   │   ├── images/
-│   │   └── videos/
-│   │
-│   ├── components/
-│   │   ├── common/
-│   │   ├── auth/
-│   │   ├── bike/
-│   │   ├── booking/
-│   │   ├── payment/
-│   │   ├── map/
-│   │   ├── verification/
-│   │   ├── notification/
-│   │   ├── review/
-│   │   ├── owner/
-│   │   └── admin/
-│   │
-│   ├── config/
-│   │
-│   ├── constants/
-│   │
-│   ├── context/
-│   │
-│   ├── hooks/
-│   │
-│   ├── layouts/
-│   │
-│   ├── pages/
-│   │   ├── auth/
-│   │   ├── customer/
-│   │   ├── owner/
-│   │   ├── admin/
-│   │   ├── maps/
-│   │   ├── verification/
-│   │   └── errors/
-│   │
-│   ├── routes/
-│   │
-│   ├── services/
-│   │
-│   ├── store/
-│   │
-│   ├── styles/
-│   │
-│   ├── types/
-│   │
-│   ├── utils/
-│   │
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-│
-├── .github/
-│
-├── .vscode/
-│
-├── .env.example
-├── .gitignore
-├── eslint.config.js
-├── jsconfig.json
-├── package.json
-├── vite.config.js
-├── README.md
-└── index.html
-```
-
-> Feature folders and modules will be created by respective team members during development.
-
----
-
-# 🌿 Git Workflow
-
-### Branches
-
-```
-main
-│
-└── develop
-     ├── feature/authentication
-     ├── feature/customer
-     ├── feature/owner
-     ├── feature/admin
-     ├── feature/bike
-     ├── feature/booking
-     ├── feature/maps
-     ├── feature/payment
-     ├── feature/gps
-     ├── feature/review
-     └── feature/notifications
+│   ├── api/                # Axios instance, interceptors, and API client definitions
+│   ├── assets/             # Images, SVG illustrations, and icons
+│   ├── components/         # Reusable presentation components
+│   │   ├── admin/          # Admin stats, verification cards, charts
+│   │   ├── auth/           # Login/register modals, protected route guards
+│   │   ├── bike/           # Bike cards, filters, 3D bike inspection modal
+│   │   ├── booking/        # Booking forms, price break-down, calendar pickers
+│   │   ├── common/         # Buttons, badges, spinners, modal dialogs, navbar, footer
+│   │   ├── map/            # Leaflet map container, custom markers, route polyline
+│   │   ├── owner/          # Bike upload form, request approvals, earnings breakdown
+│   │   ├── payment/        # Razorpay simulated modal, payment summary
+│   │   └── verification/   # Aadhaar/DL upload forms and status indicators
+│   ├── config/             # Environment configs and API routes
+│   ├── context/            # React Context providers (AuthContext, ThemeContext)
+│   ├── hooks/              # Custom hooks (useAuth, useGeolocation, useBookings)
+│   ├── layouts/            # Page shell layouts (MainLayout, DashboardLayout)
+│   ├── pages/              # Primary route view components
+│   │   ├── admin/          # AdminDashboard, UserManagement, VerificationRequests
+│   │   ├── auth/           # Login, Register, ForgotPassword, ResetPassword
+│   │   ├── customer/       # ExploreBikes, BikeDetails, BookingPage, RideTracker
+│   │   ├── owner/          # OwnerDashboard, MyBikes, AddBike, BookingRequests
+│   │   └── errors/         # NotFound 404, Unauthorized 403
+│   ├── routes/             # AppRoutes definition with role-based protections
+│   ├── services/           # Service layer interfacing with API endpoints
+│   ├── store/              # Redux slices and Zustand state stores
+│   ├── types/              # Comprehensive TypeScript interfaces & enums
+│   ├── utils/              # Formatting helpers, PDF generators, date formatters
+│   ├── App.tsx             # Root Application component with Router
+│   ├── main.tsx            # React DOM client entrypoint
+│   └── index.css           # Global Tailwind CSS imports and utility layers
+├── package.json            # Dependencies and npm scripts
+├── vite.config.ts          # Vite build config with Tailwind integration
+└── tsconfig.json           # TypeScript compiler configuration
 ```
 
 ---
 
-## Branch Rules
+## 🧪 Shared Test Accounts for Frontend Testing
 
-* Never develop directly on `main`.
-* Create feature branches from `develop`.
-* Submit a Pull Request before merging.
-* Resolve merge conflicts before approval.
-* Ensure the project builds successfully before pushing.
-
----
-
-# 📋 Coding Guidelines
-
-## File Naming
-
-### Components
-
-```
-PascalCase
-
-Example:
-
-BikeCard.tsx
-OwnerDashboard.tsx
-```
+| Persona | Credentials (Email / Password) | Recommended Screens to Test |
+| :--- | :--- | :--- |
+| **System Admin** | `admin@bikerental.test` / `Admin@123` | Admin Dashboard, KYC Verification, Reports & Analytics |
+| **Bike Owner (Ravi)** | `ravi.owner@bikerental.test` / `Owner@123` | My Bikes, Add Bike, QR Handover Pickup Scanner |
+| **Bike Owner (Priya)** | `priya.owner@bikerental.test` / `Owner@123` | Fleet maintenance states, Electric vehicles |
+| **Customer (Arjun)** | `arjun.customer@bikerental.test` / `Customer@123` | Active Ride Tracker (#503), Download Past Ride PDF |
+| **Customer (Neha)** | `neha.customer@bikerental.test` / `Customer@123` | Explore Bikes, Checkout, Razorpay Mock Payment |
+| **Customer (Vikram)** | `vikram.customer@bikerental.test` / `Customer@123` | Verification notice, Pending Aadhaar / DL upload |
 
 ---
 
-### Hooks
+## 📦 Build & Production Commands
 
-```
-useAuthentication.ts
-useBooking.ts
-```
-
----
-
-### Utilities
-
-```
-dateUtils.ts
-
-storage.ts
-
-validators.ts
-```
+| Command | Action |
+| :--- | :--- |
+| `npm run dev` | Starts local development server on `http://localhost:5173` |
+| `npm run build` | Compiles TypeScript and creates optimized production bundle in `/dist` |
+| `npm run preview` | Locally preview the production build output |
+| `npm run lint` | Runs ESLint check across all TSX and TS files |
 
 ---
 
-### Constants
-
-```
-apiEndpoints.ts
-
-roles.ts
-
-routes.ts
-```
-
----
-
-### Types
-
-```
-User.ts
-
-Bike.ts
-
-Booking.ts
-```
-
----
-
-# 📌 General Rules
-
-* Use TypeScript for every component.
-* Keep components reusable.
-* Avoid duplicate code.
-* Follow ESLint rules.
-* Format code before committing.
-* Use meaningful variable and function names.
-* Remove unused imports before pushing.
-* Never commit secrets or API keys.
-
----
-
-# 📝 Commit Message Convention
-
-Examples
-
-```
-feat: add customer login page
-
-feat: implement booking module
-
-fix: resolve login validation issue
-
-style: improve dashboard layout
-
-refactor: optimize bike card component
-
-docs: update README
-```
-
----
-
-# 📦 Important Commands
-
-Install dependencies
-
-```bash
-npm install
-```
-
-Start development
-
-```bash
-npm run dev
-```
-
-Build
-
-```bash
-npm run build
-```
-
-Preview
-
-```bash
-npm run preview
-```
-
-Lint
-
-```bash
-npm run lint
-```
-
----
-
-# 🚧 Development Modules
-
-The project will be developed module-wise.
-
-* Authentication
-* Customer Module
-* Owner Module
-* Admin Module
-* Bike Module
-* Booking Module
-* Google Maps
-* GPS Tracking
-* Payments
-* Notifications
-* Reviews
-* Reports & Analytics
-
-Each module should be developed in its own feature branch.
-
----
-
-# 🤝 Team Responsibilities
-
-* Follow the agreed folder structure.
-* Use common coding conventions.
-* Do not modify another developer's module without discussion.
-* Keep Pull Requests focused on a single feature.
-* Test your changes before creating a Pull Request.
-
----
-
-# 📄 License
-
-This project is developed as part of the **SSSIT Institute Major Project**.
-
-All contributors should follow the team's development standards and Git workflow.
-
----
-
-## Happy Coding! 🚀
+## 🔗 Quick Navigation Links
+- 🏠 [Root Project README](../README.md)
+- ⚙️ [Backend Documentation](../bike-rental-backend/README.md)
+- 🗄️ [Database Test Data Guide](../database/README.md)
+- 📚 [Full Documentation Hub](../docs/README.md)

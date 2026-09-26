@@ -1,686 +1,175 @@
-# 🚲 Bike Rental System – Backend
+# 🚲 Smart Bike Rental System — Backend API Service
 
-A scalable, secure, and modular backend for the **Smart Bike Rental System**, built with **Spring Boot**, **Spring Security**, **JWT**, and **MySQL**.
-
----
-
-# 📖 Project Overview
-
-The Smart Bike Rental System backend provides REST APIs for managing authentication, bike rentals, bookings, payments, live GPS tracking, notifications, and administrative operations.
-
-The backend follows a modular architecture, making it easy for multiple developers to work independently on different features.
+A robust, enterprise-grade RESTful API service built with **Spring Boot 3.2.5**, **Java 21**, **Spring Security**, **JWT Authentication**, and **Spring Data JPA (Hibernate)** for the **Smart Bike Rental System**.
 
 ---
 
-# 👥 User Roles
+## 📖 System Overview
 
-* 👤 Customer
-* 🏍️ Bike Owner
-* 🛡️ Admin
-
----
-
-# 🛠️ Tech Stack
-
-| Technology        | Purpose                        |
-| ----------------- | ------------------------------ |
-| Java 21/25        | Programming Language           |
-| Spring Boot       | Backend Framework              |
-| Spring Security   | Authentication & Authorization |
-| JWT               | Secure Authentication          |
-| Spring Data JPA   | Database Access                |
-| Hibernate         | ORM                            |
-| MySQL             | Database                       |
-| Maven             | Dependency Management          |
-| Lombok            | Boilerplate Reduction          |
-| Bean Validation   | Request Validation             |
-| Swagger (OpenAPI) | API Documentation              |
-| Spring Boot Mail  | Email & OTP                    |
-| WebSocket         | Real-Time Notifications        |
-| ModelMapper       | Entity ↔ DTO Mapping           |
+The backend service coordinates all core transactional, operational, and analytical capabilities of the platform:
+- **Authentication & Security**: Multi-role JWT authentication (`CUSTOMER`, `OWNER`, `ADMIN`), refresh tokens, and BCrypt password encryption.
+- **Fleet & Inventory Management**: CRUD operations for bike listings, real-time availability states, engine specs, and image galleries.
+- **Reservation & Handover**: Complete booking lifecycle management, fare breakdown, 18% GST calculation, and QR code handover verification.
+- **Payment Processing**: Integrated Razorpay payment order generation and cryptographic signature verification.
+- **Document KYC Verification**: Secure uploads and administrative approval flows for Aadhaar, Driving License, and Vehicle RC documents.
+- **Live Geolocation & GPS**: Coordinate streaming, proximity queries, and tracking for rented bikes in Hyderabad.
+- **Admin Moderation & Analytics**: Platform-wide metrics, revenue charts, user management, and PDF/Excel report exports.
 
 ---
 
-# 🚀 Getting Started
+## 🛠️ Technology Stack
 
-## 1. Clone Repository
-
-```bash
-git clone <repository-url>
-```
-
----
-
-## 2. Navigate to Backend
-
-```bash
-cd bike-rental-backend
-```
-
----
-
-## 3. Import into STS4
-
-Open **Spring Tools for Eclipse (STS4)**
-
-* File → Import
-* Maven → Existing Maven Projects
-* Select the project folder
-* Finish
+| Technology | Version / Spec | Purpose |
+| :--- | :--- | :--- |
+| **Java** | 21 (LTS) | Core Programming Language |
+| **Spring Boot** | 3.2.5 | Application Framework |
+| **Spring Security** | 6.x | Role-based Authorization & Route Guards |
+| **JSON Web Token (JJWT)** | 0.12.6 | Stateless Authentication |
+| **Spring Data JPA** | 3.2.5 | Database Abstraction & Repositories |
+| **Hibernate ORM** | 6.x | Object-Relational Mapping |
+| **MySQL** | 8.x | Relational Database |
+| **Springdoc OpenAPI (Swagger)** | 2.x | Live Interactive API Documentation |
+| **Razorpay Java SDK** | 1.4.3 | Payment Gateway Integration |
+| **Cloudinary SDK** | 1.39.0 | Cloud Document & Image Asset Storage |
+| **ZXing ("Zebra Crossing")** | 3.5.3 | QR Code Handover Generation & Decoding |
+| **ModelMapper** | 3.2.4 | Entity ↔ DTO Data Transformation |
+| **Lombok** | 1.18.40 | Boilerplate Reduction |
+| **Spring Boot Mail** | 3.2.5 | Email Notifications & OTP Verification |
 
 ---
 
-## 4. Update Maven
+## 🚀 Getting Started
 
-Right Click Project
+### 1. Prerequisites
+- **Java Development Kit (JDK)**: JDK 21 installed (`java -version`).
+- **MySQL Server**: MySQL 8.x running on `localhost:3306`.
+- **Maven**: Bundled Maven Wrapper (`./mvnw` or `mvnw.cmd`) or Maven 3.9+.
 
-```
-Maven
-    → Update Project
-```
+### 2. Database Setup
+1. Open your MySQL client and create the database:
+   ```sql
+   CREATE DATABASE IF NOT EXISTS bike_rental;
+   ```
+2. Import the shared Hyderabad test data (resets and populates all 13 tables):
+   ```bash
+   # From the project root:
+   mysql -u root -p < database/bike_rental_test_data_hyderabad.sql
+   ```
 
-Enable
-
-* ✔ Force Update of Snapshots/Releases
-
----
-
-## 5. Configure Database
-
-Create a MySQL database.
-
-Example
-
-```sql
-CREATE DATABASE bike_rental;
-```
-
----
-
-## 6. Configure application-dev.properties
-
+### 3. Application Configuration
+The active profile is set to `local` in `src/main/resources/application.properties`:
 ```properties
+spring.profiles.active=local
+```
+
+Inspect or configure `src/main/resources/application-local.properties`:
+```properties
+server.port=8888
+
 spring.datasource.url=jdbc:mysql://localhost:3306/bike_rental
-
 spring.datasource.username=root
+spring.datasource.password=YOUR_MYSQL_PASSWORD
 
-spring.datasource.password=YOUR_PASSWORD
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+# JWT Configuration
+jwt.secret=YourSecretKeyMustBeAtLeast32CharactersLongForHS256Algorithm
+jwt.expiration=86400000
+jwt.refresh-expiration=604800000
 ```
 
----
-
-## 7. Run the Project
-
-Run
-
-```
-BikeRentalBackendApplication.java
-```
-
-or
-
-```
-Run As
-→ Spring Boot App
-```
-
----
-
-# 📂 Project Structure
-
-```
-bike-rental-backend/
-│
-├── .github/
-│   └── workflows/
-│
-├── .mvn/
-│   └── wrapper/
-│
-├── src/
-│
-├── main/
-│
-│   ├── java/
-│   │
-│   └── com/
-│       └── bikerental/
-│
-│           ├── config/
-│           │   ├── CorsConfig.java
-│           │   ├── SecurityConfig.java
-│           │   ├── SwaggerConfig.java
-│           │   ├── WebConfig.java
-│           │   ├── OpenApiConfig.java
-│           │   ├── MailConfig.java
-│           │   ├── GoogleMapsConfig.java
-│           │   └── RazorpayConfig.java
-│           │
-│           ├── security/
-│           │   ├── jwt/
-│           │   │   ├── JwtFilter.java
-│           │   │   ├── JwtService.java
-│           │   │   ├── JwtAuthenticationEntryPoint.java
-│           │   │   └── JwtAuthenticationProvider.java
-│           │   │
-│           │   ├── user/
-│           │   │   └── CustomUserDetailsService.java
-│           │   │
-│           │   └── PasswordConfig.java
-│           │
-│           ├── common/
-│           │
-│           │   ├── dto/
-│           │   │
-│           │   ├── enums/
-│           │   │
-│           │   ├── mapper/
-│           │   │
-│           │   ├── response/
-│           │   │
-│           │   ├── util/
-│           │   │
-│           │   ├── constants/
-│           │   │
-│           │   └── validation/
-│           │
-│           ├── exception/
-│           │   ├── handler/
-│           │   ├── custom/
-│           │   └── response/
-│           │
-│           ├── modules/
-│
-│           │
-│           ├── auth/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   ├── AuthService.java
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   └── validator/
-│           │
-│           ├── user/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   └── validator/
-│           │
-│           ├── owner/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   └── validator/
-│           │
-│           ├── bike/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   ├── specification/
-│           │   └── validator/
-│           │
-│           ├── booking/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   └── validator/
-│           │
-│           ├── payment/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── mapper/
-│           │   └── gateway/
-│           │
-│           ├── notification/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   └── entity/
-│           │
-│           ├── review/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   └── entity/
-│           │
-│           ├── verification/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   ├── entity/
-│           │   ├── aadhaar/
-│           │   ├── drivinglicense/
-│           │   ├── rc/
-│           │   ├── insurance/
-│           │   └── puc/
-│           │
-│           ├── map/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── dto/
-│           │   └── provider/
-│           │
-│           ├── gps/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── repository/
-│           │   ├── dto/
-│           │   └── entity/
-│           │
-│           ├── upload/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── storage/
-│           │   ├── dto/
-│           │   └── entity/
-│           │
-│           ├── analytics/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── dto/
-│           │   └── report/
-│           │
-│           ├── report/
-│           │   ├── controller/
-│           │   ├── service/
-│           │   │   └── impl/
-│           │   ├── dto/
-│           │   └── exporter/
-│           │
-│           └── admin/
-│               ├── controller/
-│               ├── service/
-│               │   └── impl/
-│               ├── repository/
-│               ├── dto/
-│               ├── entity/
-│               ├── dashboard/
-│               └── statistics/
-│
-│
-│           └── BikeRentalApplication.java
-│
-│
-├── resources/
-│
-│   ├── application.properties
-│   ├── application-dev.properties
-│   ├── application-prod.properties
-│
-│   ├── db/
-│   │   ├── migration/
-│   │   ├── seed/
-│   │   └── scripts/
-│   │
-│   ├── static/
-│   │   ├── uploads/
-│   │   │   ├── profile/
-│   │   │   ├── bikes/
-│   │   │   ├── aadhaar/
-│   │   │   ├── license/
-│   │   │   ├── rc/
-│   │   │   ├── insurance/
-│   │   │   └── puc/
-│   │   │
-│   │   └── images/
-│   │
-│   └── templates/
-│       ├── email/
-│       ├── invoice/
-│       └── reports/
-│
-├── test/
-│   ├── java/
-│   │   ├── auth/
-│   │   ├── bike/
-│   │   ├── booking/
-│   │   ├── payment/
-│   │   └── integration/
-│   │
-│   └── resources/
-│
-├── docs/
-│   ├── api/
-│   ├── architecture/
-│   ├── database/
-│   └── deployment/
-│
-├── postman/
-│
-├── scripts/
-│
-├── uploads/
-│
-├── .env.example
-├── .gitignore
-├── mvnw
-├── mvnw.cmd
-├── pom.xml
-└── README.md
-```
-
-Each feature/module will contain its own controllers, services, repositories, DTOs, and related classes during development.
-
----
-
-# 🌿 Git Workflow
-
-```
-main
-│
-└── develop
-     ├── feature/authentication
-     ├── feature/customer
-     ├── feature/owner
-     ├── feature/admin
-     ├── feature/bike
-     ├── feature/booking
-     ├── feature/payment
-     ├── feature/maps
-     ├── feature/gps
-     ├── feature/review
-     └── feature/notification
-```
-
----
-
-## Branch Rules
-
-* Never develop directly on **main**.
-* Create feature branches from **develop**.
-* Create Pull Requests before merging.
-* Resolve merge conflicts before approval.
-* Ensure the project builds successfully before pushing.
-
----
-
-# 📋 Coding Guidelines
-
-## Package Naming
-
-```
-lowercase
-```
-
-Example
-
-```
-authentication
-
-booking
-
-payment
-```
-
----
-
-## Class Naming
-
-```
-PascalCase
-```
-
-Example
-
-```
-AuthenticationController
-
-BookingService
-
-PaymentRepository
-```
-
----
-
-## Method Naming
-
-```
-camelCase
-```
-
-Example
-
-```
-registerUser()
-
-createBooking()
-
-cancelBooking()
-```
-
----
-
-## REST Endpoint Naming
-
-```
-/api/auth
-
-/api/customers
-
-/api/owners
-
-/api/bikes
-
-/api/bookings
-
-/api/payments
-
-/api/reviews
-```
-
-Use plural resource names where appropriate.
-
----
-
-## Entity Naming
-
-```
-User
-
-Bike
-
-Booking
-
-Payment
-```
-
----
-
-## DTO Naming
-
-```
-LoginRequest
-
-RegisterRequest
-
-BikeResponse
-
-BookingResponse
-```
-
----
-
-# 📌 General Rules
-
-* Use constructor injection instead of field injection.
-* Keep controllers lightweight.
-* Business logic belongs in services.
-* Validate all incoming requests.
-* Use DTOs instead of exposing entities directly.
-* Write meaningful method and variable names.
-* Remove unused imports before committing.
-* Do not commit secrets or passwords.
-* Follow SOLID principles where practical.
-
----
-
-
-
-# 📦 API Response Format
-
-All APIs use a consistent response structure.
-
-## Success Response
-
-```json
-{
-  "success": true,
-  "message": "Bike fetched successfully",
-  "data": {},
-  "timestamp": "2026-08-20T10:00:00"
-}
-
-{
-  "success": false,
-  "message": "Bike not found with id: 10",
-  "data": null,
-  "timestamp": "2026-08-20T10:00:00"
-}
-
-{
-  "success": false,
-  "message": "Validation Failed",
-  "data": {
-    "email": "Email is required",
-    "password": "Password must not be blank"
-  },
-  "timestamp": "2026-08-20T10:00:00"
-}
-
----
-
-# 📝 Commit Message Convention
-
-Examples
-
-```
-feat: implement authentication module
-
-feat: add bike management APIs
-
-fix: resolve JWT validation issue
-
-refactor: optimize booking service
-
-docs: update backend README
-
-test: add authentication tests
-```
-
----
-
-# 📚 API Documentation
-
-Swagger UI
-
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
-(API documentation will be available after Swagger configuration.)
-
----
-
-# 📦 Important Commands
-
-Run Project
+### 4. Running the Application
+From the `bike-rental-backend/` directory:
 
 ```bash
-mvn spring-boot:run
+# Windows
+mvnw.cmd spring-boot:run
+
+# Linux / macOS
+./mvnw spring-boot:run
 ```
 
-Build Project
-
-```bash
-mvn clean install
-```
-
-Run Tests
-
-```bash
-mvn test
-```
-
-Clean Project
-
-```bash
-mvn clean
+The server starts on port **8888**:
+```text
+Tomcat started on port 8888 (http) with context path ''
 ```
 
 ---
 
-# 🚧 Development Modules
+## 📚 Interactive API Documentation (Swagger UI)
 
-The backend will be developed module-wise.
+Once the application is running, visit the interactive Swagger UI to explore and test endpoints in your browser:
 
-* Authentication & JWT
-* User Management
-* Bike Management
-* Booking Management
-* Document Verification
-* Payment Integration
-* Google Maps Integration
-* Live GPS Tracking
-* Notifications
-* Reviews & Ratings
-* Admin Dashboard
-* Reports & Analytics
+```text
+http://localhost:8888/swagger-ui/index.html
+```
 
-Each module should be developed in its own feature branch.
+Raw OpenAPI JSON definition:
+```text
+http://localhost:8888/v3/api-docs
+```
 
 ---
 
-# 🤝 Team Responsibilities
+## 📂 Source Code Package Architecture
 
-* Follow the agreed project architecture.
-* Keep business logic inside services.
-* Avoid duplicate code.
-* Use common DTOs and response models.
-* Test APIs before creating Pull Requests.
-* Keep commits focused on a single feature.
-* Do not modify another developer's module without discussion.
+Root package: `com.sssit.bikerental`
+
+```text
+com.sssit.bikerental/
+├── config/                     # Security, CORS, Swagger, Mail, Cloudinary configs
+├── security/                   # JwtFilter, JwtService, CustomUserDetailsService
+├── common/
+│   ├── dto/                    # Base API response wrappers and paginated DTOs
+│   ├── enums/                  # Role, BookingStatus, BikeStatus, PaymentStatus
+│   └── exception/              # GlobalExceptionHandler and custom exceptions
+├── modules/
+│   ├── auth/                   # Registration, Login, OTP verification, Token refresh
+│   ├── user/                   # User profiles, customer details, password change
+│   ├── owner/                  # Fleet owner management, earnings, statistics
+│   ├── bike/                   # Bike catalog, specifications, filters, gallery images
+│   ├── booking/                # Reservation engine, date validator, QR handover
+│   ├── payment/                # Razorpay checkout, transaction logs, refunds
+│   ├── verification/           # Aadhaar, Driving License, RC upload & admin review
+│   ├── gps/                    # Telemetry coordinates, live tracking, speed updates
+│   ├── review/                 # Star ratings and feedback comments
+│   ├── notification/           # User in-app notifications and alerts
+│   └── admin/                  # System metrics, user moderation, reports generation
+└── BikeRentalBackendApplication.java  # Main Spring Boot bootstrap class
+```
 
 ---
 
-# 📄 License
+## 🧪 Shared Test Accounts
 
-This project is developed as part of the **SSSIT Institute Major Project**.
+The seeded database comes pre-loaded with these test accounts:
 
-All contributors should follow the team's coding standards, architecture, and Git workflow.
+| Role | Username / Email | Password | Details |
+| :--- | :--- | :--- | :--- |
+| **ADMIN** | `admin@bikerental.test` | `Admin@123` | Master control over fleet, users, KYC, and finances |
+| **OWNER** | `ravi.owner@bikerental.test` | `Owner@123` | Fleet owner with 7 bikes across Hyderabad |
+| **OWNER** | `priya.owner@bikerental.test` | `Owner@123` | Fleet owner with EV scooters and sports bikes |
+| **CUSTOMER** | `arjun.customer@bikerental.test` | `Customer@123` | Fully verified customer with active ride #503 |
+| **CUSTOMER** | `neha.customer@bikerental.test` | `Customer@123` | Verified customer with confirmed reservation |
+| **CUSTOMER** | `vikram.customer@bikerental.test` | `Customer@123` | Unverified customer (pending KYC evaluation) |
 
 ---
 
-## Happy Coding! 🚀
+## 📦 Useful Maven Commands
+
+| Command | Action |
+| :--- | :--- |
+| `mvn clean compile` | Compiles Java sources and checks syntax |
+| `mvn test` | Executes unit and integration test suites |
+| `mvn clean package -DskipTests` | Builds the executable standalone `.jar` in `/target` |
+| `mvn spring-boot:run` | Runs the development application server |
+
+---
+
+## 🔗 Quick Navigation Links
+- 🏠 [Root Project README](../README.md)
+- 🎨 [Frontend Documentation](../bike-rental-frontend/README.md)
+- 🗄️ [Database Test Data Guide](../database/README.md)
+- 📮 [Postman API Guide](../postman/README.md)
+- 📚 [Full Documentation Hub](../docs/README.md)
