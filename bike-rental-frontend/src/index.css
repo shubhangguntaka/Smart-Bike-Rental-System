@@ -128,6 +128,16 @@
     --shadow-xl: 0px 1px 2px 0px hsl(225 27.7778% 14.1176% / 0.04), 0px 8px 10px -1px hsl(225 27.7778% 14.1176% / 0.04);
     --shadow-2xl: 0px 1px 2px 0px hsl(225 27.7778% 14.1176% / 0.10);
     --tracking-normal: 0em;
+    --color-ink: #0b1220;
+    --color-bureau: #16305e;
+    --color-bureau-light: #1e3f7a;
+    --color-parchment: #f8f5ec;
+    --color-parchment-dim: #efe9d8;
+    --color-brass: #b1873f;
+    --color-verified: #1e7f4d;
+    --color-verified-dim: #e7f3ec;
+    --color-crimson: #b3261e;
+    --color-crimson-dim: #fbeae9;
 }
 
 .dark {
@@ -183,6 +193,16 @@
     --shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.04), 0px 4px 6px -1px hsl(0 0% 0% / 0.04);
     --shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.04), 0px 8px 10px -1px hsl(0 0% 0% / 0.04);
     --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.10);
+    --color-ink: #f8fafc;
+    --color-bureau: #1e293b;
+    --color-bureau-light: #334155;
+    --color-parchment: oklch(0.1448 0 0);
+    --color-parchment-dim: oklch(0.1822 0 0);
+    --color-brass: #f59e0b;
+    --color-verified: #22c55e;
+    --color-verified-dim: rgba(34, 197, 94, 0.15);
+    --color-crimson: #ef4444;
+    --color-crimson-dim: rgba(239, 68, 68, 0.15);
 }
 
 @layer base {
@@ -394,21 +414,28 @@
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-ink: #0b1220;
-  --color-bureau: #16305e;
-  --color-bureau-light: #1e3f7a;
-  --color-parchment: #f8f5ec;
-  --color-parchment-dim: #efe9d8;
-  --color-brass: #b1873f;
-  --color-verified: #1e7f4d;
-  --color-verified-dim: #e7f3ec;
-  --color-crimson: #b3261e;
-  --color-crimson-dim: #fbeae9;
+  --color-ink: var(--color-ink);
+  --color-bureau: var(--color-bureau);
+  --color-bureau-light: var(--color-bureau-light);
+  --color-parchment: var(--color-parchment);
+  --color-parchment-dim: var(--color-parchment-dim);
+  --color-brass: var(--color-brass);
+  --color-verified: var(--color-verified);
+  --color-verified-dim: var(--color-verified-dim);
+  --color-crimson: var(--color-crimson);
+  --color-crimson-dim: var(--color-crimson-dim);
 }
 
 .verification-flow {
   font-family: var(--font-body);
   background-color: var(--color-parchment);
+  color: var(--color-ink);
+  min-height: 100vh;
+}
+
+.dark .verification-flow {
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 /* Subtle paper grain so cards don't read as flat digital panels */
@@ -424,6 +451,9 @@
   background-image: radial-gradient(rgba(11, 18, 32, 0.045) 1px, transparent 1px);
   background-size: 3px 3px;
   border-radius: inherit;
+}
+.dark .paper-grain::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
 }
 
 /* Scanner viewfinder corner brackets */

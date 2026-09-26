@@ -84,9 +84,9 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
   const rejected = !!result && !result.verified;
 
   return (
-    <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+    <div className="w-full max-w-4xl mx-auto overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-card shadow-xl">
       {/* Header band */}
-      <div className="border-b border-border bg-muted/40 px-6 py-6 sm:px-8">
+      <div className="border-b border-border bg-muted/40 px-4 py-5 sm:px-8 sm:py-6">
         {onBack && (
           <button
             type="button"
@@ -98,25 +98,25 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
           </button>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
               Identity Verification · Step 2 of 2
             </p>
-            <h1 className="mt-1 font-serif text-2xl font-bold text-foreground">
+            <h1 className="mt-1 font-serif text-xl sm:text-2xl font-bold text-foreground">
               Driving License Verification
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
               Upload a clear photo of your Driving License. We will verify your license number and validity.
             </p>
           </div>
-          <div className="hidden rounded-2xl bg-primary/10 p-3.5 text-primary sm:block">
+          <div className="hidden rounded-2xl bg-primary/10 p-3.5 text-primary sm:block shrink-0">
             <ShieldCheck className="h-7 w-7" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 md:p-8 md:grid-cols-2">
         {/* Left: document / scanner */}
         <div className="flex flex-col gap-4">
           {!preview ? (
@@ -144,7 +144,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
               type="button"
               onClick={handleVerify}
               disabled={loading || !file}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 shadow-md shadow-primary/20"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-xs sm:text-sm font-bold text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 shadow-md shadow-primary/20"
             >
               <Sparkles size={18} />
               {loading ? "Scanning & Extracting DL..." : "Scan & Verify License"}
@@ -155,7 +155,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
             <button
               type="button"
               onClick={handleStartOver}
-              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition ${
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-xs sm:text-sm font-bold transition ${
                 rejected
                   ? "bg-destructive text-destructive-foreground hover:opacity-90"
                   : "border border-border bg-card text-foreground hover:bg-muted"
@@ -183,7 +183,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center"
+                className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-8 sm:px-6 sm:py-12 text-center"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                   <ShieldCheck size={24} />
@@ -200,7 +200,7 @@ const DrivingLicenseVerification = ({ customerId, onVerified, onBack }: Props) =
                 key="result"
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className={`rounded-2xl border p-6 shadow-lg ${
+                className={`rounded-2xl border p-4 sm:p-6 shadow-lg ${
                   rejected
                     ? "border-destructive/30 bg-destructive/5"
                     : "border-emerald-500/30 bg-emerald-500/5"
@@ -260,7 +260,9 @@ const Info = ({ title, value, mono }: InfoProps) => (
 const MatchBadge = ({ label, ok }: { label: string; ok: boolean }) => (
   <span
     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${
-      ok ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"
+      ok
+        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+        : "bg-destructive/15 text-destructive border border-destructive/20"
     }`}
   >
     {ok ? <BadgeCheck size={14} /> : <BadgeX size={14} />}
