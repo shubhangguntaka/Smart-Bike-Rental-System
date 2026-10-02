@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native build outputs
+android/
+ios/
+.kotlin/
+
+# Certificates & Keystores
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.keystore
+*.mobileprovision
+
+# Metro cache
+.metro-health-check*
+
+# Logs & Debugging
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.*
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# OS Files & System Caches
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDE & Editor files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent & Workspace scratch
+.claude/
+.gemini/
+scratch/

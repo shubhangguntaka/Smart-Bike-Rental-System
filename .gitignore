@@ -22,6 +22,10 @@ bin/
 dist/
 build/
 out/
+.expo/
+.expo-shared/
+web-build/
+.kotlin/
 
 # ==========================
 # Logs

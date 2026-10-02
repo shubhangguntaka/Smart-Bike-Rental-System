@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36" fill="none">
+  <defs>
+    <style>
+      .brand-bg {
+        fill: #7c9082;
+        fill: oklch(0.6333 0.0309 154.9039);
+      }
+      .bike-icon {
+        stroke: #ffffff;
+      }
+    </style>
+  </defs>
+  <!-- SidebarLogo rounded-xl bg-primary badge -->
+  <rect class="brand-bg" width="36" height="36" rx="10" />
+  <!-- Lucide Bike icon -->
+  <g class="bike-icon" transform="translate(6, 6)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18.5" cy="17.5" r="3.5" />
+    <circle cx="5.5" cy="17.5" r="3.5" />
+    <circle cx="15" cy="5" r="1" />
+    <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+  </g>
+</svg>

@@ -108,6 +108,12 @@ BikeRentalSystem/
 │   ├── vite.config.ts         # Vite build configuration
 │   └── README.md              # Dedicated Frontend Technical Guide
 │
+├── bike-rental-customer-app/  # React Native (Expo) Customer Mobile App
+│   ├── src/                   # Mobile screens, navigation, components, services
+│   ├── package.json           # Expo & React Native dependencies
+│   ├── app.json               # Expo app configuration
+│   └── README.md              # Dedicated Customer Mobile App Technical Guide
+│
 ├── database/                  # Database schema and seed data
 │   ├── bike_rental_test_data_hyderabad.sql # Complete reset + seed script (13 tables)
 │   └── README.md              # Database setup and verification guide
