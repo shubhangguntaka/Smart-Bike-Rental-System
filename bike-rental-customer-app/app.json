@@ -12,9 +12,11 @@
       "backgroundColor": "#0F0F0F"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bikerental.owner"
     },
     "android": {
+      "package": "com.bikerental.owner",
       "adaptiveIcon": {
         "backgroundColor": "#0F0F0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -30,7 +32,11 @@
       "expo-secure-store",
       "expo-font",
       "expo-splash-screen",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-document-picker",
+      "expo-location"
     ]
   }
 }
