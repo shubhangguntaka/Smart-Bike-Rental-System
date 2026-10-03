@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Bike-Rental-Customer",
+    "name": "Bike Rental Customer",
     "slug": "bike-rental-customer-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,10 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bikerental.owner"
+      "bundleIdentifier": "com.bikerental.customer"
     },
     "android": {
-      "package": "com.bikerental.owner",
+      "package": "com.bikerental.customer",
       "adaptiveIcon": {
         "backgroundColor": "#0F0F0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
