@@ -22,9 +22,12 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { bookingService } from "../../services/bookingService";
 import { useAuthStore } from "../../store/authStore";
 import { Bike } from "../../types/bike";
+import Animated from "react-native-reanimated";
 import AppHeader from "../../components/common/AppHeader";
 import AppButton from "../../components/common/AppButton";
 import AppScreen from "../../components/common/AppScreen";
+import useCollapsibleTabBar from "../../hooks/useCollapsibleTabBar";
+import useTabScrollToTop from "../../hooks/useTabScrollToTop";
 import { useTheme } from "../../theme";
 
 export default function BookingScreen() {
@@ -32,6 +35,8 @@ export default function BookingScreen() {
   const route = useRoute<any>();
   const { user } = useAuthStore();
   const { theme } = useTheme();
+  const { scrollHandler } = useCollapsibleTabBar();
+  const scrollRef = useTabScrollToTop<any>();
 
   const bike = route.params?.bike as Bike;
 
@@ -151,7 +156,10 @@ export default function BookingScreen() {
     <AppScreen edges={["top", "bottom"]} scrollable={false}>
       <AppHeader title="Reserve Bike" showBack />
 
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         className="flex-1 px-5 py-4"
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
@@ -413,7 +421,7 @@ export default function BookingScreen() {
             minimumDate={startDate}
           />
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Floating Confirm Button */}
       <View className="p-4 bg-card border-t border-border/80">

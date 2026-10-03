@@ -22,17 +22,22 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { bookingService } from "../../services/bookingService";
 import { Booking } from "../../types/booking";
+import Animated from "react-native-reanimated";
 import AppHeader from "../../components/common/AppHeader";
 import AppButton from "../../components/common/AppButton";
 import AppScreen from "../../components/common/AppScreen";
 import CancelBookingModal from "../../components/forms/CancelBookingModal";
 import { formatDateTime, renderStatusBadge } from "../../components/cards/BookingCard";
+import useCollapsibleTabBar from "../../hooks/useCollapsibleTabBar";
+import useTabScrollToTop from "../../hooks/useTabScrollToTop";
 import { useTheme } from "../../theme";
 
 export default function BookingDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { theme } = useTheme();
+  const { scrollHandler } = useCollapsibleTabBar();
+  const scrollRef = useTabScrollToTop<any>();
 
   const bookingId = route.params?.bookingId;
   const initialBooking = route.params?.booking as Booking | undefined;
@@ -94,7 +99,10 @@ export default function BookingDetailsScreen() {
     <AppScreen edges={["top", "bottom"]} scrollable={false}>
       <AppHeader title={`Booking Receipt BR-${booking.bookingId}`} showBack />
 
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         className="flex-1 px-5 py-4 space-y-4"
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
@@ -309,7 +317,7 @@ export default function BookingDetailsScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Floating Action Buttons */}
       <View className="absolute bottom-0 left-0 right-0 p-4 bg-card/95 border-t border-border/80 flex-row gap-3 backdrop-blur-md">
