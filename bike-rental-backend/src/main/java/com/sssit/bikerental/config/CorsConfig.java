@@ -18,6 +18,7 @@ public class CorsConfig {
 
         configuration.setAllowCredentials(true);
         configuration.setAllowedOriginPatterns(List.of(
+            "https://smart-bike-rental-system-seven.vercel.app/",
             "http://localhost:*",
             "http://127.0.0.1:*",
             "*"
